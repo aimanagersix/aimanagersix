@@ -12,11 +12,11 @@ export default defineConfig(({ mode }) => {
   const processEnv = typeof process !== 'undefined' ? process.env : {};
   const combinedEnv = { ...processEnv, ...envFile };
 
-  // Lógica Robusta de Resolução de Chaves para Vercel
-  // Dá prioridade total ao prefixo VITE_ que o Vercel utiliza para injetar no cliente
+  // Lógica Robusta de Resolução de Chaves
+  // Procura por VITE_SUPABASE_URL, e se não existir, tenta SUPABASE_URL
   const supabaseUrl = combinedEnv.VITE_SUPABASE_URL || combinedEnv.SUPABASE_URL;
   const supabaseAnonKey = combinedEnv.VITE_SUPABASE_ANON_KEY || combinedEnv.SUPABASE_ANON_KEY;
-  const geminiKey = combinedEnv.VITE_GEMINI_API_KEY || combinedEnv.GEMINI_API_KEY || combinedEnv.API_KEY;
+  const geminiKey = combinedEnv.VITE_GEMINI_API_KEY || combinedEnv.GEMINI_API_KEY;
 
   return {
     plugins: [react()],
@@ -24,12 +24,13 @@ export default defineConfig(({ mode }) => {
       dedupe: ['react', 'react-dom'],
     },
     define: {
-      // Injeta variáveis no objeto process.env para compatibilidade com o código atual
+      // Define 'process.env' de forma segura para não quebrar bibliotecas
+      // mas injeta explicitamente as nossas chaves críticas
       'process.env.SUPABASE_URL': JSON.stringify(supabaseUrl),
       'process.env.SUPABASE_ANON_KEY': JSON.stringify(supabaseAnonKey),
       'process.env.API_KEY': JSON.stringify(geminiKey),
       
-      // Metadados
+      // Metadados da versão
       'process.env.APP_VERSION': JSON.stringify(packageJson.version),
       'process.env.REACT_VERSION': JSON.stringify(packageJson.dependencies['react']),
       'process.env.VITE_VERSION': JSON.stringify(packageJson.devDependencies['vite'] || 'Latest'),

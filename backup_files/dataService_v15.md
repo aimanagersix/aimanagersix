@@ -6,15 +6,14 @@ import * as complSvc from './complianceService';
 import { MOCK_DATA_BUNDLE } from './mockData';
 
 /**
- * BARREL EXPORT SERVICE - V17.0 (Vercel & Multi-Env Ready)
+ * BARREL EXPORT SERVICE - V15.0
  * -----------------------------------------------------------------------------
  * STATUS DE BLOQUEIO DE MODULOS (Freeze UI & Zero Refactoring):
  * - PEDIDO 1 (Menu Tickets):     FECHADO - Não alterar sem pedido explícito.
  * - PEDIDO 2 (Menu Mensagens):   FECHADO - Não alterar sem pedido explícito.
  * - PEDIDO 3 (Menu Notificações): FECHADO - Não alterar sem pedido explícito.
  * -----------------------------------------------------------------------------
- * PEDIDO 4: Menu Base de Dados - Abas e scripts SQL preservados.
- * PEDIDO 5: Vercel Deploy Ready - Priorização de Variáveis de Ambiente.
+ * PEDIDO 4: REORGANIZAÇÃO DE BACKUPS -> Todos os ficheiros .md movidos para /backup_files
  * -----------------------------------------------------------------------------
  */
 
@@ -91,6 +90,12 @@ export const fetchSupportData = async () => {
     return suppSvc.fetchSupportData();
 };
 
+export const fetchComplianceData = async () => {
+    if (FORCE_MOCK) return getLocalDB();
+    return complSvc.fetchComplianceData();
+};
+
+// --- READ INTERCEPTOR (ALL) ---
 export const fetchAllData = async (forceRefresh = false) => {
     if (FORCE_MOCK) return getLocalDB();
 
