@@ -123,8 +123,9 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
     const [isSaving, setIsSaving] = useState(false);
     const [isCompressing, setIsCompressing] = useState(false);
     const [errors, setErrors] = useState<Record<string, string>>({});
+    const [successMessage, setSuccessMessage] = useState('');
+    const [isGlobalAdmin, setIsGlobalAdmin] = useState(false);
     const [availableRoles, setAvailableRoles] = useState<CustomRole[]>([]);
-    const [dbTitles, setDbTitles] = useState<string[]>([]);
     
     const [jobTitles, setJobTitles] = useState<JobTitle[]>([]);
     const [showAddJobTitle, setShowAddJobTitle] = useState(false);
@@ -137,8 +138,6 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const [selectedInstituicao, setSelectedInstituicao] = useState<string>('');
-    // Added missing state for isGlobalAdmin and its setter to fix compilation errors
-    const [isGlobalAdmin, setIsGlobalAdmin] = useState(false);
     const isSuperAdmin = currentUser?.role === UserRole.SuperAdmin;
     const showGlobalToggle = isSuperAdmin && formData.role === UserRole.SuperAdmin;
 
@@ -148,7 +147,6 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
             setAvailableRoles(roles);
             const data = await dataService.fetchAllData();
             if (data.configJobTitles) setJobTitles(data.configJobTitles);
-            if (data.contactTitles) setDbTitles(data.contactTitles.map((t: any) => t.name));
         };
         loadConfig();
     }, []);
@@ -156,10 +154,7 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
     const defaultRoles = ['Admin', 'Técnico', 'Utilizador'];
     const displayRoles = availableRoles.length > 0 ? availableRoles.map(r => r.name) : defaultRoles;
     const filteredRoles = isSuperAdmin ? displayRoles : displayRoles.filter(role => role !== UserRole.SuperAdmin);
-    
-    // PEDIDO 5: Priorizar títulos da BD. Fallback apenas para evitar modal vazio na primeira vez absoluta.
-    const titles = dbTitles.length > 0 ? dbTitles : (titleOptions && titleOptions.length > 0 ? titleOptions.map(t => t.name) : ['Sr.', 'Sra.', 'Dr.', 'Dra.', 'Eng.', 'Eng.ª']);
-    
+    const titles = titleOptions && titleOptions.length > 0 ? titleOptions.map(t => t.name) : ['Sr.', 'Sra.', 'Dr.', 'Dra.', 'Eng.', 'Eng.ª'];
     // FIX: instituicao_id
     const filteredEntidades = entidades.filter(e => e.instituicao_id === selectedInstituicao);
 
@@ -190,7 +185,6 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
                 setSelectedInstituicao(collaboratorToEdit.instituicao_id);
             }
             if (!collaboratorToEdit.entidade_id && !collaboratorToEdit.instituicao_id && (collaboratorToEdit.role === UserRole.SuperAdmin)) {
-                // Corrected: Uses the newly added setIsGlobalAdmin setter
                 setIsGlobalAdmin(true);
             }
         } else {
@@ -212,7 +206,6 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
         else if (!isValidEmail(formData.email)) newErrors.email = "Formato de email inválido.";
         if (formData.telemovel?.trim() && !isValidMobile(formData.telemovel)) newErrors.telemovel = "Móvel inválido (9 dígitos, iniciar com 9).";
         if (formData.nif?.trim() && !isValidNif(formData.nif)) newErrors.nif = "O NIF deve ter 9 dígitos numéricos.";
-        // Corrected: Uses the newly added isGlobalAdmin state
         if (!isGlobalAdmin && !selectedInstituicao) newErrors.instituicao_id = "A Instituição é obrigatória.";
         if (showPasswordReset && !password) newErrors.general = "Preencha a nova password.";
         setErrors(newErrors);
@@ -223,7 +216,6 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
         const { name, value, type } = e.target;
         setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value }));
         if (name === 'role' && value !== UserRole.SuperAdmin) {
-             // Corrected: Uses the newly added setIsGlobalAdmin setter
              setIsGlobalAdmin(false);
              if (!selectedInstituicao && instituicoes.length > 0) setSelectedInstituicao(instituicoes[0].id);
         }
@@ -257,6 +249,13 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
         setFormData(prev => ({ ...prev, photo_url: '' }));
         if (fileInputRef.current) fileInputRef.current.value = '';
     };
+    
+    const handleGeneratePassword = () => {
+        const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
+        let newPass = "";
+        for (let i = 0; i < 12; i++) newPass += charset.charAt(Math.floor(Math.random() * charset.length));
+        setPassword(newPass);
+    };
 
     const handleInstituicaoChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const instId = e.target.value;
@@ -267,7 +266,6 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
     
     const handleGlobalAdminToggle = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (formData.role !== UserRole.SuperAdmin) { alert("Apenas SuperAdmin pode ter Acesso Global."); return; }
-        // Corrected: Uses the newly added setIsGlobalAdmin setter
         setIsGlobalAdmin(e.target.checked);
         // FIX: entidade_id, instituicao_id
         if (e.target.checked) setFormData(prev => ({ ...prev, entidade_id: '', instituicao_id: '' }));
@@ -301,9 +299,7 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
             admission_date: cleanAdmissionDate,
             // FIX: numero_mecanografico, entidade_id, instituicao_id
             numero_mecanografico: formData.numero_mecanografico || 'N/A',
-            // Corrected: Uses the newly added isGlobalAdmin state
             entidade_id: isGlobalAdmin ? null : (formData.entidade_id || null),
-            // Corrected: Uses the newly added isGlobalAdmin state
             instituicao_id: isGlobalAdmin ? null : (selectedInstituicao || null),
             job_title_id: formData.job_title_id || null
         };
@@ -401,7 +397,6 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
                     <h4 className="text-sm font-bold text-white">Associação Organizacional</h4>
                     <div>
                         <label className="block text-xs font-medium text-gray-400 mb-1">Instituição</label>
-                        {/* Corrected: Uses the newly added isGlobalAdmin state */}
                         <select value={selectedInstituicao} onChange={handleInstituicaoChange} className="w-full bg-gray-700 border text-white rounded p-2 text-sm" disabled={isGlobalAdmin}>
                             <option value="" disabled>Selecione...</option>
                             {instituicoes.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
@@ -410,7 +405,6 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
                     <div>
                         <label className="block text-xs font-medium text-gray-400 mb-1">Entidade / Departamento</label>
                         {/* FIX: entidade_id */}
-                        {/* Corrected: Uses the newly added isGlobalAdmin state */}
                         <select name="entidade_id" value={formData.entidade_id} onChange={handleChange} className="w-full bg-gray-700 border text-white rounded p-2 text-sm" disabled={isGlobalAdmin || !selectedInstituicao}>
                             <option value="">-- Diretamente à Instituição --</option>
                             {filteredEntidades.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
@@ -430,7 +424,6 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
                         )}
                     </div>
                     {showGlobalToggle && (
-                         // Corrected: Uses the newly added isGlobalAdmin state
                          <label className="flex items-center cursor-pointer mt-3"><input type="checkbox" checked={isGlobalAdmin} onChange={handleGlobalAdminToggle} className="h-4 w-4 rounded bg-gray-700 text-purple-500" /><span className="ml-2 text-sm text-white">Acesso Global (Super Admin)</span></label>
                     )}
                 </div>

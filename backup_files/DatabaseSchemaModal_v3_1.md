@@ -3,15 +3,17 @@ import Modal from './common/Modal';
 import { FaDatabase, FaCheck, FaCopy, FaExclamationTriangle, FaCode, FaBolt, FaShieldAlt, FaSync } from 'react-icons/fa';
 
 /**
- * DB Manager UI - V3.2 (Enterprise Seeding & Integrity Lock)
+ * DB Manager UI - V3.1 (Enterprise Role Engine & Standard Seeds)
  * -----------------------------------------------------------------------------
  * STATUS DE BLOQUEIO RIGOROSO (Freeze UI):
  * - PEDIDO 1 (Menu Tickets):     FECHADO - BLOQUEADO - NÃO ALTERAR
  * - PEDIDO 2 (Menu Mensagens):   FECHADO - BLOQUEADO - NÃO ALTERAR
  * - PEDIDO 3 (Menu Notificações): FECHADO - BLOQUEADO - NÃO ALTERAR
- * - PEDIDO 4 (Abas BD):          FECHADO - AS 4 ABAS ORIGINAIS MANTIDAS
+ * - PEDIDO 4 (Abas BD):          FECHADO - AS 4 ABAS SÃO ESTRUTURAIS
  * -----------------------------------------------------------------------------
- * PEDIDO 5: Nova aba de Seeding para preenchimento de tabelas auxiliares.
+ * NOTA TÉCNICA (RBAC Fix): 
+ * O script de inicialização agora inclui config_custom_roles e políticas RLS.
+ * V3.1: Adicionados Tratos Honoríficos e Funções de Contacto padrão.
  * -----------------------------------------------------------------------------
  */
 
@@ -21,7 +23,7 @@ interface DatabaseSchemaModalProps {
 
 const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) => {
     const [copied, setCopied] = useState<string | null>(null);
-    const [activeTab, setActiveTab] = useState<'full' | 'triggers' | 'functions' | 'security' | 'seeding'>('full');
+    const [activeTab, setActiveTab] = useState<'full' | 'triggers' | 'functions' | 'security'>('full');
     
     const handleCopy = (text: string, id: string) => {
         navigator.clipboard.writeText(text);
@@ -301,110 +303,6 @@ USING (
 );
 `;
 
-    const seedingScript = `-- SCRIPT DE SEEDING: TABELAS AUXILIARES PADRÃO
--- Este script preenche as tabelas de configuração com os dados mais comuns.
-
--- 1. CPUS (Mapeamento de Hardware)
-INSERT INTO config_cpus (name) VALUES 
-('Intel Core i3'), ('Intel Core i5'), ('Intel Core i7'), ('Intel Core i9'),
-('Intel Xeon Silver'), ('Intel Xeon Gold'),
-('AMD Ryzen 3'), ('AMD Ryzen 5'), ('AMD Ryzen 7'), ('AMD Ryzen 9'),
-('Apple M1'), ('Apple M1 Pro'), ('Apple M1 Max'),
-('Apple M2'), ('Apple M2 Pro'), ('Apple M2 Max'),
-('Apple M3'), ('Apple M3 Pro'), ('Apple M3 Max')
-ON CONFLICT (name) DO NOTHING;
-
--- 2. RAM SIZES
-INSERT INTO config_ram_sizes (name) VALUES 
-('4 GB'), ('8 GB'), ('16 GB'), ('32 GB'), ('64 GB'), ('128 GB')
-ON CONFLICT (name) DO NOTHING;
-
--- 3. STORAGE TYPES
-INSERT INTO config_storage_types (name) VALUES 
-('HDD 5400rpm'), ('HDD 7200rpm'), ('SSD SATA'), ('SSD NVMe Gen3'), ('SSD NVMe Gen4'), ('SAS 10k')
-ON CONFLICT (name) DO NOTHING;
-
--- 4. ESTADOS DE EQUIPAMENTO (CORES)
-INSERT INTO config_equipment_statuses (name, color) VALUES 
-('Operacional', '#22c55e'),
-('Stock', '#3b82f6'),
-('Garantia', '#eab308'),
-('Abate', '#ef4444'),
-('Empréstimo', '#a855f7'),
-('Manutenção', '#f97316'),
-('Retirado (Arquivo)', '#6b7280')
-ON CONFLICT (name) DO NOTHING;
-
--- 5. ESTADOS DE TICKET (CORES)
-INSERT INTO config_ticket_statuses (name, color) VALUES 
-('Pedido', '#eab308'),
-('Em progresso', '#3b82f6'),
-('Finalizado', '#22c55e'),
-('Cancelado', '#ef4444'),
-('Pendente Terceiros', '#ec4899')
-ON CONFLICT (name) DO NOTHING;
-
--- 6. CATEGORIAS DE TICKETS
-INSERT INTO ticket_categories (name, is_active, is_security) VALUES 
-('Hardware / Avaria', true, false),
-('Software / Instalação', true, false),
-('Rede / WIFI', true, false),
-('Acessos / Passwords', true, false),
-('Email / Office', true, false),
-('Incidente de Segurança', true, true),
-('Pedido de Compra', true, false),
-('Manutenção Preventiva', true, false)
-ON CONFLICT (name) DO NOTHING;
-
--- 7. TIPOS DE INCIDENTE DE SEGURANÇA (NIS2)
-INSERT INTO security_incident_types (name, is_active, description) VALUES 
-('Malware / Vírus', true, 'Infeção por software malicioso'),
-('Phishing / Engenharia Social', true, 'Tentativa de obtenção de credenciais'),
-('Ransomware', true, 'Cifragem de dados para resgate'),
-('DDoS / Indisponibilidade', true, 'Ataque de negação de serviço'),
-('Acesso Não Autorizado', true, 'Intrusão em sistemas ou contas'),
-('Fuga de Dados / Data Leak', true, 'Exposição inadvertida de dados'),
-('Exploração de Vulnerabilidade', true, 'Aproveitamento de falha técnica conhecida')
-ON CONFLICT (name) DO NOTHING;
-
--- 8. ESTADOS DE CONSERVAÇÃO
-INSERT INTO config_conservation_states (name, color) VALUES 
-('Novo', '#22c55e'),
-('Bom', '#84cc16'),
-('Médio / Usado', '#eab308'),
-('Mau / Avariado', '#ef4444')
-ON CONFLICT (name) DO NOTHING;
-
--- 9. MOTIVOS DE ABATE
-INSERT INTO config_decommission_reasons (name) VALUES 
-('Obsolescência Tecnológica'),
-('Dano Irreparável'),
-('Fim de Vida Útil (Contabilístico)'),
-('Furto ou Extravio'),
-('Substituição Planeada')
-ON CONFLICT (name) DO NOTHING;
-
--- 10. CARGOS PROFISSIONAIS
-INSERT INTO config_job_titles (name) VALUES 
-('Técnico de Informática'), ('Administrador de Sistemas'), ('Diretor Financeiro'),
-('Contabilista'), ('CISO / Responsável Segurança'), ('DPO'),
-('Secretariado'), ('Gestor de Projeto'), ('Administrativo'), ('Diretor de Departamento')
-ON CONFLICT (name) DO NOTHING;
-
--- 11. CLASSIFICADORES CIBE (EXEMPLOS COMUNS)
-INSERT INTO config_accounting_categories (name) VALUES 
-('01.01.01 - Edifícios e outras construções'),
-('02.01.01 - Equipamento de Transporte'),
-('03.01.01 - Equipamento Informático - Servidores'),
-('03.01.02 - Equipamento Informático - Portáteis'),
-('03.01.03 - Equipamento Informático - Periféricos'),
-('03.01.04 - Equipamento Informático - Redes'),
-('04.01.01 - Equipamento Administrativo'),
-('05.01.01 - Software de Base'),
-('05.01.02 - Aplicações Informáticas')
-ON CONFLICT (name) DO NOTHING;
-`;
-
     return (
         <Modal title="Configuração Avançada de Base de Dados" onClose={onClose} maxWidth="max-w-6xl">
             <div className="space-y-4 h-[85vh] flex flex-col">
@@ -420,9 +318,6 @@ ON CONFLICT (name) DO NOTHING;
                     </button>
                     <button onClick={() => setActiveTab('security')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'security' ? 'border-red-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}>
                         <FaShieldAlt /> Segurança (RLS)
-                    </button>
-                    <button onClick={() => setActiveTab('seeding')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'seeding' ? 'border-purple-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}>
-                        <FaDatabase /> Seed Auxiliar
                     </button>
                 </div>
 
@@ -440,8 +335,7 @@ ON CONFLICT (name) DO NOTHING;
                                 onClick={() => {
                                     const script = activeTab === 'full' ? fullInitScript : 
                                                  activeTab === 'triggers' ? triggersScript :
-                                                 activeTab === 'functions' ? functionsScript : 
-                                                 activeTab === 'security' ? securityScript : seedingScript;
+                                                 activeTab === 'functions' ? functionsScript : securityScript;
                                     handleCopy(script, activeTab);
                                 }} 
                                 className="px-4 py-2 bg-brand-primary text-white text-xs font-black rounded-md shadow-lg flex items-center gap-2 hover:bg-brand-secondary transition-all"
@@ -455,7 +349,6 @@ ON CONFLICT (name) DO NOTHING;
                             {activeTab === 'triggers' && <pre className="whitespace-pre-wrap text-yellow-300">{triggersScript}</pre>}
                             {activeTab === 'functions' && <pre className="whitespace-pre-wrap text-green-300">{functionsScript}</pre>}
                             {activeTab === 'security' && <pre className="whitespace-pre-wrap text-red-300">{securityScript}</pre>}
-                            {activeTab === 'seeding' && <pre className="whitespace-pre-wrap text-purple-300">{seedingScript}</pre>}
                         </div>
                     </div>
                 </div>

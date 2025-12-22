@@ -1,4 +1,3 @@
-
 import * as orgSvc from './orgService';
 import * as invSvc from './inventoryService';
 import * as suppSvc from './supportService';
@@ -6,13 +5,13 @@ import * as complSvc from './complianceService';
 import { MOCK_DATA_BUNDLE } from './mockData';
 
 /**
- * BARREL EXPORT SERVICE - V21.0 (Hybrid Engine Ready)
+ * BARREL EXPORT SERVICE - V20.0 (Hybrid Engine Fix)
  * -----------------------------------------------------------------------------
  * STATUS DE BLOQUEIO DE MODULOS:
  * - PEDIDO 1, 2, 3, 4: BLOQUEIO TOTAL (NÃO ALTERAR)
  * -----------------------------------------------------------------------------
- * PEDIDO 5: Deteção Automática de Infraestrutura. 
- * O sistema desativa o MOCK se detetar chaves no process.env.
+ * PEDIDO 5: Correção de consistência em modo Mock. 
+ * As funções de escrita de colaboradores agora são intercetadas.
  * -----------------------------------------------------------------------------
  */
 
@@ -28,15 +27,11 @@ const CACHE_TIME_KEY = 'aimanager_cache_timestamp';
 const CACHE_DURATION = 10 * 60 * 1000; 
 
 // --- DYNAMIC ENGINE CONFIG ---
-// Se houver URL do Supabase no ambiente, desativamos o Mock.
 const FORCE_MOCK = !(process.env.SUPABASE_URL && process.env.SUPABASE_URL !== ''); 
 const MOCK_DB_VERSION = '3.0.0'; 
 
 export const isUsingMock = () => FORCE_MOCK;
 
-/**
- * Obtém a base de dados local de forma síncrona ou inicializa.
- */
 export const getLocalDB = () => {
     const currentVersion = localStorage.getItem('aimanager_db_version');
     const data = localStorage.getItem('aimanager_mock_db');
@@ -119,7 +114,33 @@ export const fetchAllData = async (forceRefresh = false) => {
     return merged;
 };
 
-// --- WRITE INTERCEPTORS ---
+// --- MOCKED PAGINATION INTERCEPTORS ---
+
+export const fetchCollaboratorsPaginated = async (params: any) => {
+    if (FORCE_MOCK) {
+        const db = getLocalDB();
+        const collabs = db.collaborators || [];
+        return { data: collabs, total: collabs.length };
+    }
+    return orgSvc.fetchCollaboratorsPaginated(params);
+};
+
+// --- WRITE INTERCEPTORS (PEDIDO 5 FIX) ---
+
+export const addCollaborator = async (col: any, password?: string) => {
+    if (FORCE_MOCK) return mockAddRecord('collaborators', col);
+    return orgSvc.addCollaborator(col, password);
+};
+
+export const updateCollaborator = async (id: string, updates: any) => {
+    if (FORCE_MOCK) return mockUpdateRecord('collaborators', id, updates);
+    return orgSvc.updateCollaborator(id, updates);
+};
+
+export const deleteCollaborator = async (id: string) => {
+    if (FORCE_MOCK) return mockDeleteRecord('collaborators', id);
+    return orgSvc.deleteCollaborator(id);
+};
 
 export const mockAddRecord = async (collection: string, record: any) => {
     if (!FORCE_MOCK) return null;
