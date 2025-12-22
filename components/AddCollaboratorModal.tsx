@@ -5,6 +5,14 @@ import { SpinnerIcon, FaSave } from './common/Icons';
 import { FaCamera, FaKey, FaUserShield, FaUserTie, FaBuilding, FaMapMarkerAlt, FaCalendarAlt, FaBriefcase, FaIdCard, FaMagic } from 'react-icons/fa';
 import * as dataService from '../services/dataService';
 
+/**
+ * ADD COLLABORATOR MODAL - V5.0 (Full Restoration)
+ * -----------------------------------------------------------------------------
+ * STATUS DE BLOQUEIO RIGOROSO (Freeze UI):
+ * - PEDIDO 8: RESTAURADO COM TODOS OS CAMPOS (Morada, Datas, NIF, etc).
+ * -----------------------------------------------------------------------------
+ */
+
 const compressProfileImage = (file: File): Promise<File> => {
     return new Promise((resolve) => {
         const reader = new FileReader();
@@ -98,7 +106,6 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
         setIsSaving(true);
         try {
             const payload = { ...formData };
-            // Limpeza de campos vazios para UUIDs
             if (!payload.instituicao_id) delete payload.instituicao_id;
             if (!payload.entidade_id) delete payload.entidade_id;
             if (!payload.job_title_id) delete payload.job_title_id;
@@ -124,7 +131,7 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
         <Modal title={collaboratorToEdit ? "Editar Colaborador" : "Adicionar Colaborador"} onClose={onClose} maxWidth="max-w-4xl">
             <form onSubmit={handleSave} className="space-y-6 overflow-y-auto max-h-[80vh] p-1 pr-2 custom-scrollbar">
                 
-                {/* Header: Foto e Identificação Básica */}
+                {/* Cabeçalho: Foto e Nome */}
                 <div className="flex flex-col md:flex-row gap-6 items-center md:items-start bg-gray-900/30 p-6 rounded-xl border border-gray-700">
                     <div className="relative group">
                         <div className="w-32 h-32 rounded-full bg-gray-700 border-4 border-gray-600 flex items-center justify-center overflow-hidden shadow-2xl">
@@ -156,7 +163,7 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
                     </div>
                 </div>
 
-                {/* Bloco: Estrutura Organizacional */}
+                {/* Estrutura Organizacional */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 bg-gray-800/20 p-6 rounded-xl border border-gray-700">
                     <div>
                         <label className="block text-xs font-bold text-gray-500 uppercase mb-1 flex items-center gap-2"><FaBuilding/> Instituição</label>
@@ -181,7 +188,7 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
                     </div>
                 </div>
 
-                {/* Bloco: Dados Pessoais e Contactos */}
+                {/* Contactos e Morada */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div className="space-y-4">
                         <h4 className="text-xs font-black text-brand-secondary uppercase tracking-widest border-b border-gray-700 pb-2">Informação de Contacto</h4>
@@ -197,10 +204,10 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
                         </div>
                         <div>
                             <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Morada Completa</label>
-                            <input type="text" value={formData.address_line} onChange={e => setFormData({...formData, address_line: e.target.value})} className="w-full bg-gray-800 border border-gray-700 text-white rounded p-2 text-sm mb-2" placeholder="Rua, Número..." />
+                            <input type="text" value={formData.address_line} onChange={e => setFormData({...formData, address_line: e.target.value})} className="w-full bg-gray-800 border border-gray-600 text-white rounded p-2 text-sm mb-2" placeholder="Rua, Número..." />
                             <div className="grid grid-cols-2 gap-2">
-                                <input type="text" value={formData.postal_code} onChange={e => setFormData({...formData, postal_code: e.target.value})} className="w-full bg-gray-800 border border-gray-700 text-white rounded p-2 text-sm" placeholder="CP 0000-000" />
-                                <input type="text" value={formData.city} onChange={e => setFormData({...formData, city: e.target.value})} className="w-full bg-gray-800 border border-gray-700 text-white rounded p-2 text-sm" placeholder="Cidade" />
+                                <input type="text" value={formData.postal_code} onChange={e => setFormData({...formData, postal_code: e.target.value})} className="w-full bg-gray-800 border border-gray-600 text-white rounded p-2 text-sm" placeholder="CP 0000-000" />
+                                <input type="text" value={formData.city} onChange={e => setFormData({...formData, city: e.target.value})} className="w-full bg-gray-800 border border-gray-600 text-white rounded p-2 text-sm" placeholder="Cidade" />
                             </div>
                         </div>
                     </div>
@@ -210,58 +217,45 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
                         <div className="grid grid-cols-2 gap-4">
                             <div>
                                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1 flex items-center gap-1"><FaCalendarAlt/> Nascimento</label>
-                                <input type="date" value={formData.date_of_birth} onChange={e => setFormData({...formData, date_of_birth: e.target.value})} className="w-full bg-gray-800 border border-gray-700 text-white rounded p-2 text-sm" />
+                                <input type="date" value={formData.date_of_birth} onChange={e => setFormData({...formData, date_of_birth: e.target.value})} className="w-full bg-gray-800 border border-gray-600 text-white rounded p-2 text-sm" />
                             </div>
                             <div>
                                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1 flex items-center gap-1"><FaCalendarAlt/> Admissão</label>
-                                <input type="date" value={formData.admission_date} onChange={e => setFormData({...formData, admission_date: e.target.value})} className="w-full bg-gray-800 border border-gray-700 text-white rounded p-2 text-sm" />
+                                <input type="date" value={formData.admission_date} onChange={e => setFormData({...formData, admission_date: e.target.value})} className="w-full bg-gray-800 border border-gray-600 text-white rounded p-2 text-sm" />
                             </div>
                         </div>
                         <div>
                             <label className="block text-xs font-bold text-gray-500 uppercase mb-1">NIF</label>
-                            <input type="text" value={formData.nif} onChange={e => setFormData({...formData, nif: e.target.value})} className="w-full bg-gray-800 border border-gray-700 text-white rounded p-2 text-sm" placeholder="Contribuinte (9 dígitos)" maxLength={9} />
+                            <input type="text" value={formData.nif} onChange={e => setFormData({...formData, nif: e.target.value})} className="w-full bg-gray-800 border border-gray-600 text-white rounded p-2 text-sm" placeholder="Contribuinte (9 dígitos)" maxLength={9} />
                         </div>
                     </div>
                 </div>
 
-                {/* Bloco: Acesso ao Sistema */}
+                {/* Acesso ao Sistema */}
                 <div className="bg-blue-900/10 p-6 rounded-xl border border-blue-900/30">
-                    <h4 className="text-sm font-bold text-white mb-4 flex items-center gap-2"><FaUserShield className="text-brand-secondary"/> Acesso e Permissões</h4>
+                    <h4 className="text-sm font-bold text-white mb-4 flex items-center gap-2"><FaUserShield className="text-brand-secondary"/> Perfil de Acesso</h4>
                     <div className="space-y-4">
                         <label className="flex items-center cursor-pointer group">
                             <input type="checkbox" checked={formData.can_login} onChange={e => setFormData({...formData, can_login: e.target.checked})} className="h-5 w-5 rounded bg-gray-700 text-brand-primary border-gray-600" />
-                            <span className="ml-3 text-sm text-gray-300 font-bold group-hover:text-white transition-colors">Ativar Login do Utilizador</span>
+                            <span className="ml-3 text-sm text-gray-300 font-bold group-hover:text-white transition-colors">Ativar Login</span>
                         </label>
                         
                         {formData.can_login && (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in pt-4 border-t border-blue-900/20">
                                 <div>
-                                    <label className="block text-[10px] text-gray-500 uppercase font-black mb-1">Perfil de Acesso (Role)</label>
-                                    <select value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})} className="w-full bg-gray-800 border border-gray-700 text-white rounded p-2 text-sm font-bold text-brand-secondary">
-                                        <option value="Utilizador">Utilizador (Self-Service)</option>
-                                        <option value="Técnico">Técnico (Helpdesk)</option>
-                                        <option value="Admin">Administrador (Gestão)</option>
+                                    <label className="block text-[10px] text-gray-500 uppercase font-black mb-1">Perfil (Role)</label>
+                                    <select value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})} className="w-full bg-gray-800 border border-gray-700 text-white rounded p-2 text-sm">
+                                        <option value="Utilizador">Utilizador</option>
+                                        <option value="Técnico">Técnico</option>
+                                        <option value="Admin">Administrador</option>
                                         {availableRoles.map(r => <option key={r.id} value={r.name}>{r.name}</option>)}
                                     </select>
                                 </div>
                                 <div>
-                                    <label className="block text-[10px] text-gray-500 uppercase font-black mb-1">Definir Password Temporária</label>
+                                    <label className="block text-[10px] text-gray-500 uppercase font-black mb-1">Password Temporária</label>
                                     <div className="flex gap-2">
-                                        <input 
-                                            type="text" 
-                                            value={password} 
-                                            onChange={e => setPassword(e.target.value)} 
-                                            className="flex-grow bg-gray-800 border border-gray-700 text-white rounded p-2 text-sm font-mono" 
-                                            placeholder="Senha inicial..." 
-                                        />
-                                        <button 
-                                            type="button" 
-                                            onClick={generatePassword} 
-                                            className="bg-gray-700 px-4 rounded text-white hover:bg-gray-600 transition-colors" 
-                                            title="Gerar Aleatória"
-                                        >
-                                            <FaMagic />
-                                        </button>
+                                        <input type="text" value={password} onChange={e => setPassword(e.target.value)} className="flex-grow bg-gray-800 border border-gray-700 text-white rounded p-2 text-sm font-mono" placeholder="Senha inicial..." />
+                                        <button type="button" onClick={generatePassword} className="bg-gray-700 px-4 rounded text-white hover:bg-gray-600"><FaMagic /></button>
                                     </div>
                                 </div>
                             </div>
@@ -270,8 +264,8 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
                 </div>
 
                 <div className="flex justify-end gap-4 pt-6 border-t border-gray-700">
-                    <button type="button" onClick={onClose} className="px-6 py-2 bg-gray-600 text-white rounded-md font-bold hover:bg-gray-700 transition-colors">Cancelar</button>
-                    <button type="submit" disabled={isSaving} className="px-8 py-2 bg-brand-primary text-white rounded-md font-black uppercase tracking-widest hover:bg-brand-secondary flex items-center gap-2 shadow-xl disabled:opacity-50">
+                    <button type="button" onClick={onClose} className="px-6 py-2 bg-gray-600 text-white rounded-md font-bold hover:bg-gray-700">Cancelar</button>
+                    <button type="submit" disabled={isSaving} className="px-8 py-2 bg-brand-primary text-white rounded-md font-black uppercase tracking-widest hover:bg-brand-secondary flex items-center gap-2 shadow-xl">
                         {isSaving ? <SpinnerIcon className="h-4 w-4" /> : <FaSave />} Gravar Registo
                     </button>
                 </div>

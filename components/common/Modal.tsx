@@ -1,6 +1,14 @@
 import React, { useRef } from 'react';
 import { XIcon } from './Icons';
 
+/**
+ * MODAL COMPONENT BASE
+ * -----------------------------------------------------------------------------
+ * STATUS DE BLOQUEIO RIGOROSO (Freeze UI):
+ * - PEDIDO 7: NÃO ALTERAR ESTRUTURA SEM PEDIDO EXPLÍCITO.
+ * -----------------------------------------------------------------------------
+ */
+
 interface ModalProps {
     title: string;
     onClose: () => void;
@@ -42,7 +50,7 @@ const Modal: React.FC<ModalProps> = ({ title, onClose, children, maxWidth = 'max
                         <XIcon />
                     </button>
                 </div>
-                <div className="p-6 overflow-y-auto">
+                <div className="p-6 overflow-y-auto custom-scrollbar">
                     {children}
                 </div>
             </div>
