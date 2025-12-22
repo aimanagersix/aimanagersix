@@ -56,7 +56,7 @@ const AddCategoryModal: React.FC<AddCategoryModalProps> = ({ onClose, onSave, ca
         
         const dataToSave: any = {
             ...formData,
-            default_team_id: formData.default_team_id || undefined,
+            default_team_id: formData.default_team_id || null,
             sla_warning_hours: formData.sla_warning_hours || 0,
             sla_critical_hours: formData.sla_critical_hours || 0,
             is_security: formData.is_security || false
@@ -71,7 +71,8 @@ const AddCategoryModal: React.FC<AddCategoryModalProps> = ({ onClose, onSave, ca
             onClose();
         } catch (err: any) {
             console.error("Erro ao salvar categoria:", err);
-            setError(err.message || "Falha na base de dados. Verifique o RLS.");
+            // Captura o erro do RLS ou outros do Postgres
+            setError(err.message || "Falha na base de dados. Verifique permissões RLS.");
         } finally {
             setIsSaving(false);
         }
@@ -92,7 +93,7 @@ const AddCategoryModal: React.FC<AddCategoryModalProps> = ({ onClose, onSave, ca
                         onChange={handleChange} 
                         className={`w-full bg-gray-700 border text-white rounded-md p-2 ${error ? 'border-red-500' : 'border-gray-600'}`} 
                     />
-                    {error && <p className="text-red-400 text-xs italic mt-1">{error}</p>}
+                    {error && <p className="text-red-400 text-xs font-bold mt-1 bg-red-900/20 p-2 rounded flex items-center gap-2"><FaExclamationTriangle/> {error}</p>}
                 </div>
 
                 <div>
@@ -109,7 +110,6 @@ const AddCategoryModal: React.FC<AddCategoryModalProps> = ({ onClose, onSave, ca
                             <option key={team.id} value={team.id}>{team.name}</option>
                         ))}
                     </select>
-                    <p className="text-xs text-gray-500 mt-1">Tickets criados nesta categoria serão automaticamente encaminhados para esta equipa.</p>
                 </div>
 
                 <div className="bg-red-900/20 p-3 rounded border border-red-500/30">
@@ -126,9 +126,6 @@ const AddCategoryModal: React.FC<AddCategoryModalProps> = ({ onClose, onSave, ca
                             <FaShieldAlt /> É um Incidente de Segurança?
                         </span>
                     </label>
-                    <p className="text-xs text-gray-400 mt-1 ml-6">
-                        Se marcado, o sistema pedirá detalhes adicionais (Tipo de Incidente, Criticidade NIS2) ao criar um ticket.
-                    </p>
                 </div>
                 
                 <div className="bg-gray-900/50 p-3 rounded border border-gray-700">
@@ -139,45 +136,18 @@ const AddCategoryModal: React.FC<AddCategoryModalProps> = ({ onClose, onSave, ca
                     <div className="grid grid-cols-2 gap-4">
                          <div>
                             <label htmlFor="sla_warning_hours" className="block text-xs font-medium text-on-surface-dark-secondary mb-1">Alerta (Horas)</label>
-                            <input 
-                                type="number" 
-                                name="sla_warning_hours" 
-                                id="sla_warning_hours" 
-                                value={formData.sla_warning_hours} 
-                                onChange={handleChange}
-                                min="0"
-                                className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm" 
-                            />
-                            <p className="text-[10px] text-gray-500 mt-1">0 para desativar. Ex: 24h</p>
+                            <input type="number" name="sla_warning_hours" value={formData.sla_warning_hours} onChange={handleChange} min="0" className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm" />
                         </div>
                         <div>
                             <label htmlFor="sla_critical_hours" className="block text-xs font-medium text-on-surface-dark-secondary mb-1">Crítico (Horas)</label>
-                            <input 
-                                type="number" 
-                                name="sla_critical_hours" 
-                                id="sla_critical_hours" 
-                                value={formData.sla_critical_hours} 
-                                onChange={handleChange}
-                                min="0"
-                                className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm" 
-                            />
-                             <p className="text-[10px] text-gray-500 mt-1">Ex: 72h (Incidente Legal)</p>
+                            <input type="number" name="sla_critical_hours" value={formData.sla_critical_hours} onChange={handleChange} min="0" className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm" />
                         </div>
                     </div>
                 </div>
 
                 <div className="flex items-center">
-                    <input
-                        type="checkbox"
-                        name="is_active"
-                        id="is_active"
-                        checked={formData.is_active}
-                        onChange={handleChange}
-                        className="h-4 w-4 rounded border-gray-300 bg-gray-700 text-brand-primary focus:ring-brand-secondary"
-                    />
-                    <label htmlFor="is_active" className="ml-2 block text-sm text-on-surface-dark-secondary">
-                        Ativo
-                    </label>
+                    <input type="checkbox" name="is_active" id="is_active" checked={formData.is_active} onChange={handleChange} className="h-4 w-4 rounded border-gray-300 bg-gray-700 text-brand-primary focus:ring-brand-secondary" />
+                    <label htmlFor="is_active" className="ml-2 block text-sm text-on-surface-dark-secondary">Ativo</label>
                 </div>
 
                 <div className="flex justify-end gap-4 pt-4">

@@ -2,16 +2,23 @@ import { getSupabase } from './supabaseClient';
 import { ResourceContact } from '../types';
 
 /**
- * Organization Service - V2.1
- * Pedido 7: Correção de falhas silenciosas na gravação de colaboradores.
+ * Organization Service - V2.3
+ * Pedido 7: Correção de falha de coluna inexistente e propagação de erros.
  */
 
 const sb = () => getSupabase();
 
 const cleanPayload = (data: any) => {
     const cleaned = { ...data };
+    // Requisito Pedido 7: Remover chaves que causam erro de schema cache
+    // O Supabase espera 'address_line', 'address' não existe mais na estrutura v3.6+
+    delete cleaned.address; 
+    delete cleaned.contacts;
+    delete cleaned.preferences;
+    delete cleaned.job_title_name;
+
     Object.keys(cleaned).forEach(key => {
-        if (cleaned[key] === '') cleaned[key] = null;
+        if (cleaned[key] === '' || cleaned[key] === undefined) cleaned[key] = null;
     });
     return cleaned;
 };
