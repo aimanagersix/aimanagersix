@@ -3,10 +3,11 @@ import Modal from './common/Modal';
 import { FaDatabase, FaCheck, FaCopy, FaExclamationTriangle, FaCode, FaBolt, FaShieldAlt, FaSync, FaSearch, FaTools, FaInfoCircle } from 'react-icons/fa';
 
 /**
- * DB Manager UI - v5.0 (Full restoration & Current Patches)
+ * DB Manager UI - v5.1 (Colaboradores Patch & Repair)
  * -----------------------------------------------------------------------------
  * STATUS DE BLOQUEIO RIGOROSO (Freeze UI):
- * - PEDIDO 4 & 7: MANTER E EXPANDIR ABAS (6 abas agora configuradas)
+ * - PEDIDO 4 & 7: MANTER E EXPANDIR ABAS
+ * - PEDIDO 8: FIX MORADAS & SCHEMA CACHE
  * -----------------------------------------------------------------------------
  */
 
@@ -189,20 +190,33 @@ INSERT INTO config_equipment_statuses (name, color) VALUES ('Operacional', '#22c
 INSERT INTO config_ticket_statuses (name, color) VALUES ('Pedido', '#fbbf24'), ('Em progresso', '#60a5fa'), ('Finalizado', '#4ade80'), ('Cancelado', '#f87171') ON CONFLICT (name) DO NOTHING;
 `;
 
-    const patchScript = `-- ⚡ PATCH / ALTERAÇÕES DE MOMENTO (MANTENÇÃO v5.0)
+    const patchScript = `-- ⚡ PATCH / ALTERAÇÕES DE MOMENTO (MANTENÇÃO v5.1)
 -- Utilize esta aba para executar alterações específicas sem rebentar o script de inicialização.
 
--- 1. [Performance] Índices para Mensagens e Canal Geral
-CREATE INDEX IF NOT EXISTS idx_messages_unread_lookup ON public.messages (receiver_id, read, sender_id);
+-- 1. [Fix: Pedido 8] Adição de Colunas de Morada em falta (Garante reparação de schema)
+ALTER TABLE public.collaborators ADD COLUMN IF NOT EXISTS address_line TEXT;
+ALTER TABLE public.collaborators ADD COLUMN IF NOT EXISTS postal_code TEXT;
+ALTER TABLE public.collaborators ADD COLUMN IF NOT EXISTS city TEXT;
+ALTER TABLE public.collaborators ADD COLUMN IF NOT EXISTS locality TEXT;
 
--- 2. [Performance] Índices para Pesquisa de Equipamento
+ALTER TABLE public.institutions ADD COLUMN IF NOT EXISTS address_line TEXT;
+ALTER TABLE public.institutions ADD COLUMN IF NOT EXISTS postal_code TEXT;
+ALTER TABLE public.institutions ADD COLUMN IF NOT EXISTS city TEXT;
+ALTER TABLE public.institutions ADD COLUMN IF NOT EXISTS locality TEXT;
+
+ALTER TABLE public.entities ADD COLUMN IF NOT EXISTS address_line TEXT;
+ALTER TABLE public.entities ADD COLUMN IF NOT EXISTS postal_code TEXT;
+ALTER TABLE public.entities ADD COLUMN IF NOT EXISTS city TEXT;
+ALTER TABLE public.entities ADD COLUMN IF NOT EXISTS locality TEXT;
+
+-- 2. [Performance] Índices para Pesquisa
+CREATE INDEX IF NOT EXISTS idx_messages_unread_lookup ON public.messages (receiver_id, read, sender_id);
 CREATE INDEX IF NOT EXISTS idx_equipment_serial_search ON public.equipment (serial_number);
 
 -- 3. [Fix] Garantir que a equipe Triagem está ativa
 UPDATE teams SET is_active = true WHERE name = 'Triagem';
 
--- 4. [Segurança] Log de Auditoria para Login
--- INSERT INTO audit_log (action, resource_type, details) VALUES ('SYSTEM_BOOT', 'Core', 'AIManager Patch v5.0 aplicado.');
+-- 4. [Nota Técnica] Após correr este script, aguarde 30s para que o Supabase atualize o cache de schema.
 `;
 
     return (
