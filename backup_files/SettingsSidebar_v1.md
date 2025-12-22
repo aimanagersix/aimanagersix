@@ -1,9 +1,9 @@
 import React from 'react';
 import { 
     FaHeartbeat, FaTags, FaShapes, FaList, FaShieldAlt, FaTicketAlt, FaServer, 
-    FaPalette, FaRobot, FaKey, FaNetworkWired, FaClock, FaBroom, FaCompactDisc, 
-    FaLandmark, FaUserTie, FaBolt, FaUsers, FaUserTag, FaMicrochip, FaMemory, FaHdd,
-    FaBoxOpen, FaUserSlash, FaLeaf
+    FaPalette, FaRobot, FaKey, FaNetworkWired, FaClock,
+    // Added missing FaMicrochip, FaMemory, FaHdd imports
+    FaBroom, FaCompactDisc, FaLandmark, FaUserTie, FaBolt, FaUsers, FaUserTag, FaMicrochip, FaMemory, FaHdd
 } from 'react-icons/fa';
 
 interface SettingsSidebarProps {
@@ -34,35 +34,23 @@ const SettingsSidebar: React.FC<SettingsSidebarProps> = ({ selectedMenuId, onSel
             ]
         },
         {
-            group: "Ativos (Inventário)",
+            group: "Tabelas Auxiliares",
             items: [
-                { id: 'brands', label: 'Marcas / Fabricantes', icon: <FaTags /> },
+                { id: 'brands', label: 'Marcas', icon: <FaTags /> },
                 { id: 'equipment_types', label: 'Tipos de Equipamento', icon: <FaShapes /> },
-                { id: 'config_equipment_statuses', label: 'Estados de Ativo', icon: <FaList /> },
+                { id: 'config_equipment_statuses', label: 'Estados Ativos', icon: <FaList /> },
+                { id: 'config_ticket_statuses', label: 'Estados de Tickets', icon: <FaTicketAlt /> },
+                { id: 'config_license_statuses', label: 'Estados de Licenças', icon: <FaKey /> },
                 { id: 'config_decommission_reasons', label: 'Motivos de Abate', icon: <FaBroom /> },
-                { id: 'config_accounting_categories', label: 'Classificador CIBE', icon: <FaLandmark /> },
-                { id: 'config_conservation_states', label: 'Estados Conservação', icon: <FaLeaf /> },
-                { id: 'config_cpus', label: 'Tipos de CPU', icon: <FaMicrochip /> },
-                { id: 'config_ram_sizes', label: 'Tamanhos RAM', icon: <FaMemory /> },
-                { id: 'config_storage_types', label: 'Tipos de Disco', icon: <FaHdd /> },
-                { id: 'config_software_products', label: 'Catálogo Software', icon: <FaCompactDisc /> },
-            ]
-        },
-        {
-            group: "Suporte (Ticketing)",
-            items: [
-                { id: 'ticket_categories', label: 'Categorias Tickets', icon: <FaTicketAlt /> },
-                { id: 'security_incident_types', label: 'Tipos Incid. NIS2', icon: <FaShieldAlt /> },
-                { id: 'config_ticket_statuses', label: 'Estados de Tickets', icon: <FaList /> },
-                { id: 'config_license_statuses', label: 'Estados Licenças', icon: <FaKey /> },
-            ]
-        },
-        {
-            group: "Pessoas & RH",
-            items: [
+                { id: 'ticket_categories', label: 'Categorias de Tickets', icon: <FaTicketAlt /> },
+                { id: 'security_incident_types', label: 'Tipos de Incidente', icon: <FaShieldAlt /> },
                 { id: 'config_job_titles', label: 'Cargos / Funções', icon: <FaUserTie /> },
-                { id: 'config_collaborator_deactivation_reasons', label: 'Motivos de Saída', icon: <FaUserSlash /> },
-                { id: 'contact_roles', label: 'Papéis Contacto', icon: <FaUserTag /> },
+                { id: 'config_software_products', label: 'Produtos Software', icon: <FaCompactDisc /> },
+                { id: 'config_accounting_categories', label: 'Classificador CIBE', icon: <FaLandmark /> },
+                { id: 'config_cpus', label: 'CPUs', icon: <FaMicrochip /> },
+                { id: 'config_ram_sizes', label: 'RAM', icon: <FaMemory /> },
+                { id: 'config_storage_types', label: 'Discos', icon: <FaHdd /> },
+                { id: 'contact_roles', label: 'Papéis de Contacto', icon: <FaUserTag /> },
                 { id: 'contact_titles', label: 'Tratos / Títulos', icon: <FaUserTag /> },
             ]
         }

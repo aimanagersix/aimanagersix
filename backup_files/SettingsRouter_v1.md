@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { 
-    FaList, FaTicketAlt, FaKey, FaBroom, FaLandmark, FaLeaf, FaMicrochip, FaMemory, FaHdd, FaUserTie, FaUserTag, FaUserSlash 
+    FaList, FaTicketAlt, FaKey, FaBroom, FaLandmark, FaLeaf, FaMicrochip, FaMemory, FaHdd, FaUserTie, FaUserTag 
 } from 'react-icons/fa';
 
 // Components
@@ -47,7 +47,7 @@ const SettingsRouter: React.FC<SettingsRouterProps> = ({
 
     const simpleConfigTables = useMemo(() => ({
         'config_equipment_statuses': { label: 'Estados de Equipamento', icon: <FaList/>, data: safeData(appData.configEquipmentStatuses), colorField: true },
-        'config_ticket_statuses': { label: 'Estados de Tickets', icon: <FaList/>, data: safeData(appData.configTicketStatuses), colorField: true },
+        'config_ticket_statuses': { label: 'Estados de Tickets', icon: <FaTicketAlt/>, data: safeData(appData.configTicketStatuses), colorField: true },
         'config_license_statuses': { label: 'Estados de Licenças', icon: <FaKey/>, data: safeData(appData.configLicenseStatuses), colorField: true },
         'config_decommission_reasons': { label: 'Motivos de Abate', icon: <FaBroom/>, data: safeData(appData.configDecommissionReasons) },
         'config_accounting_categories': { label: 'Classificador CIBE / SNC-AP', icon: <FaLandmark/>, data: safeData(appData.configAccountingCategories) },
@@ -56,7 +56,6 @@ const SettingsRouter: React.FC<SettingsRouterProps> = ({
         'config_ram_sizes': { label: 'Tamanhos de Memória RAM', icon: <FaMemory/>, data: safeData(appData.configRamSizes) },
         'config_storage_types': { label: 'Tipos de Disco / Armazenamento', icon: <FaHdd/>, data: safeData(appData.configStorageTypes) },
         'config_job_titles': { label: 'Cargos / Funções Profissionais', icon: <FaUserTie/>, data: safeData(appData.configJobTitles) },
-        'config_collaborator_deactivation_reasons': { label: 'Motivos de Saída (RH)', icon: <FaUserSlash/>, data: safeData(appData.configCollaboratorDeactivationReasons) },
         'contact_roles': { label: 'Papéis de Contacto Externo', icon: <FaUserTag/>, data: safeData(appData.contactRoles) },
         'contact_titles': { label: 'Tratos Honoríficos', icon: <FaUserTag/>, data: safeData(appData.contactTitles) },
     }), [appData]);
@@ -74,7 +73,7 @@ const SettingsRouter: React.FC<SettingsRouterProps> = ({
                 teams={appData.teams} teamMembers={appData.teamMembers} collaborators={appData.collaborators}
                 tickets={appData.tickets} equipmentTypes={appData.equipmentTypes}
                 onEdit={onEditTeam} onManageMembers={onManageTeamMembers}
-                onDelete={async (id) => { if (confirm("Excluir?")) { /* delete logic implemented via dataService elsewhere */ } }}
+                onDelete={async (id) => { if (confirm("Excluir?")) { /* delete logic */ } }}
             />
         );
         case 'config_automation': return <AutomationRulesDashboard />;
