@@ -1,8 +1,15 @@
-
 import React, { useState, useEffect } from 'react';
 import { CustomRole, ModuleKey, PermissionAction } from '../types';
 import * as dataService from '../services/dataService';
-import { FaShieldAlt, FaSave, FaPlus, FaTrash, FaCheck, FaTimes, FaLock, FaUserShield, FaCheckDouble, FaSpinner, FaUserCheck, FaUserTie, FaComments, FaBullhorn, FaBell } from 'react-icons/fa';
+import { FaShieldAlt, FaSave, FaPlus, FaTrash, FaCheck, FaTimes, FaLock, FaUserShield, FaCheckDouble, FaSpinner, FaUserCheck, FaUserTie, FaComments, FaBullhorn, FaBell, FaExclamationTriangle } from 'react-icons/fa';
+
+/**
+ * RoleManager V2.0 (Full Permission Tree & SB Sync)
+ * -----------------------------------------------------------------------------
+ * NOTA: Este componente gere os perfis personalizados na tabela config_custom_roles.
+ * A estrutura de permissões segue a "Árvore Enterprise" com controlo granular.
+ * -----------------------------------------------------------------------------
+ */
 
 interface PermissionItem {
     key: ModuleKey;
@@ -18,110 +25,89 @@ interface PermissionGroup {
 
 const PERMISSION_GROUPS: PermissionGroup[] = [
     {
-        label: 'Área Pessoal & Dashboard',
+        label: 'Dashboard & Supervisão (C-Level)',
         items: [
-            { key: 'my_area', label: 'Minha Área', isSimpleAccess: true },
-            { key: 'widget_alerts', label: 'Dashboard: Alertas Segurança', isSimpleAccess: true },
-            { key: 'widget_kpi_cards', label: 'Dashboard: Cartões KPI Principais', isSimpleAccess: true },
-            { key: 'widget_inventory_charts', label: 'Dashboard: Gráficos Inventário', isSimpleAccess: true },
-            { key: 'widget_financial', label: 'Dashboard: Visão Financeira', isSimpleAccess: true },
-            { key: 'widget_operational_charts', label: 'Dashboard: Gráficos Operacionais', isSimpleAccess: true },
-            { key: 'widget_activity', label: 'Dashboard: Atividade Recente', isSimpleAccess: true },
-            { key: 'dashboard_smart', label: 'Dashboard: C-Level / Gestão', isSimpleAccess: true },
+            { key: 'dashboard_smart', label: 'Dashboard: Visão Gestão (NIS2 Art. 20º)', isSimpleAccess: true },
+            { key: 'widget_kpi_cards', label: 'KPIs: Cartões de Sumário Executivo', isSimpleAccess: true },
+            { key: 'widget_financial', label: 'FinOps: Visão de Custos e CAPEX', isSimpleAccess: true },
+            { key: 'widget_alerts', label: 'Alertas: Alertas Críticos NIS2', isSimpleAccess: true },
+            { key: 'widget_inventory_charts', label: 'Gráficos: Distribuição de Ativos', isSimpleAccess: true },
+            { key: 'widget_operational_charts', label: 'Gráficos: Performance Suporte', isSimpleAccess: true },
+            { key: 'widget_activity', label: 'Atividade: Log em Tempo Real', isSimpleAccess: true },
         ]
     },
     {
-        label: 'Alertas & Notificações (Badge)',
+        label: 'Área Pessoal & Self-Service',
         items: [
-            { key: 'notif_tickets', label: 'Ver Alertas: Tickets Pendentes', isSimpleAccess: true },
-            { key: 'notif_licenses', label: 'Ver Alertas: Licenças Críticas', isSimpleAccess: true },
-            { key: 'notif_warranties', label: 'Ver Alertas: Garantias a Expirar', isSimpleAccess: true },
+            { key: 'my_area', label: 'Acesso: Menu "A Minha Área"', isSimpleAccess: true },
         ]
     },
     {
-        label: 'Mensagens de Sistema (Chat)',
+        label: 'Notificações Visuais (Badge Superior)',
         items: [
-            { key: 'msg_tickets', label: 'Receber Mensagens: Suporte / Tickets', isSimpleAccess: true },
-            { key: 'msg_licenses', label: 'Receber Mensagens: Expiração Licenças', isSimpleAccess: true },
-            { key: 'msg_warranties', label: 'Receber Mensagens: Expiração Garantias', isSimpleAccess: true },
+            { key: 'notif_tickets', label: 'Alerta: Tickets Pendentes (Sino)', isSimpleAccess: true },
+            { key: 'notif_licenses', label: 'Alerta: Licenças Críticas (Sino)', isSimpleAccess: true },
+            { key: 'notif_warranties', label: 'Alerta: Garantias a Expirar (Sino)', isSimpleAccess: true },
         ]
     },
     {
-        label: 'Comunicação & Chat',
+        label: 'Receção de Mensagens (Chat Automático)',
         items: [
-            { key: 'chat_p2p' as any, label: 'Chat: Conversas Privadas', isSimpleAccess: true },
-            { key: 'chat_general' as any, label: 'Chat: Acesso ao Canal Geral', isSimpleAccess: true },
+            { key: 'msg_tickets', label: 'Receber: Notificações de Tickets no Chat', isSimpleAccess: true },
+            { key: 'msg_licenses', label: 'Receber: Notificações de Licenças no Chat', isSimpleAccess: true },
+            { key: 'msg_warranties', label: 'Receber: Notificações de Garantias no Chat', isSimpleAccess: true },
         ]
     },
     {
-        label: 'Módulos Operacionais',
+        label: 'Gestão de Ativos (Inventário)',
         items: [
-            { key: 'equipment', label: 'Equipamentos (Inventário)', supportsOwn: true },
-            { key: 'equipment_view_full', label: 'Ficha Técnica Completa (vs Resumida)', isSimpleAccess: true },
-            { key: 'licensing', label: 'Licenciamento', supportsOwn: true },
-            { key: 'tickets', label: 'Suporte (Tickets Operacionais)', supportsOwn: true },
-            { key: 'tickets_security', label: 'Tickets de Segurança (NIS2)', supportsOwn: true },
-            { key: 'procurement', label: 'Aquisições' },
+            { key: 'equipment', label: 'Módulo: Equipamentos', supportsOwn: true },
+            { key: 'equipment_view_full', label: 'Acesso: Ficha Técnica Completa', isSimpleAccess: true },
+            { key: 'licensing', label: 'Módulo: Licenciamento de Software', supportsOwn: true },
+            { key: 'procurement', label: 'Módulo: Aquisições e Compras' },
         ]
     },
     {
-        label: 'Gestão de Contatos & RH',
+        label: 'Suporte & Incidentes (Ticketing)',
         items: [
-            { key: 'org_institutions', label: 'Instituições' },
-            { key: 'org_entities', label: 'Entidades' },
-            { key: 'org_collaborators', label: 'Colaboradores' },
-            { key: 'org_suppliers', label: 'Fornecedores' },
-            { key: 'organization', label: 'Equipas e Estrutura Geral' },
+            { key: 'tickets', label: 'Tickets: Suporte Operacional', supportsOwn: true },
+            { key: 'tickets_security', label: 'Tickets: Incidentes de Segurança (NIS2)', supportsOwn: true },
         ]
     },
     {
-        label: 'Relatórios & Ferramentas',
+        label: 'Estrutura Organizacional',
         items: [
-            { key: 'reports', label: 'Menu Relatórios', isSimpleAccess: true },
-            { key: 'tools_agenda', label: 'Ferramenta: Agenda', isSimpleAccess: true },
-            { key: 'tools_map', label: 'Ferramenta: Mapa Ativos', isSimpleAccess: true },
-            { key: 'tools_calendar', label: 'Ferramenta: Calendário', isSimpleAccess: true },
-            { key: 'tools_manual', label: 'Ferramenta: Manual', isSimpleAccess: true },
+            { key: 'org_institutions', label: 'Organização: Instituições' },
+            { key: 'org_entities', label: 'Organização: Entidades/Locais' },
+            { key: 'org_collaborators', label: 'Recursos Humanos: Colaboradores' },
+            { key: 'org_suppliers', label: 'Compliance: Gestão de Fornecedores' },
+            { key: 'organization', label: 'Gestão de Equipas Técnicas' },
         ]
     },
     {
-        label: 'Compliance (NIS2)',
+        label: 'Compliance, BIA & Continuidade',
         items: [
-            { key: 'compliance_bia', label: 'Impacto (BIA)' },
-            { key: 'compliance_security', label: 'Vulnerabilidades' },
-            { key: 'compliance_backups', label: 'Backups' },
-            { key: 'compliance_resilience', label: 'Resiliência', supportsOwn: true },
-            { key: 'compliance_training', label: 'Formações', supportsOwn: true },
-            { key: 'compliance_policies', label: 'Políticas', supportsOwn: true },
+            { key: 'compliance_bia', label: 'NIS2: Impacto no Negócio (BIA)' },
+            { key: 'compliance_security', label: 'NIS2: Gestão de Vulnerabilidades' },
+            { key: 'compliance_backups', label: 'NIS2: Registo de Backups' },
+            { key: 'compliance_resilience', label: 'NIS2: Testes de Resiliência', supportsOwn: true },
+            { key: 'compliance_training', label: 'NIS2: Formação e Consciencialização', supportsOwn: true },
+            { key: 'compliance_policies', label: 'NIS2: Políticas e Governança', supportsOwn: true },
         ]
     },
     {
-        label: 'Tabelas Auxiliares (Configuração)',
+        label: 'Configuração Avançada (Tabelas Base)',
         items: [
-            { key: 'brands', label: 'Marcas' },
-            { key: 'equipment_types', label: 'Tipos de Ativo' },
-            { key: 'config_equipment_statuses', label: 'Estados de Ativo' },
-            { key: 'config_ticket_statuses', label: 'Estados de Ticket' },
-            { key: 'config_cpus', label: 'CPUs' },
-            { key: 'config_ram_sizes', label: 'RAM' },
-            { key: 'config_storage_types', label: 'Discos' },
-            { key: 'config_software_categories', label: 'Categorias Software' },
-            { key: 'config_software_products', label: 'Produtos Software' },
-            { key: 'config_job_titles', label: 'Cargos Profissionais' },
-            { key: 'config_accounting_categories', label: 'Classificador CIBE' },
-            { key: 'config_conservation_states', label: 'Estados Conservação' },
-            { key: 'config_decommission_reasons', label: 'Motivos de Saída' },
-            { key: 'config_training_types', label: 'Tipos de Formação' },
-            { key: 'ticket_categories', label: 'Categorias Ticket' },
-            { key: 'security_incident_types', label: 'Tipos Incid. Segurança' },
-        ]
-    },
-    {
-        label: 'Administração Avançada',
-        items: [
-            { key: 'settings', label: 'Configurações de Sistema' },
-            { key: 'config_custom_roles', label: 'Perfis (RBAC)' },
-            { key: 'config_automation', label: 'Automação' },
+            { key: 'ticket_categories', label: 'Config: Categorias de Tickets e SLAs' },
+            { key: 'security_incident_types', label: 'Config: Tipos de Incidente NIS2' },
+            { key: 'brands', label: 'Config: Marcas e Fabricantes' },
+            { key: 'equipment_types', label: 'Config: Tipos de Equipamento' },
+            { key: 'config_equipment_statuses', label: 'Config: Estados de Ativo' },
+            { key: 'config_job_titles', label: 'Config: Cargos Profissionais' },
+            { key: 'config_software_products', label: 'Config: Catálogo de Software' },
+            { key: 'settings', label: 'Config: Definições Globais e APIs' },
+            { key: 'config_custom_roles', label: 'Segurança: Gestão de Perfis (RBAC)' },
+            { key: 'config_automation', label: 'Sistema: Regras de Automação' },
         ]
     }
 ];
@@ -137,20 +123,26 @@ const RoleManager: React.FC<RoleManagerProps> = ({ roles, onRefresh }) => {
     const [isSaving, setIsSaving] = useState(false);
     const [showNewRoleInput, setShowNewRoleInput] = useState(false);
     const [newRoleName, setNewRoleName] = useState('');
+    const [error, setError] = useState<string | null>(null);
 
     const selectedRole = roles.find(r => r.id === selectedRoleId);
     const isSuperAdminRole = selectedRole?.name === 'SuperAdmin';
 
     useEffect(() => {
-        if (selectedRole) setEditingPermissions(selectedRole.permissions || {});
-        else setEditingPermissions({});
+        if (selectedRole) {
+            setEditingPermissions(selectedRole.permissions || {});
+            setError(null);
+        } else {
+            setEditingPermissions({});
+        }
     }, [selectedRole]);
 
     const handleTogglePermission = (moduleKey: string, action: PermissionAction) => {
         if (isSuperAdminRole) return;
         setEditingPermissions(prev => {
-            const modulePerms = prev[moduleKey] || {};
-            return { ...prev, [moduleKey]: { ...modulePerms, [action]: !modulePerms[action] } };
+            const modulePerms = { ...(prev[moduleKey] || {}) };
+            modulePerms[action] = !modulePerms[action];
+            return { ...prev, [moduleKey]: modulePerms };
         });
     };
 
@@ -159,9 +151,7 @@ const RoleManager: React.FC<RoleManagerProps> = ({ roles, onRefresh }) => {
         setEditingPermissions(prev => {
             const next = { ...prev };
             groupItems.forEach(item => {
-                const current = next[item.key] || {};
                 next[item.key] = {
-                    ...current,
                     view: true,
                     ...(item.supportsOwn ? { view_own: true } : {}),
                     ...(!item.isSimpleAccess ? { create: true, edit: true, delete: true } : {})
@@ -174,12 +164,16 @@ const RoleManager: React.FC<RoleManagerProps> = ({ roles, onRefresh }) => {
     const handleSavePermissions = async () => {
         if (!selectedRoleId || isSuperAdminRole) return;
         setIsSaving(true);
+        setError(null);
         try {
-            await dataService.updateCustomRole(selectedRoleId, { permissions: editingPermissions });
+            await dataService.updateCustomRole(selectedRoleId, { 
+                permissions: editingPermissions 
+            });
             onRefresh();
-            alert("Permissões atualizadas com sucesso.");
-        } catch (e) {
-            alert("Erro ao gravar permissões.");
+            alert("Permissões gravadas na base de dados com sucesso.");
+        } catch (e: any) {
+            console.error(e);
+            setError("Erro ao gravar no Supabase: Verifique se a tabela 'config_custom_roles' existe e tem políticas RLS.");
         } finally {
             setIsSaving(false);
         }
@@ -187,105 +181,154 @@ const RoleManager: React.FC<RoleManagerProps> = ({ roles, onRefresh }) => {
 
     const handleAddRole = async () => {
         if (!newRoleName.trim()) return;
+        setIsSaving(true);
         try {
-            await dataService.addCustomRole({ name: newRoleName.trim(), permissions: {} });
+            await dataService.addCustomRole({ 
+                name: newRoleName.trim(), 
+                permissions: {} 
+            });
             setNewRoleName('');
             setShowNewRoleInput(false);
             onRefresh();
-        } catch (e) {
-            alert("Erro ao criar perfil.");
+        } catch (e: any) {
+            alert("Erro ao criar perfil. Verifique se o nome já existe.");
+        } finally {
+            setIsSaving(false);
         }
     };
 
     return (
-        <div className="flex flex-col md:flex-row h-full gap-6 p-6">
-            <div className="w-full md:w-64 bg-gray-800 rounded-lg border border-gray-700 flex flex-col">
-                <div className="p-4 border-b border-gray-700 flex justify-between items-center">
-                    <h3 className="font-bold text-white text-xs uppercase">Perfis de Acesso</h3>
+        <div className="flex flex-col md:flex-row h-[75vh] gap-6 p-6">
+            {/* Sidebar de Perfis */}
+            <div className="w-full md:w-64 bg-gray-900/50 rounded-lg border border-gray-700 flex flex-col overflow-hidden">
+                <div className="p-4 border-b border-gray-700 flex justify-between items-center bg-gray-800">
+                    <h3 className="font-bold text-white text-[10px] uppercase tracking-widest">Perfis (Roles)</h3>
                     <button 
                         onClick={() => setShowNewRoleInput(true)}
                         className="p-1.5 bg-brand-primary text-white rounded hover:bg-brand-secondary transition-colors"
-                        title="Adicionar Perfil"
+                        title="Criar Novo Perfil"
                     >
-                        <FaPlus size={12} />
+                        <FaPlus size={10} />
                     </button>
                 </div>
-                <div className="flex-grow overflow-y-auto p-2 space-y-1">
+                <div className="flex-grow overflow-y-auto p-2 space-y-1 custom-scrollbar">
                     {showNewRoleInput && (
-                        <div className="p-2 bg-gray-900 rounded mb-2 space-y-2 border border-brand-primary/50">
+                        <div className="p-3 bg-gray-950 rounded mb-2 space-y-2 border border-brand-primary/50 animate-fade-in">
                             <input 
                                 type="text" 
                                 value={newRoleName}
                                 onChange={e => setNewRoleName(e.target.value)}
-                                className="w-full bg-gray-800 border border-gray-600 rounded p-1 text-xs text-white"
+                                className="w-full bg-gray-800 border border-gray-700 rounded p-2 text-xs text-white outline-none focus:border-brand-primary"
                                 placeholder="Nome do Perfil..."
                                 autoFocus
+                                onKeyDown={e => e.key === 'Enter' && handleAddRole()}
                             />
-                            <div className="flex justify-end gap-1">
-                                <button onClick={() => setShowNewRoleInput(false)} className="px-2 py-1 text-[10px] text-gray-400">Cancelar</button>
-                                <button onClick={handleAddRole} className="px-2 py-1 text-[10px] bg-brand-primary text-white rounded">Criar</button>
+                            <div className="flex justify-end gap-2">
+                                <button onClick={() => setShowNewRoleInput(false)} className="text-[10px] text-gray-500 hover:text-white uppercase font-bold">Cancelar</button>
+                                <button onClick={handleAddRole} className="px-2 py-1 text-[10px] bg-brand-primary text-white rounded font-bold">Criar</button>
                             </div>
                         </div>
                     )}
-                    {roles.map(role => (
-                        <button key={role.id} onClick={() => setSelectedRoleId(role.id)} className={`w-full text-left px-3 py-2 rounded text-sm ${selectedRoleId === role.id ? 'bg-brand-primary text-white' : 'text-gray-400 hover:bg-gray-700'}`}>
-                            {role.name}
+                    {roles.length > 0 ? roles.map(role => (
+                        <button 
+                            key={role.id} 
+                            onClick={() => setSelectedRoleId(role.id)} 
+                            className={`w-full text-left px-4 py-2.5 rounded-md text-sm transition-all flex items-center justify-between group ${selectedRoleId === role.id ? 'bg-brand-primary text-white shadow-lg' : 'text-gray-400 hover:bg-gray-800 hover:text-white'}`}
+                        >
+                            <span className="truncate">{role.name}</span>
+                            {role.name === 'SuperAdmin' && <FaLock className="text-[10px] opacity-50"/>}
                         </button>
-                    ))}
+                    )) : <p className="text-center py-4 text-gray-600 text-xs italic">Nenhum perfil criado.</p>}
                 </div>
             </div>
 
-            <div className="flex-1 bg-gray-800 rounded-lg border border-gray-700 flex flex-col overflow-hidden">
+            {/* Painel de Permissões */}
+            <div className="flex-1 bg-gray-900/50 rounded-lg border border-gray-700 flex flex-col overflow-hidden">
                 {!selectedRoleId ? (
-                    <div className="flex-grow flex items-center justify-center text-gray-500 italic">Selecione um perfil para gerir permissões.</div>
+                    <div className="flex-grow flex flex-col items-center justify-center text-gray-600 text-center p-10">
+                        <FaUserShield className="text-5xl mb-4 opacity-10" />
+                        <p className="italic">Selecione um perfil na lista lateral para gerir as permissões de acesso.</p>
+                    </div>
                 ) : (
                     <>
-                        <div className="p-4 border-b border-gray-700 flex justify-between items-center bg-gray-900/50">
-                            <h3 className="font-bold text-white flex items-center gap-2">
-                                <FaUserShield className="text-brand-secondary" /> {selectedRole?.name}
-                            </h3>
-                            {!isSuperAdminRole && (
-                                <button onClick={handleSavePermissions} disabled={isSaving} className="bg-brand-primary text-white px-4 py-1.5 rounded text-xs flex items-center gap-2 hover:bg-brand-secondary transition-colors">
-                                    {isSaving ? <FaSpinner className="animate-spin" /> : <FaSave />} Guardar Tudo
+                        <div className="p-4 border-b border-gray-700 flex justify-between items-center bg-gray-800">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-brand-primary/20 rounded text-brand-secondary">
+                                    <FaUserShield size={16} />
+                                </div>
+                                <div>
+                                    <h3 className="font-bold text-white text-base">{selectedRole?.name}</h3>
+                                    <p className="text-[10px] text-gray-500 uppercase font-black">Editor de Privilégios</p>
+                                </div>
+                            </div>
+                            
+                            {!isSuperAdminRole ? (
+                                <button 
+                                    onClick={handleSavePermissions} 
+                                    disabled={isSaving} 
+                                    className="bg-brand-primary text-white px-6 py-2 rounded-md text-xs flex items-center gap-2 hover:bg-brand-secondary transition-all shadow-xl font-black uppercase tracking-widest disabled:opacity-50"
+                                >
+                                    {isSaving ? <FaSpinner className="animate-spin" /> : <FaSave />} Gravar Permissões
                                 </button>
+                            ) : (
+                                <span className="text-[10px] bg-red-900/30 text-red-400 px-3 py-1 rounded-full border border-red-500/30 font-black flex items-center gap-2">
+                                    <FaLock /> PERFIL PROTEGIDO (HARD-CODED)
+                                </span>
                             )}
                         </div>
-                        <div className="flex-grow overflow-y-auto p-4 custom-scrollbar">
-                            <div className={isSuperAdminRole ? 'opacity-50 pointer-events-none' : ''}>
-                                {PERMISSION_GROUPS.map(group => (
-                                    <div key={group.label} className="mb-8">
-                                        <div className="flex justify-between items-center border-b border-gray-700 mb-3 pb-1">
-                                            <h4 className="text-[10px] font-bold text-brand-secondary uppercase tracking-widest">{group.label}</h4>
+
+                        {error && (
+                            <div className="p-3 bg-red-900/20 border-b border-red-500/30 text-red-300 text-xs flex items-center gap-2">
+                                <FaExclamationTriangle className="animate-pulse" /> {error}
+                            </div>
+                        )}
+
+                        <div className="flex-grow overflow-y-auto p-6 custom-scrollbar bg-gray-950/20">
+                            <div className={isSuperAdminRole ? 'opacity-30 pointer-events-none grayscale' : 'animate-fade-in'}>
+                                {PERMISSION_GROUPS.map((group, gIdx) => (
+                                    <div key={gIdx} className="mb-10 last:mb-0">
+                                        <div className="flex justify-between items-center border-b border-gray-800 mb-5 pb-2">
+                                            <h4 className="text-[11px] font-black text-brand-secondary uppercase tracking-[0.2em]">{group.label}</h4>
                                             <button 
                                                 onClick={() => handleSelectAllGroup(group.items)}
-                                                className="text-[9px] text-gray-500 hover:text-white uppercase font-black flex items-center gap-1"
+                                                className="text-[9px] text-gray-600 hover:text-white uppercase font-black flex items-center gap-1.5 transition-colors"
                                             >
-                                                <FaCheckDouble /> Selecionar Grupo
+                                                <FaCheckDouble /> Selecionar Tudo
                                             </button>
                                         </div>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                        
+                                        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
                                             {group.items.map(item => {
                                                 const perms = editingPermissions[item.key] || {};
                                                 return (
-                                                    <div key={item.key} className="bg-gray-900/50 p-3 rounded border border-gray-700 hover:border-gray-600 transition-colors">
-                                                        <p className="text-xs font-bold text-white mb-2">{item.label}</p>
-                                                        <div className="flex flex-col gap-1.5">
-                                                            <label className="flex items-center gap-2 cursor-pointer">
-                                                                <input type="checkbox" checked={!!perms.view} onChange={() => handleTogglePermission(item.key, 'view')} className="rounded border-gray-600 bg-gray-800 text-brand-primary" />
-                                                                <span className="text-[10px] text-gray-300">Acesso Total</span>
+                                                    <div key={item.key} className={`p-4 rounded-lg border transition-all duration-300 ${perms.view ? 'bg-gray-800/40 border-brand-primary/30 shadow-inner' : 'bg-gray-900/20 border-gray-800 hover:border-gray-700'}`}>
+                                                        <p className={`text-xs font-bold mb-3 transition-colors ${perms.view ? 'text-white' : 'text-gray-500'}`}>{item.label}</p>
+                                                        
+                                                        <div className="flex flex-col gap-2.5">
+                                                            <label className="flex items-center gap-3 cursor-pointer group">
+                                                                <div className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${perms.view ? 'bg-brand-primary border-brand-primary' : 'bg-gray-950 border-gray-700 group-hover:border-gray-500'}`}>
+                                                                    {perms.view && <FaCheck className="text-[8px] text-white" />}
+                                                                </div>
+                                                                <input type="checkbox" checked={!!perms.view} onChange={() => handleTogglePermission(item.key, 'view')} className="hidden" />
+                                                                <span className={`text-[10px] uppercase font-black tracking-wider ${perms.view ? 'text-white' : 'text-gray-600'}`}>Acesso Visualização</span>
                                                             </label>
+
                                                             {item.supportsOwn && (
-                                                                <label className="flex items-center gap-2 cursor-pointer">
-                                                                    <input type="checkbox" checked={!!perms.view_own} onChange={() => handleTogglePermission(item.key, 'view_own')} className="rounded border-gray-600 bg-gray-800 text-blue-500" />
-                                                                    <span className="text-[10px] text-blue-400 font-bold">Ver Próprios</span>
+                                                                <label className="flex items-center gap-3 cursor-pointer group pl-7 border-l border-gray-800 ml-2">
+                                                                    <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center transition-all ${perms.view_own ? 'bg-blue-600 border-blue-600' : 'bg-gray-950 border-gray-700'}`}>
+                                                                        {perms.view_own && <FaCheck className="text-[7px] text-white" />}
+                                                                    </div>
+                                                                    <input type="checkbox" checked={!!perms.view_own} onChange={() => handleTogglePermission(item.key, 'view_own')} className="hidden" />
+                                                                    <span className={`text-[9px] uppercase font-bold tracking-wider ${perms.view_own ? 'text-blue-400' : 'text-gray-600'}`}>Apenas Dados Próprios</span>
                                                                 </label>
                                                             )}
+
                                                             {!item.isSimpleAccess && (
-                                                                <div className="flex gap-2 border-t border-gray-700 pt-1.5 mt-1">
-                                                                    {['create', 'edit', 'delete'].map(act => (
-                                                                        <label key={act} className="flex items-center gap-1">
-                                                                            <input type="checkbox" checked={!!perms[act]} onChange={() => handleTogglePermission(item.key, act as any)} className="w-2.5 h-2.5 rounded" />
-                                                                            <span className="text-[8px] text-gray-500 uppercase">{act}</span>
+                                                                <div className="flex flex-wrap gap-2 pt-3 border-t border-gray-800/50 mt-1">
+                                                                    {(['create', 'edit', 'delete'] as PermissionAction[]).map(act => (
+                                                                        <label key={act} className={`flex items-center gap-1.5 px-2 py-1 rounded cursor-pointer transition-colors ${perms[act] ? 'bg-gray-700 text-white' : 'bg-gray-900/50 text-gray-700 hover:bg-gray-800'}`}>
+                                                                            <input type="checkbox" checked={!!perms[act]} onChange={() => handleTogglePermission(item.key, act)} className="w-2.5 h-2.5 rounded border-gray-600 bg-gray-950 text-brand-primary" />
+                                                                            <span className="text-[8px] uppercase font-black">{act}</span>
                                                                         </label>
                                                                     ))}
                                                                 </div>

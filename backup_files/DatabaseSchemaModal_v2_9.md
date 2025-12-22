@@ -3,7 +3,7 @@ import Modal from './common/Modal';
 import { FaDatabase, FaCheck, FaCopy, FaExclamationTriangle, FaCode, FaBolt, FaShieldAlt, FaSync } from 'react-icons/fa';
 
 /**
- * DB Manager UI - V3.0 (Enterprise Role Engine & Prefixes)
+ * DB Manager UI - V2.9 (Infrastructure & Secret Standardization)
  * -----------------------------------------------------------------------------
  * STATUS DE BLOQUEIO RIGOROSO (Freeze UI):
  * - PEDIDO 1 (Menu Tickets):     FECHADO - BLOQUEADO - NÃO ALTERAR
@@ -11,8 +11,9 @@ import { FaDatabase, FaCheck, FaCopy, FaExclamationTriangle, FaCode, FaBolt, FaS
  * - PEDIDO 3 (Menu Notificações): FECHADO - BLOQUEADO - NÃO ALTERAR
  * - PEDIDO 4 (Abas BD):          FECHADO - AS 4 ABAS SÃO ESTRUTURAIS
  * -----------------------------------------------------------------------------
- * NOTA TÉCNICA (RBAC Fix): 
- * O script de inicialização agora inclui config_custom_roles e políticas RLS.
+ * NOTA TÉCNICA (Secret Standardization): 
+ * O Supabase não permite prefixo "SUPABASE_" em segredos manuais. 
+ * Use: SB_URL, SB_ANON_KEY, SB_SERVICE_ROLE_KEY, SLACK_WEBHOOK_URL, AIMANAGER.
  * -----------------------------------------------------------------------------
  */
 
@@ -33,15 +34,7 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
     const fullInitScript = `-- 1. EXTENSÕES & PERMISSÕES
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- 2. ORGANIZAÇÃO & SEGURANÇA (RBAC)
-CREATE TABLE config_custom_roles (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name TEXT UNIQUE NOT NULL,
-    description TEXT,
-    permissions JSONB DEFAULT '{}'::jsonb,
-    created_at TIMESTAMPTZ DEFAULT now()
-);
-
+-- 2. ORGANIZAÇÃO & RH
 CREATE TABLE institutions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
@@ -192,7 +185,8 @@ CREATE TABLE messages (
 CREATE TABLE global_settings (setting_key TEXT PRIMARY KEY, setting_value TEXT, updated_at TIMESTAMPTZ DEFAULT now());
 CREATE TABLE audit_log (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), timestamp TIMESTAMPTZ DEFAULT now(), action TEXT NOT NULL, resource_type TEXT, user_email TEXT, details TEXT);
 
--- 7. SEED: DADOS INICIAIS & SUPERADMIN
+-- 7. SEED: DADOS INICIAIS & SUPERADMIN (EMERGÊNCIA)
+-- Este bloco garante que existe pelo menos uma estrutura base e o utilizador mestre.
 INSERT INTO institutions (id, name, codigo, is_active)
 VALUES ('00000000-0000-0000-0000-000000000001', 'Organização Sede', 'SEDE', true)
 ON CONFLICT (codigo) DO NOTHING;
@@ -200,10 +194,6 @@ ON CONFLICT (codigo) DO NOTHING;
 INSERT INTO entities (id, instituicao_id, name, codigo, status)
 VALUES ('00000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000001', 'Administração Geral', 'ADM', 'Ativo')
 ON CONFLICT (codigo) DO NOTHING;
-
-INSERT INTO config_custom_roles (id, name, permissions)
-VALUES (gen_random_uuid(), 'SuperAdmin', '{"*": {"*": true}}'::jsonb)
-ON CONFLICT (name) DO NOTHING;
 
 INSERT INTO collaborators (id, full_name, email, role, status, can_login, receives_notifications, instituicao_id, entidade_id)
 VALUES ('00000000-0000-0000-0000-000000000003', 'Super Administrador', 'josefsmoreira@outlook.com', 'SuperAdmin', 'Ativo', true, true, '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000002')
@@ -265,16 +255,12 @@ $$ LANGUAGE plpgsql;
 `;
 
     const securityScript = `-- ATIVAR RLS EM TODAS AS TABELAS
-ALTER TABLE config_custom_roles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE institutions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE entities ENABLE ROW LEVEL SECURITY;
 ALTER TABLE collaborators ENABLE ROW LEVEL SECURITY;
 ALTER TABLE equipment ENABLE ROW LEVEL SECURITY;
 ALTER TABLE tickets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
-
--- POLÍTICAS RBAC (ROLES)
-CREATE POLICY "Allow management for authenticated users" ON config_custom_roles FOR ALL TO authenticated USING (true);
 
 -- POLÍTICA BÁSICA: UTILIZADORES AUTENTICADOS PODEM LER TUDO
 CREATE POLICY "Allow read access for authenticated users" ON institutions FOR SELECT TO authenticated USING (true);
