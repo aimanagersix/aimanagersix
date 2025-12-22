@@ -3,7 +3,7 @@ import Modal from './common/Modal';
 import { FaDatabase, FaCheck, FaCopy, FaExclamationTriangle, FaCode, FaBolt, FaShieldAlt, FaSync, FaSearch } from 'react-icons/fa';
 
 /**
- * DB Manager UI - V3.5 (Inspection & Doc Ready)
+ * DB Manager UI - V3.6 (Metadados Absolutos & Doc Guard)
  * -----------------------------------------------------------------------------
  * STATUS DE BLOQUEIO RIGOROSO (Freeze UI):
  * - PEDIDO 1 (Menu Tickets):     FECHADO - BLOQUEADO - NÃO ALTERAR
@@ -11,7 +11,7 @@ import { FaDatabase, FaCheck, FaCopy, FaExclamationTriangle, FaCode, FaBolt, FaS
  * - PEDIDO 3 (Menu Notificações): FECHADO - BLOQUEADO - NÃO ALTERAR
  * - PEDIDO 4 (Abas BD):          FECHADO - AS 5 ABAS SÃO ESTRUTURAIS
  * -----------------------------------------------------------------------------
- * PEDIDO 6: Script de Inspeção para documentação oficial.
+ * PEDIDO 6: Expansão do script de inspeção para Triggers e Funções.
  * -----------------------------------------------------------------------------
  */
 
@@ -29,20 +29,36 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
         setTimeout(() => setCopied(null), 2000);
     };
 
-    const inspectionScript = `-- SCRIPT DE INSPEÇÃO DE SCHEMA (PEDIDO 6)
--- Execute este script para obter a listagem de todos os campos e tabelas para documentação.
-SELECT 
-    table_name, 
-    column_name, 
-    data_type, 
-    is_nullable,
-    column_default
-FROM 
-    information_schema.columns 
-WHERE 
-    table_schema = 'public'
-ORDER BY 
-    table_name, ordinal_position;`;
+    const inspectionScript = `-- SCRIPT DE INSPEÇÃO DE METADADOS COMPLETO (V3.6)
+-- Execute este script no SQL Editor para obter a radiografia total da BD.
+
+-- 1. Tabelas e Colunas
+SELECT 'TABELA' as tipo, table_name as nome, column_name as detalhe, data_type as extra, is_nullable as opcional 
+FROM information_schema.columns 
+WHERE table_schema = 'public'
+
+UNION ALL
+
+-- 2. Triggers (Automatos)
+SELECT 'TRIGGER' as tipo, trigger_name as nome, event_object_table as detalhe, event_manipulation as extra, 'N/A' as opcional 
+FROM information_schema.triggers 
+WHERE trigger_schema = 'public'
+
+UNION ALL
+
+-- 3. Funções e RPCs
+SELECT 'FUNÇÃO' as tipo, routine_name as nome, routine_type as detalhe, data_type as extra, 'N/A' as opcional 
+FROM information_schema.routines 
+WHERE routine_schema = 'public'
+
+UNION ALL
+
+-- 4. Políticas de Segurança (RLS)
+SELECT 'RLS_POLICY' as tipo, policyname as nome, tablename as detalhe, cmd as extra, roles::text as opcional 
+FROM pg_policies 
+WHERE schemaname = 'public'
+
+ORDER BY tipo, nome;`;
 
     const fullInitScript = `-- 1. EXTENSÕES & PERMISSÕES
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
