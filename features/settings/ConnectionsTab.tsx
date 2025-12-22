@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { FaKey, FaSave, FaSlack, FaCheckCircle, FaTimesCircle, FaEdit, FaTimes, FaShieldAlt } from 'react-icons/fa';
 
@@ -127,7 +126,7 @@ const ConnectionsTab: React.FC<ConnectionsTabProps> = ({ settings, onSettingsCha
                 <h3 className="font-bold text-white mb-4 flex items-center gap-2"><FaSlack className="text-purple-400"/> Notificações Slack</h3>
                 
                 <SecretStatusItem 
-                    label="Slack Webhook URL"
+                    label="SLACK_WEBHOOK_URL"
                     value={settings.slackWebhookUrl}
                     onChange={(val) => onSettingsChange('slackWebhookUrl', val)}
                     placeholder="https://hooks.slack.com/services/..."
@@ -141,13 +140,13 @@ const ConnectionsTab: React.FC<ConnectionsTabProps> = ({ settings, onSettingsCha
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <SecretStatusItem 
-                        label="Supabase URL"
+                        label="SB_URL"
                         value={settings.sbUrl}
                         onChange={(val) => onSettingsChange('sbUrl', val)}
                         placeholder="https://exemplo.supabase.co"
                     />
                     <SecretStatusItem 
-                        label="Anon Key (Pública)"
+                        label="SB_ANON_KEY"
                         value={settings.sbKey}
                         onChange={(val) => onSettingsChange('sbKey', val)}
                     />
@@ -159,7 +158,7 @@ const ConnectionsTab: React.FC<ConnectionsTabProps> = ({ settings, onSettingsCha
                 <h3 className="font-bold text-white mb-4 flex items-center gap-2"><FaKey className="text-red-400"/> Serviço de Email (Resend)</h3>
                 
                 <SecretStatusItem 
-                    label="Resend API Key"
+                    label="RESEND_API_KEY"
                     value={settings.resendApiKey}
                     onChange={(val) => onSettingsChange('resendApiKey', val)}
                     description="Usada para enviar relatórios automáticos e notificações."
