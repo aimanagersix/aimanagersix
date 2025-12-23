@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Collaborator, ModuleKey, PermissionAction } from './types';
 import { FaChartBar, FaSitemap, FaBoxOpen, FaShieldAlt, FaTicketAlt, FaFileSignature, FaToolbox, FaChevronDown, FaChevronRight, FaTimes, FaUserTie, FaTachometerAlt, FaBuilding, FaUsers, FaClipboardList, FaKey, FaShoppingCart, FaNetworkWired, FaServer, FaShieldVirus, FaGraduationCap, FaAddressBook, FaMapMarkedAlt, FaCalendarAlt, FaBook, FaBell } from './components/common/Icons';
@@ -91,8 +90,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
                                 {checkPermission('org_institutions', 'view') && <TabButton tab="organizacao.instituicoes" label={t('nav.institutions')} icon={<FaSitemap />} isDropdownItem />}
                                 {checkPermission('org_entities', 'view') && <TabButton tab="organizacao.entidades" label={t('nav.entities')} icon={<FaBuilding />} isDropdownItem />}
                                 {checkPermission('org_collaborators', 'view') && <TabButton tab="collaborators" label={t('nav.collaborators')} icon={<FaUsers />} isDropdownItem />}
-                                {checkPermission('organization', 'view') && <TabButton tab="organizacao.teams" label={t('nav.teams')} icon={<FaUsers />} isDropdownItem />}
-                                {checkPermission('org_suppliers', 'view') && <TabButton tab="organizacao.suppliers" label={t('nav.suppliers')} icon={<FaShieldAlt />} isDropdownItem />}
+                                {checkPermission('org_suppliers', 'view') && <TabButton tab="organizacao.suppliers" label={t('nav.suppliers')} icon={<FaShieldAlt className="text-orange-400" />} isDropdownItem />}
                             </div>
                         )}
                     </div>
@@ -125,11 +123,11 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser, activeTab, setActiveTab,
                         {openMenus.compliance && isExpanded && (
                             <div className="pl-4 space-y-1 bg-gray-800/30 rounded-md py-1 animate-fade-in">
                                 {checkPermission('compliance_bia', 'view') && <TabButton tab="nis2.bia" label={t('nav.bia')} icon={<FaNetworkWired />} isDropdownItem />}
-                                {checkPermission('compliance_security', 'view') && <TabButton tab="nis2.security" label={t('nav.security')} icon={<FaShieldAlt />} isDropdownItem />}
+                                {checkPermission('compliance_security', 'view') && <TabButton tab="nis2.security" label={t('nav.security')} icon={<FaShieldAlt className="text-red-400" />} isDropdownItem />}
                                 {checkPermission('compliance_backups', 'view') && <TabButton tab="nis2.backups" label={t('nav.backups')} icon={<FaServer />} isDropdownItem />}
                                 {checkPermission('compliance_resilience', 'view') && <TabButton tab="nis2.resilience" label={t('nav.resilience')} icon={<FaShieldVirus className="text-purple-400"/>} isDropdownItem />}
-                                {checkPermission('compliance_training', 'view') && <TabButton tab="nis2.training" label={t('nav.training')} icon={<FaGraduationCap />} isDropdownItem />}
-                                {checkPermission('compliance_policies', 'view') && <TabButton tab="nis2.policies" label={t('nav.policies')} icon={<FaFileSignature />} isDropdownItem />}
+                                {checkPermission('compliance_training', 'view') && <TabButton tab="nis2.training" label={t('nav.training')} icon={<FaGraduationCap className="text-green-400"/>} isDropdownItem />}
+                                {checkPermission('compliance_policies', 'view') && <TabButton tab="nis2.policies" label={t('nav.policies')} icon={<FaFileSignature className="text-yellow-400"/>} isDropdownItem />}
                             </div>
                         )}
                     </div>

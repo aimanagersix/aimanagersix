@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Collaborator, ModuleKey, PermissionAction } from './types';
 import { FaClipboardList, FaBuilding, FaUsers, FaTicketAlt, FaSitemap, FaShieldAlt, FaBoxOpen, FaToolbox, FaChevronDown, FaBars, FaChartBar, FaUserTie, FaTachometerAlt, FaKey, FaShoppingCart, FaNetworkWired, FaServer, FaShieldVirus, FaFileSignature, FaUserTie as FaGraduationCap, FaAddressBook, FaMapMarkedAlt, FaCalendarAlt, FaBook, FaBell, FaSync, FaTags } from './components/common/Icons';
@@ -35,7 +34,7 @@ const TabButton = ({ tab, label, icon, activeTab, setActiveTab, isDropdownItem =
 };
 
 const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, onLogout, tabConfig, notificationCount, onNotificationClick, onOpenProfile, onOpenCalendar, onOpenManual, checkPermission }) => {
-    const { t } = useLanguage();
+    const { t, setLanguage, language } = useLanguage();
     const [openMenu, setOpenMenu] = useState<string | null>(null);
     const menuRef = useRef<HTMLDivElement>(null);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -53,6 +52,11 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
     const isOrganizationActive = activeTab.startsWith('organizacao') || activeTab === 'collaborators';
     const isInventoryActive = activeTab.startsWith('equipment') || activeTab === 'licensing';
     const isNis2Active = activeTab.startsWith('nis2');
+
+    const navigateMobile = (tab: string) => {
+        setActiveTab(tab);
+        setIsMobileMenuOpen(false);
+    };
 
     return (
         <header className="bg-gray-800 shadow-lg relative z-30 flex-shrink-0" ref={menuRef}>
@@ -90,7 +94,6 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                                     {checkPermission('org_institutions', 'view') && <TabButton tab="organizacao.instituicoes" label={t('nav.institutions')} icon={<FaSitemap />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
                                     {checkPermission('org_entities', 'view') && <TabButton tab="organizacao.entidades" label={t('nav.entities')} icon={<FaBuilding />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
                                     {checkPermission('org_collaborators', 'view') && <TabButton tab="collaborators" label={t('nav.collaborators')} icon={<FaUsers />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
-                                    {checkPermission('organization', 'view') && <TabButton tab="organizacao.teams" label={t('nav.teams')} icon={<FaUsers className="text-green-400" />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
                                     {checkPermission('org_suppliers', 'view') && <TabButton tab="organizacao.suppliers" label={t('nav.suppliers')} icon={<FaShieldAlt className="text-orange-400" />} isDropdownItem activeTab={activeTab} setActiveTab={setActiveTab} />}
                                 </div>
                             )}
@@ -154,6 +157,81 @@ const Header: React.FC<HeaderProps> = ({ currentUser, activeTab, setActiveTab, o
                     </div>
                 </div>
             </div>
+
+            {/* MOBILE MENU DRAWER */}
+            {isMobileMenuOpen && (
+                <div className="md:hidden bg-gray-900 border-t border-gray-700 absolute w-full left-0 top-20 shadow-2xl z-40 max-h-[85vh] overflow-y-auto animate-fade-in">
+                    <div className="px-4 py-4 space-y-6">
+                        {/* Dashboards Section */}
+                        <section>
+                            <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 px-2">Dashboards</h3>
+                            <div className="space-y-1">
+                                {checkPermission('my_area', 'view') && <TabButton tab="my_area" label={t('nav.my_area')} icon={<FaUserTie className="text-brand-secondary"/>} activeTab={activeTab} setActiveTab={navigateMobile} isDropdownItem/>}
+                                {checkPermission('widget_kpi_cards', 'view') && <TabButton tab="overview" label={t('nav.dashboard')} icon={<FaChartBar />} activeTab={activeTab} setActiveTab={navigateMobile} isDropdownItem/>}
+                                {checkPermission('dashboard_smart', 'view') && <TabButton tab="overview.smart" label={t('nav.c_level')} icon={<FaTachometerAlt className="text-purple-400"/>} activeTab={activeTab} setActiveTab={navigateMobile} isDropdownItem/>}
+                            </div>
+                        </section>
+
+                        {/* Org & Assets */}
+                        <div className="grid grid-cols-2 gap-6">
+                            <section>
+                                <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 px-2">{t('nav.organization')}</h3>
+                                <div className="space-y-1">
+                                    {checkPermission('org_institutions', 'view') && <TabButton tab="organizacao.instituicoes" label={t('nav.institutions')} icon={<FaSitemap />} activeTab={activeTab} setActiveTab={navigateMobile} isDropdownItem/>}
+                                    {checkPermission('org_entities', 'view') && <TabButton tab="organizacao.entidades" label={t('nav.entities')} icon={<FaBuilding />} activeTab={activeTab} setActiveTab={navigateMobile} isDropdownItem/>}
+                                    {checkPermission('org_collaborators', 'view') && <TabButton tab="collaborators" label={t('nav.collaborators')} icon={<FaUsers />} activeTab={activeTab} setActiveTab={navigateMobile} isDropdownItem/>}
+                                    {checkPermission('org_suppliers', 'view') && <TabButton tab="organizacao.suppliers" label={t('nav.suppliers')} icon={<FaShieldAlt className="text-orange-400"/>} activeTab={activeTab} setActiveTab={navigateMobile} isDropdownItem/>}
+                                </div>
+                            </section>
+                            <section>
+                                <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 px-2">{t('nav.inventory')}</h3>
+                                <div className="space-y-1">
+                                    {checkPermission('equipment', 'view') && <TabButton tab="equipment.inventory" label={t('nav.assets_inventory')} icon={<FaClipboardList />} activeTab={activeTab} setActiveTab={navigateMobile} isDropdownItem/>}
+                                    {checkPermission('licensing', 'view') && <TabButton tab="licensing" label={t('nav.licensing')} icon={<FaKey />} activeTab={activeTab} setActiveTab={navigateMobile} isDropdownItem/>}
+                                    {checkPermission('procurement', 'view') && <TabButton tab="equipment.procurement" label={t('nav.procurement')} icon={<FaShoppingCart />} activeTab={activeTab} setActiveTab={navigateMobile} isDropdownItem/>}
+                                </div>
+                            </section>
+                        </div>
+
+                        {/* Compliance Section */}
+                        <section>
+                            <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 px-2">Compliance & NIS2</h3>
+                            <div className="grid grid-cols-2 gap-1">
+                                {checkPermission('compliance_bia', 'view') && <TabButton tab="nis2.bia" label={t('nav.bia')} icon={<FaNetworkWired />} activeTab={activeTab} setActiveTab={navigateMobile} isDropdownItem/>}
+                                {checkPermission('compliance_security', 'view') && <TabButton tab="nis2.security" label={t('nav.security')} icon={<FaShieldAlt className="text-red-400"/>} activeTab={activeTab} setActiveTab={navigateMobile} isDropdownItem/>}
+                                {checkPermission('compliance_backups', 'view') && <TabButton tab="nis2.backups" label={t('nav.backups')} icon={<FaServer />} activeTab={activeTab} setActiveTab={navigateMobile} isDropdownItem/>}
+                                {checkPermission('compliance_resilience', 'view') && <TabButton tab="nis2.resilience" label={t('nav.resilience')} icon={<FaShieldVirus className="text-purple-400"/>} activeTab={activeTab} setActiveTab={navigateMobile} isDropdownItem/>}
+                                {checkPermission('compliance_training', 'view') && <TabButton tab="nis2.training" label={t('nav.training')} icon={<FaGraduationCap className="text-green-400"/>} activeTab={activeTab} setActiveTab={navigateMobile} isDropdownItem/>}
+                                {checkPermission('compliance_policies', 'view') && <TabButton tab="nis2.policies" label={t('nav.policies')} icon={<FaFileSignature className="text-yellow-400"/>} activeTab={activeTab} setActiveTab={navigateMobile} isDropdownItem/>}
+                            </div>
+                        </section>
+
+                        {/* Support & Tools */}
+                        <div className="grid grid-cols-2 gap-6">
+                            <section>
+                                <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 px-2">Support</h3>
+                                <div className="space-y-1">
+                                    {checkPermission('tickets', 'view') && <TabButton tab="tickets.list" label={t('nav.tickets')} icon={<FaTicketAlt />} activeTab={activeTab} setActiveTab={navigateMobile} isDropdownItem/>}
+                                </div>
+                            </section>
+                            <section>
+                                <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 px-2">{t('nav.tools')}</h3>
+                                <div className="space-y-1">
+                                    {checkPermission('tools_agenda', 'view') && <TabButton tab="tools.agenda" label={t('nav.agenda')} icon={<FaAddressBook />} activeTab={activeTab} setActiveTab={navigateMobile} isDropdownItem/>}
+                                    {checkPermission('tools_map', 'view') && <TabButton tab="tools.map" label={t('nav.map')} icon={<FaMapMarkedAlt className="text-red-400"/>} activeTab={activeTab} setActiveTab={navigateMobile} isDropdownItem/>}
+                                </div>
+                            </section>
+                        </div>
+
+                        {/* Logout */}
+                        <div className="pt-4 border-t border-gray-800">
+                             <button onClick={onLogout} className="flex w-full items-center gap-3 px-4 py-4 text-red-400 hover:bg-red-900/10 transition-colors font-bold rounded-lg border border-red-900/30">
+                                <FaSync /> {t('common.logout')}
+                             </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </header>
     );
 };

@@ -212,10 +212,30 @@ export const App: React.FC = () => {
             } else setIsAppLoading(false);
         };
         initSession();
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_e: any, curSess: any) => setSession(curSess));
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_e: any, curSess: any) => {
+            setSession(curSess);
+            if (!curSess) {
+                setCurrentUser(null);
+            }
+        });
         const interval = setInterval(() => { if(!isAppLoading && currentUser) refreshAll(); }, 30000);
         return () => { subscription.unsubscribe(); clearInterval(interval); };
     }, [org.data.collaborators, isConfigured, isAppLoading, currentUser, refreshAll]);
+
+    const handleLogout = useCallback(async () => {
+        const supabase = getSupabase();
+        setIsAppLoading(true);
+        try {
+            await supabase.auth.signOut();
+            localStorage.removeItem('aimanager_global_cache');
+            setCurrentUser(null);
+            setSession(null);
+            window.location.href = window.location.origin; // Redirect to root (Login)
+        } catch (e) {
+            console.error("Logout error", e);
+            window.location.reload();
+        }
+    }, []);
 
     const handleNavigateFromChat = useCallback((ticketId: string) => {
         setActiveTab('tickets.list');
@@ -253,9 +273,9 @@ export const App: React.FC = () => {
             {reportType && <ReportModal type={reportType} onClose={() => setReportType(null)} equipment={appData.equipment} brandMap={new Map(appData.brands.map((b: any) => [b.id, b.name]))} equipmentTypeMap={new Map(appData.equipmentTypes.map((t: any) => [t.id, t.name]))} instituicoes={appData.instituicoes} escolasDepartamentos={appData.entidades} collaborators={appData.collaborators} assignments={appData.assignments} tickets={appData.tickets} softwareLicenses={appData.softwareLicenses} licenseAssignments={appData.licenseAssignments} businessServices={appData.businessServices} serviceDependencies={appData.serviceDependencies} />}
             
             {layoutMode === 'side' ? (
-                <Sidebar currentUser={currentUser} activeTab={activeTab} setActiveTab={setActiveTab} onLogout={() => { getSupabase().auth.signOut(); window.location.reload(); }} tabConfig={{}} notificationCount={alertBadgeCount} onNotificationClick={() => setShowNotifications(true)} isExpanded={sidebarExpanded} onHover={setSidebarExpanded} onOpenProfile={() => setShowProfile(true)} onOpenCalendar={() => setShowCalendar(true)} onOpenManual={() => setShowUserManual(true)} checkPermission={checkPermission} />
+                <Sidebar currentUser={currentUser} activeTab={activeTab} setActiveTab={setActiveTab} onLogout={handleLogout} tabConfig={{}} notificationCount={alertBadgeCount} onNotificationClick={() => setShowNotifications(true)} isExpanded={sidebarExpanded} onHover={setSidebarExpanded} onOpenProfile={() => setShowProfile(true)} onOpenCalendar={() => setShowCalendar(true)} onOpenManual={() => setShowUserManual(true)} checkPermission={checkPermission} />
             ) : (
-                <Header currentUser={currentUser} activeTab={activeTab} setActiveTab={setActiveTab} onLogout={() => { getSupabase().auth.signOut(); window.location.reload(); }} tabConfig={{}} notificationCount={alertBadgeCount} onNotificationClick={() => setShowNotifications(true)} onOpenProfile={() => setShowProfile(true)} onOpenCalendar={() => setShowCalendar(true)} onOpenManual={() => setShowUserManual(true)} checkPermission={checkPermission} />
+                <Header currentUser={currentUser} activeTab={activeTab} setActiveTab={setActiveTab} onLogout={handleLogout} tabConfig={{}} notificationCount={alertBadgeCount} onNotificationClick={() => setShowNotifications(true)} onOpenProfile={() => setShowProfile(true)} onOpenCalendar={() => setShowCalendar(true)} onOpenManual={() => setShowUserManual(true)} checkPermission={checkPermission} />
             )}
 
             <main className={`flex-1 p-4 md:p-8 overflow-y-auto h-screen custom-scrollbar transition-all duration-300 ${mainMarginClass}`}>
