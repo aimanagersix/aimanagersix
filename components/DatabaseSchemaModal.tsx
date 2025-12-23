@@ -162,7 +162,7 @@ CREATE TRIGGER on_auth_user_created
                                 <h3 className="font-bold flex items-center gap-2 mb-2 text-lg"><FaBolt className="text-blue-400" /> Ativação de Add-ons e Sincronização (Pedido 8)</h3>
                                 <p>Este script ativa as extensões <strong>Cron, Webhooks e Vault</strong>. </p>
                                 <p className="mt-2 text-[11px] text-red-400 font-bold bg-black/30 p-2 rounded border border-red-500/30">
-                                    <FaExclamationTriangle className="inline mr-1" /> Se o erro "extension not available" persistir, ative o "Vault" manualmente no Dashboard (Database -> Extensions).
+                                    <FaExclamationTriangle className="inline mr-1" /> Se o erro "extension not available" persistir, ative o "Vault" manualmente no Dashboard (Database -&gt; Extensions).
                                 </p>
                             </div>
                             <div className="flex-grow flex flex-col overflow-hidden border border-gray-700 rounded-lg">
