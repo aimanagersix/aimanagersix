@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { GoogleGenAI } from "npm:@google/genai"
 
-// Declare Deno to avoid TypeScript errors in environments where Deno types aren't loaded
+// Fix: Add Deno declaration for Edge Functions to resolve "Cannot find name 'Deno'" error
 declare const Deno: any;
 
 const corsHeaders = {
@@ -29,7 +29,7 @@ serve(async (req) => {
     const ai = new GoogleGenAI({ apiKey })
 
     // 4. Construct content parts
-    const parts: any[] = []
+    const parts = []
 
     // Add Images if present
     if (images && Array.isArray(images)) {
@@ -48,21 +48,15 @@ serve(async (req) => {
         parts.push({ text: prompt })
     }
 
-    // 5. Setup Configuration
-    const generationConfig: any = {}
-    if (config) {
-        if (config.responseMimeType) generationConfig.responseMimeType = config.responseMimeType
-        if (config.responseSchema) generationConfig.responseSchema = config.responseSchema
-    }
-
-    // 6. Call Google Gemini API
+    // 5. Call Google Gemini API
+    // Fix: Updated fallback model to 'gemini-3-flash-preview' per guidelines for basic text/vision tasks
     const response = await ai.models.generateContent({
-        model: model || 'gemini-2.5-flash',
+        model: model || 'gemini-3-flash-preview',
         contents: { parts },
-        config: generationConfig
+        config: config || {}
     })
 
-    // 7. Return the text result to the client
+    // 6. Return the text result to the client
     const responseText = response.text ? response.text.trim() : ""
 
     return new Response(
