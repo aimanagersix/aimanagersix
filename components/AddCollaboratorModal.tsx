@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import Modal from './common/Modal';
 import { Collaborator, Entidade, CollaboratorStatus, CustomRole, Instituicao, JobTitle } from '../types';
 import { SpinnerIcon, FaSave } from './common/Icons';
@@ -6,11 +6,11 @@ import { FaCamera, FaKey, FaUserShield, FaUserTie, FaBuilding, FaMapMarkerAlt, F
 import * as dataService from '../services/dataService';
 
 /**
- * ADD COLLABORATOR MODAL - V5.1 (Fixed Edit Permissions)
+ * ADD COLLABORATOR MODAL - V5.2 (Fixed Roles & Edit Access)
  * -----------------------------------------------------------------------------
  * STATUS DE BLOQUEIO RIGOROSO (Freeze UI):
- * - PEDIDO 8: RESTAURADO COM TODOS OS CAMPOS (Morada, Datas, NIF, etc).
- * - PEDIDO 8: PASSWORD APENAS NA CRIAÇÃO (Sincronizado com Supabase Auth).
+ * - PEDIDO 8: RESTAURADO COM TODOS OS CAMPOS.
+ * - PEDIDO 10: FIX PERFIS DUPLICADOS E EDIÇÃO DE ACESSO.
  * -----------------------------------------------------------------------------
  */
 
@@ -111,7 +111,7 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
             if (!payload.entidade_id) delete payload.entidade_id;
             if (!payload.job_title_id) delete payload.job_title_id;
 
-            const saved = await onSave(payload as any, (!collaboratorToEdit && password) ? password : undefined);
+            const saved = await onSave(payload as any, password ? password : undefined);
             if (photoFile && saved?.id) await dataService.uploadCollaboratorPhoto(saved.id, photoFile);
             onClose();
         } catch (err: any) { 
@@ -127,6 +127,13 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
         for (let i = 0; i < 12; i++) newPass += charset.charAt(Math.floor(Math.random() * charset.length));
         setPassword(newPass);
     };
+
+    // Pedido 10: Filtrar perfis dinâmicos para evitar duplicados com os perfis padrão
+    // Added useMemo to React imports to fix line 132 error
+    const filteredRoles = useMemo(() => {
+        const standardNames = ['Utilizador', 'Técnico', 'Admin', 'SuperAdmin'];
+        return availableRoles.filter(role => !standardNames.includes(role.name));
+    }, [availableRoles]);
 
     return (
         <Modal title={collaboratorToEdit ? "Editar Colaborador" : "Adicionar Colaborador"} onClose={onClose} maxWidth="max-w-4xl">
@@ -232,39 +239,40 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
                     </div>
                 </div>
 
-                {/* Acesso ao Sistema - Apenas na Criação */}
-                {!collaboratorToEdit && (
-                    <div className="bg-blue-900/10 p-6 rounded-xl border border-blue-900/30">
-                        <h4 className="text-sm font-bold text-white mb-4 flex items-center gap-2"><FaUserShield className="text-brand-secondary"/> Configuração de Acesso</h4>
-                        <div className="space-y-4">
-                            <label className="flex items-center cursor-pointer group">
-                                <input type="checkbox" checked={formData.can_login} onChange={e => setFormData({...formData, can_login: e.target.checked})} className="h-5 w-5 rounded bg-gray-700 text-brand-primary border-gray-600" />
-                                <span className="ml-3 text-sm text-gray-300 font-bold group-hover:text-white transition-colors">Ativar Login</span>
-                            </label>
-                            
-                            {formData.can_login && (
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in pt-4 border-t border-blue-900/20">
-                                    <div>
-                                        <label className="block text-[10px] text-gray-500 uppercase font-black mb-1">Perfil (Role)</label>
-                                        <select value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})} className="w-full bg-gray-800 border border-gray-700 text-white rounded p-2 text-sm">
-                                            <option value="Utilizador">Utilizador</option>
-                                            <option value="Técnico">Técnico</option>
-                                            <option value="Admin">Administrador</option>
-                                            {availableRoles.map(r => <option key={r.id} value={r.name}>{r.name}</option>)}
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label className="block text-[10px] text-gray-500 uppercase font-black mb-1">Password Temporária</label>
-                                        <div className="flex gap-2">
-                                            <input type="text" value={password} onChange={e => setPassword(e.target.value)} className="flex-grow bg-gray-800 border border-gray-700 text-white rounded p-2 text-sm font-mono" placeholder="Senha inicial..." />
-                                            <button type="button" onClick={generatePassword} className="bg-gray-700 px-4 rounded text-white hover:bg-gray-600"><FaMagic /></button>
-                                        </div>
-                                    </div>
+                {/* Configuração de Acesso (Login e Perfil) */}
+                <div className="bg-blue-900/10 p-6 rounded-xl border border-blue-900/30">
+                    <h4 className="text-sm font-bold text-white mb-4 flex items-center gap-2"><FaUserShield className="text-brand-secondary"/> Configuração de Acesso</h4>
+                    <div className="space-y-4">
+                        <label className="flex items-center cursor-pointer group">
+                            <input type="checkbox" checked={formData.can_login} onChange={e => setFormData({...formData, can_login: e.target.checked})} className="h-5 w-5 rounded bg-gray-700 text-brand-primary border-gray-600" />
+                            <span className="ml-3 text-sm text-gray-300 font-bold group-hover:text-white transition-colors">Ativar Login</span>
+                        </label>
+                        
+                        {formData.can_login && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in pt-4 border-t border-blue-900/20">
+                                <div>
+                                    <label className="block text-[10px] text-gray-500 uppercase font-black mb-1">Perfil (Role)</label>
+                                    <select value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})} className="w-full bg-gray-800 border border-gray-700 text-white rounded p-2 text-sm">
+                                        <option value="Utilizador">Utilizador (Padrão)</option>
+                                        <option value="Técnico">Técnico (Suporte)</option>
+                                        <option value="Admin">Administrador (Total)</option>
+                                        {filteredRoles.map(r => <option key={r.id} value={r.name}>{r.name}</option>)}
+                                    </select>
                                 </div>
-                            )}
-                        </div>
+                                <div>
+                                    <label className="block text-[10px] text-gray-500 uppercase font-black mb-1">
+                                        {collaboratorToEdit ? "Redefinir Password (Opcional)" : "Password Temporária"}
+                                    </label>
+                                    <div className="flex gap-2">
+                                        <input type="text" value={password} onChange={e => setPassword(e.target.value)} className="flex-grow bg-gray-800 border border-gray-700 text-white rounded p-2 text-sm font-mono" placeholder={collaboratorToEdit ? "Deixe em branco para manter" : "Senha inicial..."} />
+                                        <button type="button" onClick={generatePassword} className="bg-gray-700 px-4 rounded text-white hover:bg-gray-600" title="Gerar Senha Segura"><FaMagic /></button>
+                                    </div>
+                                    {collaboratorToEdit && <p className="text-[9px] text-gray-500 mt-1">Preencha apenas se desejar forçar uma nova senha para o utilizador.</p>}
+                                </div>
+                            </div>
+                        )}
                     </div>
-                )}
+                </div>
 
                 <div className="flex justify-end gap-4 pt-6 border-t border-gray-700">
                     <button type="button" onClick={onClose} className="px-6 py-2 bg-gray-600 text-white rounded-md font-bold hover:bg-gray-700">Cancelar</button>

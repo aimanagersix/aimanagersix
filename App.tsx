@@ -217,7 +217,7 @@ export const App: React.FC = () => {
             setSession(curSess);
             if (!curSess) {
                 setCurrentUser(null);
-                setIsAppLoading(false); // Garante que sai do estado loading ao fazer logout
+                setIsAppLoading(false); 
             }
         });
 
@@ -227,21 +227,30 @@ export const App: React.FC = () => {
 
     const handleLogout = useCallback(async () => {
         const supabase = getSupabase();
+        setIsAppLoading(true);
         try {
             await supabase.auth.signOut();
+            
             // Limpeza extensiva de estado local e persistência
+            Object.keys(localStorage).forEach(key => {
+                if (key.startsWith('sb-')) {
+                    localStorage.removeItem(key);
+                }
+            });
+
             localStorage.removeItem('aimanager_global_cache');
             localStorage.removeItem('aimanager_cache_timestamp');
             
             setCurrentUser(null);
             setSession(null);
-            setIsAppLoading(false); // Desbloqueia a renderização do LoginPage
             
-            // Força o redirecionamento para a raiz para limpar a hash da URL
-            window.location.href = '/';
+            // Força o redirecionamento imediato para a raiz para limpar a aplicação
+            window.location.assign(window.location.origin);
         } catch (e) {
             console.error("Erro crítico no Logout:", e);
-            window.location.reload();
+            window.location.assign("/");
+        } finally {
+            setIsAppLoading(false);
         }
     }, []);
 
@@ -257,7 +266,7 @@ export const App: React.FC = () => {
     if (!currentUser && !isAppLoading) return <LoginPage onLogin={async () => ({ success: true })} onForgotPassword={() => {}} />;
     
     // Se estiver em carregamento ou processando logout, mostra a tela de splash
-    if (isAppLoading || (!currentUser && session)) return <div className="min-h-screen bg-background-dark flex flex-col items-center justify-center text-white"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-secondary mb-4"></div><p className="font-bold tracking-widest text-gray-500 uppercase text-xs">Sincronizando Sistema...</p></div>;
+    if (isAppLoading) return <div className="min-h-screen bg-background-dark flex flex-col items-center justify-center text-white"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-secondary mb-4"></div><p className="font-bold tracking-widest text-gray-500 uppercase text-xs">Sincronizando Sistema...</p></div>;
 
     const mainMarginClass = layoutMode === 'side' ? (sidebarExpanded ? 'md:ml-64' : 'md:ml-20') : '';
 
