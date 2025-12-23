@@ -3,8 +3,8 @@ import { getSupabase } from './supabaseClient';
 const sb = () => getSupabase();
 
 /**
- * Serviço de Autenticação v1.6 (Payload Hardening)
- * Otimizado para garantir que o 'action' e o corpo do pedido chegam à Edge Function como JSON válido.
+ * Serviço de Autenticação v1.7 (Robust Invoke)
+ * Otimizado para garantir que o 'action' e o corpo chegam à Edge Function corretamente.
  */
 export const adminResetPassword = async (userId: string, newPassword: string) => {
     // Pedido 4: Validação e normalização rigorosa do payload
@@ -15,8 +15,8 @@ export const adminResetPassword = async (userId: string, newPassword: string) =>
         throw new Error("ID de utilizador ou nova password inválidos.");
     }
 
-    // Log para depuração local no browser (Visível no F12)
-    console.log(`[AuthService] Iniciando reset administrativo (v1.6) para utilizador: ${cleanUserId}`);
+    // Log para depuração local no browser (F12)
+    console.log(`[AuthService] Iniciando reset administrativo (v1.7) para: ${cleanUserId}`);
     
     const payload = { 
         action: 'update_password', 
@@ -25,7 +25,7 @@ export const adminResetPassword = async (userId: string, newPassword: string) =>
     };
 
     try {
-        // Pedido 4: Invocação explícita com cabeçalho de Content-Type para forçar o Deno a interpretar como JSON
+        // Pedido 4: Invocação com cabeçalho explícito para evitar erros de parsing no Deno
         const { data, error } = await sb().functions.invoke('admin-auth-helper', {
             body: payload,
             headers: {
@@ -34,15 +34,13 @@ export const adminResetPassword = async (userId: string, newPassword: string) =>
         });
         
         if (error) {
-            console.error("[AuthService] Erro retornado pela Edge Function:", error);
+            console.error("[AuthService] Resposta da Edge Function:", error);
             
-            // Tratamento de erros comuns baseado no feedback do servidor
             let errorMsg = "Falha no reset de password.";
-            
-            if (error.message?.includes('404')) {
-                errorMsg = "A Edge Function 'admin-auth-helper' não foi encontrada. Certifique-se de que fez o deploy no Supabase.";
-            } else if (error.message?.includes('400')) {
-                errorMsg = `Erro de Payload (400): ${error.message}. Verifique se o código da função no Supabase está atualizado para a v6.2 (Consola BD -> Gestão Auth).`;
+            if (error.message?.includes('Ação ""') || error.message?.includes('não suportada')) {
+                errorMsg = "A Edge Function recebeu um payload vazio ou inválido. Verifique os logs do servidor para o texto bruto.";
+            } else if (error.status === 400) {
+                errorMsg = `Erro de pedido (400): ${error.message}`;
             } else {
                 errorMsg = `Erro técnico (${error.status || 'Deno'}): ${error.message}`;
             }
@@ -50,7 +48,7 @@ export const adminResetPassword = async (userId: string, newPassword: string) =>
             throw new Error(errorMsg);
         }
         
-        // Sincronização de metadados na base de dados pública após sucesso no Auth
+        // Sincronização de metadados na base de dados pública após sucesso
         await sb().from('collaborators').update({ 
             password_updated_at: new Date().toISOString() 
         }).eq('id', cleanUserId);
@@ -58,7 +56,7 @@ export const adminResetPassword = async (userId: string, newPassword: string) =>
         console.log(`[AuthService] Password atualizada com sucesso para ${cleanUserId}`);
         return { success: true, data };
     } catch (e: any) {
-        console.error("[AuthService] Exceção crítica durante o invoke:", e);
+        console.error("[AuthService] Exceção crítica na chamada:", e);
         throw e;
     }
 };

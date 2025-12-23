@@ -3,12 +3,12 @@ import Modal from './common/Modal';
 import { FaDatabase, FaCheck, FaCopy, FaExclamationTriangle, FaCode, FaBolt, FaShieldAlt, FaSync, FaSearch, FaTools, FaInfoCircle, FaRobot, FaTerminal, FaKey, FaEnvelope, FaExternalLinkAlt, FaListOl, FaPlay } from 'react-icons/fa';
 
 /**
- * DB Manager UI - v12.0 (Guided Infrastructure Implementation & Auth Fix v6.2)
+ * DB Manager UI - v13.0 (Infrastructure & Debug Refinement)
  * -----------------------------------------------------------------------------
  * STATUS DE BLOQUEIO RIGOROSO (Freeze UI):
  * - PEDIDO 9: GUIA DE IMPLEMENTAÇÃO DA EDGE FUNCTION AI-PROXY.
- * - PEDIDO 8: GUIA DE IMPLEMENTAÇÃO DA EDGE FUNCTION ADMIN-AUTH-HELPER (V6.2).
- * - PEDIDO 4: REPARAÇÃO DO ERRO DE STATUS NON-2XX E AÇÃO INVÁLIDA.
+ * - PEDIDO 8: GUIA DE IMPLEMENTAÇÃO DA EDGE FUNCTION ADMIN-AUTH-HELPER (V6.3).
+ * - PEDIDO 4: CORREÇÃO DE ERROS DE DEPLOY E PARSING DE JSON.
  * -----------------------------------------------------------------------------
  */
 
@@ -202,32 +202,29 @@ serve(async (req) => {
 
     const supabaseAdmin = createClient(url, key)
     
-    // Pedido 4: Leitura robusta do body via stream para evitar falhas de parsing
+    // Pedido 4: Leitura robusta do texto bruto ANTES do parsing para logs
+    const text = await req.text();
+    console.log("[AuthHelper] Texto bruto recebido:", text);
+
     let body = {};
     try {
-        const text = await req.text();
         body = JSON.parse(text);
     } catch (e) {
-        console.error("[AuthHelper] Erro parsing JSON:", e.message);
+        throw new Error(\`Falha ao converter body para JSON: \${e.message}. Recebido: \${text}\`);
     }
     
-    console.log("[AuthHelper] Payload Recebido:", JSON.stringify(body));
-
     const action = String(body.action || '').trim().toLowerCase();
     const targetUserId = body.targetUserId;
     const newPassword = body.newPassword;
 
     if (action === 'update_password') {
       if (!targetUserId || !newPassword) {
-        throw new Error(\`Dados incompletos. Chaves recebidas: \${Object.keys(body).join(',')}\`);
+        throw new Error('Dados targetUserId ou newPassword ausentes no payload.');
       }
       
       const { data, error } = await supabaseAdmin.auth.admin.updateUserById(targetUserId, { password: newPassword })
       
-      if (error) {
-          console.error("[AuthHelper] Erro updateUserById:", error.message);
-          throw error;
-      }
+      if (error) throw error;
 
       return new Response(JSON.stringify({ success: true, user_id: data.user.id }), { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }, 
@@ -235,7 +232,7 @@ serve(async (req) => {
       })
     }
     
-    throw new Error(\`Ação "\${action}" não suportada. Verifique o campo 'action' no JSON.\`)
+    throw new Error(\`Ação "\${action}" não reconhecida pela versão v6.3.\`)
   } catch (error) {
     console.error("[AuthHelper] ERRO:", error.message);
     return new Response(JSON.stringify({ error: error.message }), { 
@@ -251,7 +248,7 @@ serve(async (req) => {
                 <div className="flex-shrink-0 flex border-b border-gray-700 bg-gray-900/50 rounded-t-lg overflow-x-auto custom-scrollbar whitespace-nowrap">
                     <button onClick={() => setActiveTab('full')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'full' ? 'border-brand-primary text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaCode /> Inicialização Universal (v10.0)</button>
                     <button onClick={() => setActiveTab('ai_bridge')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'ai_bridge' ? 'border-purple-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaRobot /> Ponte de IA (Deno)</button>
-                    <button onClick={() => setActiveTab('auth_helper')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'auth_helper' ? 'border-orange-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaKey /> Gestão Auth (v6.2)</button>
+                    <button onClick={() => setActiveTab('auth_helper')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'auth_helper' ? 'border-orange-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaKey /> Gestão Auth (v6.3)</button>
                 </div>
 
                 <div className="flex-grow overflow-hidden flex flex-col gap-4">
@@ -282,7 +279,7 @@ serve(async (req) => {
                                 }} 
                                 className="px-4 py-2 bg-brand-primary text-white text-xs font-black rounded-md shadow-lg flex items-center gap-2 hover:bg-brand-secondary transition-all"
                             >
-                                {copied === activeTab ? <FaCheck /> : <FaCopy />} Copiar SQL
+                                {copied === activeTab ? <FaCheck /> : <FaCopy />} Copiar Código
                             </button>
                         </div>
                         <div className="h-full overflow-auto custom-scrollbar p-6 bg-gray-950 font-mono text-xs text-blue-400">
