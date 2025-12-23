@@ -3,12 +3,12 @@ import Modal from './common/Modal';
 import { FaDatabase, FaCheck, FaCopy, FaExclamationTriangle, FaCode, FaBolt, FaShieldAlt, FaSync, FaSearch, FaTools, FaInfoCircle, FaRobot, FaTerminal, FaKey, FaEnvelope } from 'react-icons/fa';
 
 /**
- * DB Manager UI - v7.3 (Infrastructure & Add-ons Guide)
+ * DB Manager UI - v7.4 (Infrastructure Fix: supabase_vault)
  * -----------------------------------------------------------------------------
  * STATUS DE BLOQUEIO RIGOROSO (Freeze UI):
  * - PEDIDO 9: GUIA DE IMPLEMENTAÇÃO DA EDGE FUNCTION AI-PROXY.
  * - PEDIDO 8: GUIA DE IMPLEMENTAÇÃO DA EDGE FUNCTION ADMIN-AUTH-HELPER.
- * - PEDIDO 8: SCRIPTS PARA EXTENSÕES (CRON, WEBHOOKS, VAULT) E TRIGGERS AUTH.
+ * - PEDIDO 8: CORREÇÃO EXTENSÃO VAULT -> SUPABASE_VAULT.
  * -----------------------------------------------------------------------------
  */
 
@@ -104,17 +104,16 @@ serve(async (req) => {
   }
 })`;
 
-    const patchScript = `-- ⚡ PATCH / INFRAESTRUTURA v7.3 (Add-ons e Triggers de Sincronização)
+    const patchScript = `-- ⚡ PATCH / INFRAESTRUTURA v7.4 (Add-ons e Correção Vault)
 
--- 1. ATIVAR EXTENSÕES ESSENCIAIS (Add-ons solicitados no Pedido 8)
-CREATE EXTENSION IF NOT EXISTS pg_cron;         -- Para tarefas agendadas (Backups/Aniversários)
-CREATE EXTENSION IF NOT EXISTS pg_net;          -- Para Webhooks e Chamadas Externas
-CREATE EXTENSION IF NOT EXISTS "vault";         -- Para chaves encriptadas
--- GraphiQL e GraphQL já costumam vir por defeito no Supabase, mas pg_graphql pode ser ativado:
+-- 1. ATIVAR EXTENSÕES ESSENCIAIS (Pedido 8: Corrigido supabase_vault)
+-- Nota: Se o comando abaixo falhar, ative "Vault" no menu 'Database -> Extensions' do Dashboard do Supabase.
+CREATE EXTENSION IF NOT EXISTS pg_cron;         
+CREATE EXTENSION IF NOT EXISTS pg_net;          
+CREATE EXTENSION IF NOT EXISTS supabase_vault;  -- Nome técnico correto no Supabase
 CREATE EXTENSION IF NOT EXISTS pg_graphql;
 
 -- 2. SINCRONIZAÇÃO AUTOMÁTICA AUTH -> PUBLIC (Pedido 8)
--- Esta função cria um colaborador sempre que alguém faz Sign Up ou é criado via Admin
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger AS $$
 BEGIN
@@ -140,9 +139,7 @@ CREATE TRIGGER on_auth_user_created
 
 -- 3. NOTA SOBRE RESEND E AUTH EMAILS
 -- Importante: As definições de SMTP no Dashboard do Supabase sobrepõem-se à API Resend da App.
--- Para que o "Esqueceu-se da password" funcione com o seu domínio do Resend:
--- Vá a: Supabase Dashboard -> Authentication -> Providers -> Email
--- Ative "Custom SMTP" e insira os dados do Resend (smtp.resend.com, porta 587, etc).
+-- Vá a: Supabase Dashboard -> Authentication -> Providers -> Email -> SMTP
 `;
 
     return (
@@ -163,11 +160,10 @@ CREATE TRIGGER on_auth_user_created
                         <div className="flex-grow flex flex-col overflow-hidden animate-fade-in">
                             <div className="bg-blue-900/10 border border-blue-500/30 p-4 rounded-lg text-sm text-blue-200 mb-4">
                                 <h3 className="font-bold flex items-center gap-2 mb-2 text-lg"><FaBolt className="text-blue-400" /> Ativação de Add-ons e Sincronização (Pedido 8)</h3>
-                                <p>Este script ativa as extensões <strong>Cron, Webhooks e Vault</strong>, além de garantir que os utilizadores Auth são sincronizados com os Colaboradores.</p>
-                            </div>
-                            <div className="bg-orange-900/10 border border-orange-500/30 p-3 rounded-md text-xs text-orange-200 mb-4 flex items-center gap-2">
-                                <FaEnvelope className="text-orange-400" />
-                                <p><strong>Nota SMTP:</strong> Para o email de password, configure o Resend no painel "SMTP" do Supabase (Auth Settings).</p>
+                                <p>Este script ativa as extensões <strong>Cron, Webhooks e Vault</strong>. </p>
+                                <p className="mt-2 text-[11px] text-red-400 font-bold bg-black/30 p-2 rounded border border-red-500/30">
+                                    <FaExclamationTriangle className="inline mr-1" /> Se o erro "extension not available" persistir, ative o "Vault" manualmente no Dashboard (Database -> Extensions).
+                                </p>
                             </div>
                             <div className="flex-grow flex flex-col overflow-hidden border border-gray-700 rounded-lg">
                                 <div className="bg-gray-800 px-4 py-2 border-b border-gray-700 flex justify-between items-center">
