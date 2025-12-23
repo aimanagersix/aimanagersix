@@ -266,7 +266,7 @@ export const App: React.FC = () => {
     if (!currentUser && !isAppLoading) return <LoginPage onLogin={async () => ({ success: true })} onForgotPassword={() => {}} />;
     
     // Se estiver em carregamento ou processando logout, mostra a tela de splash
-    if (isAppLoading) return <div className="min-h-screen bg-background-dark flex flex-col items-center justify-center text-white"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-secondary mb-4"></div><p className="font-bold tracking-widest text-gray-500 uppercase text-xs">Sincronizando Sistema...</p></div>;
+    if (isAppLoading || (!currentUser && session)) return <div className="min-h-screen bg-background-dark flex flex-col items-center justify-center text-white"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-secondary mb-4"></div><p className="font-bold tracking-widest text-gray-500 uppercase text-xs">Sincronizando Sistema...</p></div>;
 
     const mainMarginClass = layoutMode === 'side' ? (sidebarExpanded ? 'md:ml-64' : 'md:ml-20') : '';
 
@@ -274,7 +274,7 @@ export const App: React.FC = () => {
         <div className={`min-h-screen bg-background-dark text-on-surface-dark-secondary flex flex-col ${layoutMode === 'side' ? 'md:flex-row' : ''}`}>
             {isSyncing && <div className="fixed top-0 left-0 w-full h-1 z-[200] overflow-hidden bg-gray-800"><div className="h-full bg-brand-secondary animate-pulse w-full origin-left transform scale-x-0" style={{ animation: 'progress 1s infinite linear' }}></div></div>}
             
-            {showProfile && <UserProfileModal user={currentUser} entidade={org.data.entidades.find(e => e.id === currentUser.entidade_id)} instituicao={org.data.instituicoes.find(i => i.id === currentUser.instituicao_id)} onClose={() => setShowProfile(false)} onUpdatePhoto={async (url) => { await dataService.updateMyPhoto(currentUser.id, url); refreshAll(true); }} />}
+            {showProfile && <UserProfileModal user={currentUser!} entidade={org.data.entidades.find(e => e.id === currentUser!.entidade_id)} instituicao={org.data.instituicoes.find(i => i.id === currentUser!.instituicao_id)} onClose={() => setShowProfile(false)} onUpdatePhoto={async (url) => { await dataService.updateMyPhoto(currentUser!.id, url); refreshAll(true); }} />}
             {showNotifications && (
                 <NotificationsModal 
                     onClose={() => setShowNotifications(false)} 
@@ -284,12 +284,12 @@ export const App: React.FC = () => {
                     collaborators={appData.collaborators} 
                     teams={appData.teams} 
                     onViewItem={(t, f) => { setActiveTab(t); setDashboardFilter(f); setShowNotifications(false); }} 
-                    currentUser={currentUser} 
+                    currentUser={currentUser!} 
                     licenseAssignments={appData.licenseAssignments} 
                     checkPermission={checkPermission}
                 />
             )}
-            {showCalendar && <CalendarModal onClose={() => setShowCalendar(false)} tickets={appData.tickets} currentUser={currentUser} teams={appData.teams} teamMembers={appData.teamMembers} collaborators={appData.collaborators} onViewTicket={(t) => { setActiveTab('tickets.list'); setDashboardFilter({ id: t.id }); setShowCalendar(false); }} calendarEvents={appData.calendarEvents} />}
+            {showCalendar && <CalendarModal onClose={() => setShowCalendar(false)} tickets={appData.tickets} currentUser={currentUser!} teams={appData.teams} teamMembers={appData.teamMembers} collaborators={appData.collaborators} onViewTicket={(t) => { setActiveTab('tickets.list'); setDashboardFilter({ id: t.id }); setShowCalendar(false); }} calendarEvents={appData.calendarEvents} />}
             {showUserManual && <UserManualModal onClose={() => setShowUserManual(false)} />}
             {reportType && <ReportModal type={reportType} onClose={() => setReportType(null)} equipment={appData.equipment} brandMap={new Map(appData.brands.map((b: any) => [b.id, b.name]))} equipmentTypeMap={new Map(appData.equipmentTypes.map((t: any) => [t.id, t.name]))} instituicoes={appData.instituicoes} escolasDepartamentos={appData.entidades} collaborators={appData.collaborators} assignments={appData.assignments} tickets={appData.tickets} softwareLicenses={appData.softwareLicenses} licenseAssignments={appData.licenseAssignments} businessServices={appData.businessServices} serviceDependencies={appData.serviceDependencies} />}
             
@@ -302,9 +302,9 @@ export const App: React.FC = () => {
             <main className={`flex-1 p-4 md:p-8 overflow-y-auto h-screen custom-scrollbar transition-all duration-300 ${mainMarginClass}`}>
                 <div className="max-w-7xl mx-auto">
                     {activeTab.startsWith('overview') || activeTab === 'my_area' ? (
-                        activeTab === 'overview.smart' ? <SmartDashboard tickets={appData.tickets} vulnerabilities={appData.vulnerabilities} backups={appData.backupExecutions} trainings={appData.securityTrainings} collaborators={appData.collaborators} currentUser={currentUser} /> :
+                        activeTab === 'overview.smart' ? <SmartDashboard tickets={appData.tickets} vulnerabilities={appData.vulnerabilities} backups={appData.backupExecutions} trainings={appData.securityTrainings} collaborators={appData.collaborators} currentUser={currentUser!} /> :
                         checkPermission('widget_kpi_cards', 'view') && activeTab === 'overview' ? <OverviewDashboard equipment={appData.equipment} instituicoes={appData.instituicoes} entidades={appData.entidades} assignments={appData.assignments} equipmentTypes={appData.equipmentTypes} tickets={appData.tickets} collaborators={appData.collaborators} teams={appData.teams} expiringWarranties={[]} expiringLicenses={[]} softwareLicenses={appData.softwareLicenses} licenseAssignments={appData.licenseAssignments} vulnerabilities={appData.vulnerabilities} onViewItem={(t,f) => { setActiveTab(t); setDashboardFilter(f); }} onGenerateComplianceReport={() => {}} checkPermission={checkPermission} onRefresh={() => refreshAll(true)} /> :
-                        <SelfServiceDashboard currentUser={currentUser} equipment={appData.equipment} assignments={appData.assignments} softwareLicenses={appData.softwareLicenses} licenseAssignments={appData.licenseAssignments} trainings={appData.securityTrainings} brands={appData.brands} types={appData.equipmentTypes} policies={appData.policies} acceptances={appData.policyAcceptances} tickets={appData.tickets} onViewTicket={setViewingTicket} onViewPolicy={setReadingPolicy} onViewEquipment={setViewingEquipment} onViewTraining={setViewingTraining} onViewLicense={setViewingLicense} />
+                        <SelfServiceDashboard currentUser={currentUser!} equipment={appData.equipment} assignments={appData.assignments} softwareLicenses={appData.softwareLicenses} licenseAssignments={appData.licenseAssignments} trainings={appData.securityTrainings} brands={appData.brands} types={appData.equipmentTypes} policies={appData.policies} acceptances={appData.policyAcceptances} tickets={appData.tickets} onViewTicket={setViewingTicket} onViewPolicy={setReadingPolicy} onViewEquipment={setViewingEquipment} onViewTraining={setViewingTraining} onViewLicense={setViewingLicense} />
                     ) : null}
 
                     {(activeTab.startsWith('equipment') || activeTab === 'licensing') && <InventoryManager activeTab={activeTab} appData={appData} checkPermission={checkPermission} refreshData={() => refreshAll(true)} dashboardFilter={dashboardFilter} setDashboardFilter={setDashboardFilter} setReportType={setReportType} currentUser={currentUser} onViewItem={(t,f) => { setActiveTab(t); setDashboardFilter(f); }} />}
@@ -320,8 +320,8 @@ export const App: React.FC = () => {
 
             <MagicCommandBar brands={appData.brands} types={appData.equipmentTypes} collaborators={appData.collaborators} currentUser={currentUser} onAction={() => {}} />
             <ChatWidget 
-                currentUser={currentUser} collaborators={appData.collaborators} messages={appData.messages} 
-                onSendMessage={async (r,c) => { await dataService.addMessage({ sender_id: currentUser.id, receiver_id: r, content: c, timestamp: new Date().toISOString(), read: false }); refreshAll(true); }} 
+                currentUser={currentUser!} collaborators={appData.collaborators} messages={appData.messages} 
+                onSendMessage={async (r,c) => { await dataService.addMessage({ sender_id: currentUser!.id, receiver_id: r, content: c, timestamp: new Date().toISOString(), read: false }); refreshAll(true); }} 
                 onMarkMessagesAsRead={async (id) => { await dataService.markMessagesAsRead(id); refreshAll(true); }} 
                 isOpen={chatOpen} onToggle={() => setChatOpen(!chatOpen)} activeChatCollaboratorId={activeChatCollaboratorId} 
                 unreadMessagesCount={alertBadgeCount} onSelectConversation={setActiveChatCollaboratorId} 
@@ -329,7 +329,7 @@ export const App: React.FC = () => {
                 checkPermission={checkPermission}
             />
             
-            <ModalOrchestrator currentUser={currentUser} appData={appData} checkPermission={checkPermission} refreshSupport={() => refreshAll(true)} viewingTicket={viewingTicket} setViewingTicket={setViewingTicket} viewingEquipment={viewingEquipment} setViewingEquipment={setViewingEquipment} readingPolicy={readingPolicy} setReadingPolicy={setReadingPolicy} viewingLicense={viewingLicense} setViewingLicense={setViewingLicense} viewingTraining={viewingTraining} setViewingTraining={setViewingTraining} setActiveTab={setActiveTab} setDashboardFilter={setDashboardFilter} />
+            <ModalOrchestrator currentUser={currentUser!} appData={appData} checkPermission={checkPermission} refreshSupport={() => refreshAll(true)} viewingTicket={viewingTicket} setViewingTicket={setViewingTicket} viewingEquipment={viewingEquipment} setViewingEquipment={setViewingEquipment} readingPolicy={readingPolicy} setReadingPolicy={setReadingPolicy} viewingLicense={viewingLicense} setViewingLicense={setViewingLicense} viewingTraining={viewingTraining} setViewingTraining={setViewingTraining} setActiveTab={setActiveTab} setDashboardFilter={setDashboardFilter} />
         </div>
     );
 };
