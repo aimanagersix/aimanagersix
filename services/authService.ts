@@ -3,8 +3,8 @@ import { getSupabase } from './supabaseClient';
 const sb = () => getSupabase();
 
 /**
- * Serviço de Autenticação v1.5 (Repair Mode)
- * Otimizado para evitar erros de status não-2xx nas Edge Functions.
+ * Serviço de Autenticação v1.6 (Payload Hardening)
+ * Otimizado para garantir que o 'action' e o corpo do pedido chegam à Edge Function como JSON válido.
  */
 export const adminResetPassword = async (userId: string, newPassword: string) => {
     // Pedido 4: Validação e normalização rigorosa do payload
@@ -15,8 +15,8 @@ export const adminResetPassword = async (userId: string, newPassword: string) =>
         throw new Error("ID de utilizador ou nova password inválidos.");
     }
 
-    // Log para depuração local no browser
-    console.log(`[AuthService] Iniciando reset administrativo para utilizador: ${cleanUserId}`);
+    // Log para depuração local no browser (Visível no F12)
+    console.log(`[AuthService] Iniciando reset administrativo (v1.6) para utilizador: ${cleanUserId}`);
     
     const payload = { 
         action: 'update_password', 
@@ -25,8 +25,12 @@ export const adminResetPassword = async (userId: string, newPassword: string) =>
     };
 
     try {
+        // Pedido 4: Invocação explícita com cabeçalho de Content-Type para forçar o Deno a interpretar como JSON
         const { data, error } = await sb().functions.invoke('admin-auth-helper', {
-            body: payload
+            body: payload,
+            headers: {
+                'Content-Type': 'application/json'
+            }
         });
         
         if (error) {
@@ -38,7 +42,7 @@ export const adminResetPassword = async (userId: string, newPassword: string) =>
             if (error.message?.includes('404')) {
                 errorMsg = "A Edge Function 'admin-auth-helper' não foi encontrada. Certifique-se de que fez o deploy no Supabase.";
             } else if (error.message?.includes('400')) {
-                errorMsg = "Pedido inválido. Verifique se o código da função no Supabase está atualizado para a v6.0.";
+                errorMsg = `Erro de Payload (400): ${error.message}. Verifique se o código da função no Supabase está atualizado para a v6.2 (Consola BD -> Gestão Auth).`;
             } else {
                 errorMsg = `Erro técnico (${error.status || 'Deno'}): ${error.message}`;
             }
