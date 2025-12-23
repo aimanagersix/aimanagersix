@@ -1,6 +1,3 @@
-
-
-
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import Header from './Header';
 import Sidebar from './Sidebar';
@@ -203,18 +200,6 @@ export const App: React.FC = () => {
 
     useEffect(() => {
         if (!isConfigured) return;
-        
-        // --- MOCK LOGIN LOGIC ---
-        if (dataService.isUsingMock()) {
-            // Carrega diretamente da DB local ignorando os hooks para evitar hang
-            const db = dataService.getLocalDB();
-            const mockUser = db.collaborators.find((c: any) => c.id === 'user-superadmin') || db.collaborators[0];
-            if (mockUser) {
-                setCurrentUser(mockUser);
-                setIsAppLoading(false);
-            }
-            return;
-        }
 
         const supabase = getSupabase();
         const initSession = async () => {
@@ -230,7 +215,7 @@ export const App: React.FC = () => {
         const { data: { subscription } } = supabase.auth.onAuthStateChange((_e: any, curSess: any) => setSession(curSess));
         const interval = setInterval(() => { if(!isAppLoading && currentUser) refreshAll(); }, 30000);
         return () => { subscription.unsubscribe(); clearInterval(interval); };
-    }, [org.data.collaborators, isConfigured, isAppLoading, currentUser, refreshAll, appData.collaborators]);
+    }, [org.data.collaborators, isConfigured, isAppLoading, currentUser, refreshAll]);
 
     const handleNavigateFromChat = useCallback((ticketId: string) => {
         setActiveTab('tickets.list');
@@ -248,13 +233,6 @@ export const App: React.FC = () => {
         <div className={`min-h-screen bg-background-dark text-on-surface-dark-secondary flex flex-col ${layoutMode === 'side' ? 'md:flex-row' : ''}`}>
             {isSyncing && <div className="fixed top-0 left-0 w-full h-1 z-[200] overflow-hidden bg-gray-800"><div className="h-full bg-brand-secondary animate-pulse w-full origin-left transform scale-x-0" style={{ animation: 'progress 1s infinite linear' }}></div></div>}
             
-            {/* MOCK MODE INDICATOR */}
-            {dataService.isUsingMock() && (
-                <div className="fixed bottom-4 left-4 z-[300] bg-orange-600 text-white px-4 py-2 rounded-full shadow-2xl flex items-center gap-2 text-xs font-bold border-2 border-white/20 animate-pulse">
-                    <FaDatabase /> MOCK MODE (Offline)
-                </div>
-            )}
-
             {showProfile && <UserProfileModal user={currentUser} entidade={org.data.entidades.find(e => e.id === currentUser.entidade_id)} instituicao={org.data.instituicoes.find(i => i.id === currentUser.instituicao_id)} onClose={() => setShowProfile(false)} onUpdatePhoto={async (url) => { await dataService.updateMyPhoto(currentUser.id, url); refreshAll(true); }} />}
             {showNotifications && (
                 <NotificationsModal 
@@ -302,8 +280,8 @@ export const App: React.FC = () => {
             <MagicCommandBar brands={appData.brands} types={appData.equipmentTypes} collaborators={appData.collaborators} currentUser={currentUser} onAction={() => {}} />
             <ChatWidget 
                 currentUser={currentUser} collaborators={appData.collaborators} messages={appData.messages} 
-                onSendMessage={async (r,c) => { if(dataService.isUsingMock()) return; await dataService.addMessage({ sender_id: currentUser.id, receiver_id: r, content: c, timestamp: new Date().toISOString(), read: false }); refreshAll(true); }} 
-                onMarkMessagesAsRead={async (id) => { if(dataService.isUsingMock()) return; await dataService.markMessagesAsRead(id); refreshAll(true); }} 
+                onSendMessage={async (r,c) => { await dataService.addMessage({ sender_id: currentUser.id, receiver_id: r, content: c, timestamp: new Date().toISOString(), read: false }); refreshAll(true); }} 
+                onMarkMessagesAsRead={async (id) => { await dataService.markMessagesAsRead(id); refreshAll(true); }} 
                 isOpen={chatOpen} onToggle={() => setChatOpen(!chatOpen)} activeChatCollaboratorId={activeChatCollaboratorId} 
                 unreadMessagesCount={alertBadgeCount} onSelectConversation={setActiveChatCollaboratorId} 
                 onNavigateToTicket={handleNavigateFromChat}

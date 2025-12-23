@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { FaKey, FaSave, FaCheckCircle, FaTimesCircle, FaEdit, FaShieldAlt, FaRobot, FaExternalLinkAlt, FaSync, FaFlask, FaSlack, FaEnvelope, FaInfoCircle, FaDatabase, FaUsers } from 'react-icons/fa';
+import React, { useState, useEffect, useMemo } from 'react';
+import { FaKey, FaSave, FaCheckCircle, FaTimesCircle, FaEdit, FaShieldAlt, FaRobot, FaExternalLinkAlt, FaSync, FaFlask, FaSlack, FaEnvelope, FaInfoCircle, FaDatabase, FaUsers, FaBoxOpen } from 'react-icons/fa';
 import { getAiConfigurationType } from '../../services/geminiService';
 import { getSupabase } from '../../services/supabaseClient';
 
@@ -54,7 +54,12 @@ const ConnectionsTab: React.FC<ConnectionsTabProps> = ({ settings, onSettingsCha
     const [isDbTesting, setIsDbTesting] = useState(false);
     const [aiConnectionStatus, setAiConnectionStatus] = useState<'idle' | 'success' | 'error'>(aiConfigType === 'direct' ? 'success' : 'idle');
     const [dbConnectionStatus, setDbConnectionStatus] = useState<'idle' | 'success' | 'error'>('idle');
-    const [userCount, setUserCount] = useState<number | null>(null);
+    
+    // Stats Reais da Base de Dados (Pedido 9)
+    const [dbStats, setDbStats] = useState({
+        collaborators: null as number | null,
+        equipment: null as number | null
+    });
 
     const testAiConnection = async () => {
         setIsAiTesting(true);
@@ -81,20 +86,26 @@ const ConnectionsTab: React.FC<ConnectionsTabProps> = ({ settings, onSettingsCha
         }
     };
 
-    const testDirectDbAccess = async () => {
+    const fetchLiveStats = async () => {
         setIsDbTesting(true);
         try {
             const supabase = getSupabase();
-            // Consulta direta ignorando a Edge Function (Pedido 9)
-            const { count, error } = await supabase
-                .from('collaborators')
-                .select('*', { count: 'exact', head: true });
             
-            if (error) throw error;
+            // Pedido 9: Consulta absoluta sem filtros para bater com o Dashboard do Supabase
+            const [resCollabs, resEquip] = await Promise.all([
+                supabase.from('collaborators').select('id', { count: 'exact', head: true }),
+                supabase.from('equipment').select('id', { count: 'exact', head: true })
+            ]);
+            
+            if (resCollabs.error) throw resCollabs.error;
             
             setDbConnectionStatus('success');
-            setUserCount(count);
-            alert(`Sucesso! Ligação direta à base de dados operacional.\nUtilizadores criados detetados: ${count}`);
+            setDbStats({
+                collaborators: resCollabs.count,
+                equipment: resEquip.count
+            });
+            
+            alert(`Sincronização Live:\n\n- Registos totais em 'collaborators': ${resCollabs.count}\n- Registos totais em 'equipment': ${resEquip.count}\n\nO sistema está agora a ler o estado real da sua base de dados.`);
         } catch (e: any) {
             console.error(e);
             setDbConnectionStatus('error');
@@ -132,24 +143,30 @@ const ConnectionsTab: React.FC<ConnectionsTabProps> = ({ settings, onSettingsCha
                     </div>
                 </ConnectionCard>
 
-                {/* BLOC: INFRAESTRUTURA SUPABASE (Expandido para Diagnóstico Direto) */}
+                {/* BLOC: INFRAESTRUTURA SUPABASE (Expandido para Diagnóstico Direto e Stats) */}
                 <ConnectionCard 
                     title="Infraestrutura Supabase" 
                     icon={<FaKey size={20}/>} 
-                    status={<StatusBadge configured={dbConnectionStatus === 'success'} testing={isDbTesting} label="LIGAÇÃO DIRETA" />}
+                    status={<StatusBadge configured={dbConnectionStatus === 'success'} testing={isDbTesting} label="PRODUÇÃO ATIVA" />}
                     description="Base de dados PostgreSQL e Autenticação (Projeto: yyiwkrkuhlkqibhowdmq)."
                 >
                     <div className="bg-black/30 p-3 rounded border border-gray-800 text-xs text-gray-400 space-y-3">
-                        <div className="flex justify-between items-center bg-gray-900/50 p-2 rounded border border-gray-700">
-                            <span className="flex items-center gap-2 text-[11px]"><FaUsers className="text-brand-secondary"/> Utilizadores na DB:</span>
-                            <span className="font-mono text-white font-bold">{userCount !== null ? userCount : '---'}</span>
+                        <div className="grid grid-cols-2 gap-2">
+                            <div className="flex flex-col bg-gray-900/50 p-2 rounded border border-gray-700">
+                                <span className="flex items-center gap-2 text-[9px] uppercase font-bold text-gray-500 mb-1"><FaUsers className="text-brand-secondary"/> Colaboradores (Live)</span>
+                                <span className="font-mono text-white font-bold text-lg">{dbStats.collaborators !== null ? dbStats.collaborators : '---'}</span>
+                            </div>
+                            <div className="flex flex-col bg-gray-900/50 p-2 rounded border border-gray-700">
+                                <span className="flex items-center gap-2 text-[9px] uppercase font-bold text-gray-500 mb-1"><FaBoxOpen className="text-orange-400"/> Equipamentos (Live)</span>
+                                <span className="font-mono text-white font-bold text-lg">{dbStats.equipment !== null ? dbStats.equipment : '---'}</span>
+                            </div>
                         </div>
                         <button 
-                            onClick={testDirectDbAccess}
+                            onClick={fetchLiveStats}
                             disabled={isDbTesting}
                             className="w-full flex items-center justify-center gap-2 py-2 bg-blue-600/20 hover:bg-blue-600/40 text-blue-300 rounded border border-blue-500/30 transition-all font-bold"
                         >
-                            <FaDatabase /> Validar Acesso Direto (Contagem)
+                            <FaDatabase /> Consultar Estatísticas Reais
                         </button>
                     </div>
                 </ConnectionCard>

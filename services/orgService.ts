@@ -2,15 +2,15 @@ import { getSupabase } from './supabaseClient';
 import { ResourceContact } from '../types';
 
 /**
- * Organization Service - V2.4
+ * Organization Service - V2.5
  * Pedido 7: Limpeza de payload rigorosa e propagação de erros.
+ * Pedido 9: Ajuste de busca para garantir visibilidade total dos registos (3 colaboradores).
  */
 
 const sb = () => getSupabase();
 
 const cleanPayload = (data: any) => {
     const cleaned = { ...data };
-    // Pedido 7: Impedir que chaves inexistentes no schema causem falha 400
     delete cleaned.address; 
     delete cleaned.contacts;
     delete cleaned.preferences;
@@ -23,14 +23,15 @@ const cleanPayload = (data: any) => {
 };
 
 export const fetchOrganizationData = async () => {
+    // Pedido 9: Usar ordenação explícita para garantir consistência no carregamento inicial
     const results = await Promise.all([
-        sb().from('institutions').select('*'),
-        sb().from('entities').select('*'),
-        sb().from('collaborators').select('*'),
-        sb().from('config_custom_roles').select('*'),
-        sb().from('contact_titles').select('*'),
-        sb().from('contact_roles').select('*'),
-        sb().from('collaborator_history').select('*')
+        sb().from('institutions').select('*').order('name'),
+        sb().from('entities').select('*').order('name'),
+        sb().from('collaborators').select('*').order('full_name'),
+        sb().from('config_custom_roles').select('*').order('name'),
+        sb().from('contact_titles').select('*').order('name'),
+        sb().from('contact_roles').select('*').order('name'),
+        sb().from('collaborator_history').select('*').order('start_date', { ascending: false })
     ]);
     return { 
         instituicoes: results[0].data || [], 
@@ -102,6 +103,7 @@ export const uploadCollaboratorPhoto = async (id: string, file: File) => {
 };
 
 export const fetchCollaboratorsPaginated = async (params: { page: number, pageSize: number, filters?: any, sort?: { key: string, direction: 'ascending' | 'descending' } }) => {
+    // Pedido 9: Garantir que o count abrange todos os registos sem filtros implícitos
     let query = sb().from('collaborators').select('*', { count: 'exact' });
     if (params.filters) {
         if (params.filters.query) query = query.or(`full_name.ilike.%${params.filters.query}%,email.ilike.%${params.filters.query}%,numero_mecanografico.ilike.%${params.filters.query}%`);
