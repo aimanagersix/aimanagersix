@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import Modal from './common/Modal';
-import { FaDatabase, FaCheck, FaCopy, FaExclamationTriangle, FaCode, FaBolt, FaShieldAlt, FaSync, FaSearch, FaTools, FaInfoCircle, FaRobot, FaTerminal, FaKey } from 'react-icons/fa';
+import { FaDatabase, FaCheck, FaCopy, FaExclamationTriangle, FaCode, FaBolt, FaShieldAlt, FaSync, FaSearch, FaTools, FaInfoCircle, FaRobot, FaTerminal, FaKey, FaEnvelope } from 'react-icons/fa';
 
 /**
- * DB Manager UI - v7.1 (Authentication Helper Deploy Guide)
+ * DB Manager UI - v7.3 (Infrastructure & Add-ons Guide)
  * -----------------------------------------------------------------------------
  * STATUS DE BLOQUEIO RIGOROSO (Freeze UI):
  * - PEDIDO 9: GUIA DE IMPLEMENTAÇÃO DA EDGE FUNCTION AI-PROXY.
  * - PEDIDO 8: GUIA DE IMPLEMENTAÇÃO DA EDGE FUNCTION ADMIN-AUTH-HELPER.
+ * - PEDIDO 8: SCRIPTS PARA EXTENSÕES (CRON, WEBHOOKS, VAULT) E TRIGGERS AUTH.
  * -----------------------------------------------------------------------------
  */
 
@@ -103,6 +104,47 @@ serve(async (req) => {
   }
 })`;
 
+    const patchScript = `-- ⚡ PATCH / INFRAESTRUTURA v7.3 (Add-ons e Triggers de Sincronização)
+
+-- 1. ATIVAR EXTENSÕES ESSENCIAIS (Add-ons solicitados no Pedido 8)
+CREATE EXTENSION IF NOT EXISTS pg_cron;         -- Para tarefas agendadas (Backups/Aniversários)
+CREATE EXTENSION IF NOT EXISTS pg_net;          -- Para Webhooks e Chamadas Externas
+CREATE EXTENSION IF NOT EXISTS "vault";         -- Para chaves encriptadas
+-- GraphiQL e GraphQL já costumam vir por defeito no Supabase, mas pg_graphql pode ser ativado:
+CREATE EXTENSION IF NOT EXISTS pg_graphql;
+
+-- 2. SINCRONIZAÇÃO AUTOMÁTICA AUTH -> PUBLIC (Pedido 8)
+-- Esta função cria um colaborador sempre que alguém faz Sign Up ou é criado via Admin
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS trigger AS $$
+BEGIN
+  INSERT INTO public.collaborators (id, full_name, email, role, status, can_login)
+  VALUES (
+    new.id, 
+    COALESCE(new.raw_user_meta_data->>'full_name', new.email), 
+    new.email, 
+    'Utilizador', 
+    'Ativo', 
+    true
+  )
+  ON CONFLICT (id) DO NOTHING;
+  RETURN new;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Trigger para executar a função acima
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+-- 3. NOTA SOBRE RESEND E AUTH EMAILS
+-- Importante: As definições de SMTP no Dashboard do Supabase sobrepõem-se à API Resend da App.
+-- Para que o "Esqueceu-se da password" funcione com o seu domínio do Resend:
+-- Vá a: Supabase Dashboard -> Authentication -> Providers -> Email
+-- Ative "Custom SMTP" e insira os dados do Resend (smtp.resend.com, porta 587, etc).
+`;
+
     return (
         <Modal title="Consola de Base de Dados (SQL & Edge)" onClose={onClose} maxWidth="max-w-6xl">
             <div className="space-y-4 h-[85vh] flex flex-col">
@@ -113,11 +155,33 @@ serve(async (req) => {
                     <button onClick={() => setActiveTab('triggers')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'triggers' ? 'border-yellow-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaSync /> Triggers</button>
                     <button onClick={() => setActiveTab('functions')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'functions' ? 'border-green-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaSearch /> Funções</button>
                     <button onClick={() => setActiveTab('security')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'security' ? 'border-red-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaShieldAlt /> Segurança</button>
-                    <button onClick={() => setActiveTab('patch')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'patch' ? 'border-blue-400 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaBolt /> Patch</button>
+                    <button onClick={() => setActiveTab('patch')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'patch' ? 'border-blue-400 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaBolt /> Patch (Add-ons)</button>
                 </div>
 
                 <div className="flex-grow overflow-hidden flex flex-col gap-4">
-                    {activeTab === 'auth_helper' ? (
+                    {activeTab === 'patch' ? (
+                        <div className="flex-grow flex flex-col overflow-hidden animate-fade-in">
+                            <div className="bg-blue-900/10 border border-blue-500/30 p-4 rounded-lg text-sm text-blue-200 mb-4">
+                                <h3 className="font-bold flex items-center gap-2 mb-2 text-lg"><FaBolt className="text-blue-400" /> Ativação de Add-ons e Sincronização (Pedido 8)</h3>
+                                <p>Este script ativa as extensões <strong>Cron, Webhooks e Vault</strong>, além de garantir que os utilizadores Auth são sincronizados com os Colaboradores.</p>
+                            </div>
+                            <div className="bg-orange-900/10 border border-orange-500/30 p-3 rounded-md text-xs text-orange-200 mb-4 flex items-center gap-2">
+                                <FaEnvelope className="text-orange-400" />
+                                <p><strong>Nota SMTP:</strong> Para o email de password, configure o Resend no painel "SMTP" do Supabase (Auth Settings).</p>
+                            </div>
+                            <div className="flex-grow flex flex-col overflow-hidden border border-gray-700 rounded-lg">
+                                <div className="bg-gray-800 px-4 py-2 border-b border-gray-700 flex justify-between items-center">
+                                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2"><FaTerminal/> SQL Patch / Add-ons</span>
+                                    <button onClick={() => handleCopy(patchScript, 'patch_sql')} className="px-3 py-1 bg-blue-600 text-white text-[10px] font-bold rounded flex items-center gap-1 hover:bg-blue-500">
+                                        {copied === 'patch_sql' ? <FaCheck/> : <FaCopy/>} Copiar SQL
+                                    </button>
+                                </div>
+                                <div className="flex-grow overflow-auto p-4 bg-black font-mono text-[11px] text-green-400">
+                                    <pre className="whitespace-pre-wrap">{patchScript}</pre>
+                                </div>
+                            </div>
+                        </div>
+                    ) : activeTab === 'auth_helper' ? (
                         <div className="flex-grow flex flex-col overflow-hidden animate-fade-in">
                             <div className="bg-orange-900/10 border border-orange-500/30 p-4 rounded-lg text-sm text-orange-200 mb-4">
                                 <h3 className="font-bold flex items-center gap-2 mb-2 text-lg"><FaKey className="text-orange-400" /> Reparação: Erro de Edge Function (Pedido 8)</h3>
