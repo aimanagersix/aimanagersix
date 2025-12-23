@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
 import Modal from './common/Modal';
-import { FaDatabase, FaCheck, FaCopy, FaExclamationTriangle, FaCode, FaBolt, FaShieldAlt, FaSync, FaSearch, FaTools, FaInfoCircle, FaRobot, FaTerminal, FaKey, FaEnvelope, FaExternalLinkAlt, FaListOl, FaPlay, FaFolderOpen, FaTrash, FaLock } from 'react-icons/fa';
+import { FaDatabase, FaCheck, FaCopy, FaExclamationTriangle, FaCode, FaBolt, FaShieldAlt, FaSync, FaSearch, FaTools, FaInfoCircle, FaRobot, FaTerminal, FaKey, FaEnvelope, FaExternalLinkAlt, FaListOl, FaPlay, FaFolderOpen, FaTrash, FaLock, FaExclamationCircle } from 'react-icons/fa';
 
 /**
- * DB Manager UI - v19.0 (Privilege Rescue Guide v6.9)
+ * DB Manager UI - v20.0 (Windows Filesystem Fix v6.9)
  * -----------------------------------------------------------------------------
  * STATUS DE BLOQUEIO RIGOROSO (Freeze UI):
  * - PEDIDO 9: GUIA DE IMPLEMENTAÇÃO DA EDGE FUNCTION AI-PROXY.
  * - PEDIDO 8: GUIA DE IMPLEMENTAÇÃO DA EDGE FUNCTION ADMIN-AUTH-HELPER (V6.9).
- * - PEDIDO 4: RESOLUÇÃO DE ERRO 403 (PRIVILEGIOS) NO TERMINAL.
+ * - PEDIDO 4: RESOLUÇÃO DE ERRO 400 (Entrypoint path does not exist).
  * -----------------------------------------------------------------------------
  */
 
@@ -118,22 +118,22 @@ serve(async (req) => {
                     
                     {activeTab === 'auth_helper' && (
                         <>
-                        {/* Guia de Privilégios (Erro 403) */}
+                        {/* Erro de Ficheiro Não Encontrado (Entrypoint path does not exist) */}
                         <div className="bg-red-900/20 border border-red-500/30 p-4 rounded-lg animate-pulse mb-2">
-                            <h4 className="text-red-400 font-bold flex items-center gap-2 text-sm uppercase mb-2"><FaLock /> RESOLVER ERRO 403 (Privilégios Insuficientes)</h4>
-                            <p className="text-[11px] text-gray-300">Se o terminal der erro 403 ao tentar o <strong>link</strong> ou <strong>deploy</strong>, siga estes passos:</p>
-                            <ol className="text-[11px] text-gray-400 list-decimal ml-4 mt-2 space-y-1">
-                                <li>Aceda a <a href="https://supabase.com/dashboard/account/tokens" target="_blank" className="text-blue-400 underline">Personal Access Tokens</a> e gere um novo token.</li>
-                                <li>No terminal: <code className="text-white">npx supabase logout</code></li>
-                                <li>No terminal: <code className="text-white">npx supabase login</code> (cole o token que gerou).</li>
-                                <li>Tente novamente o <code className="text-white">npx supabase link --project-ref yyiwkrkuhlkqibhowdmq</code></li>
+                            <h4 className="text-red-400 font-bold flex items-center gap-2 text-sm uppercase mb-2"><FaExclamationCircle /> RESOLVER ERRO 400 (Entrypoint path does not exist)</h4>
+                            <p className="text-[11px] text-gray-300">Este erro ocorre porque o ficheiro <strong>index.ts</strong> não existe fisicamente no seu computador. Siga estes passos exatos:</p>
+                            <ol className="text-[11px] text-gray-400 list-decimal ml-4 mt-2 space-y-2">
+                                <li>No seu terminal Windows, crie a pasta: <br/><code className="text-white bg-black p-1 rounded select-all">mkdir -p supabase/functions/admin-auth-helper</code></li>
+                                <li>Vá a essa pasta e crie um ficheiro chamado <code className="text-white">index.ts</code>.</li>
+                                <li>Clique no botão <strong>"Copiar Código"</strong> abaixo e cole o conteúdo no ficheiro <code className="text-white">index.ts</code>.</li>
+                                <li>Execute: <code className="text-white bg-black p-1 rounded select-all">npx supabase functions deploy admin-auth-helper --project-ref yyiwkrkuhlkqibhowdmq</code></li>
                             </ol>
                         </div>
 
                         <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 flex-shrink-0">
                             <div className="bg-red-900/20 border border-red-500/30 p-3 rounded-lg flex flex-col gap-1">
                                 <h4 className="text-red-300 font-bold flex items-center gap-2 text-xs uppercase"><FaTrash /> 0. Limpar Cache</h4>
-                                <p className="text-[10px] text-gray-400">Apague a pasta <strong>.supabase</strong> local antes do novo login.</p>
+                                <p className="text-[10px] text-gray-400">Apague a pasta <strong>.supabase</strong> se mudar de projeto.</p>
                             </div>
                             <div className="bg-blue-900/20 border border-blue-500/30 p-3 rounded-lg flex flex-col gap-1">
                                 <h4 className="text-blue-300 font-bold flex items-center gap-2 text-xs uppercase"><FaSync /> 1. Religar</h4>
