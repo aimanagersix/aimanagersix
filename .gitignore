@@ -9,5 +9,5 @@ build/
 .DS_Store
 .vscode/
 
-# Backup de ficheiros local (Pedido 5)
+# Backup de ficheiros local (Pedido 2)
 backup_files/

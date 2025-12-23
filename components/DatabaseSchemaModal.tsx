@@ -3,12 +3,12 @@ import Modal from './common/Modal';
 import { FaDatabase, FaCheck, FaCopy, FaExclamationTriangle, FaCode, FaBolt, FaShieldAlt, FaSync, FaSearch, FaTools, FaInfoCircle, FaRobot, FaTerminal, FaKey, FaEnvelope } from 'react-icons/fa';
 
 /**
- * DB Manager UI - v7.5 (Edge Function & JSX Fix)
+ * DB Manager UI - v7.6 (Infrastructure Fix: SB_ Prefix & JSX Fix)
  * -----------------------------------------------------------------------------
  * STATUS DE BLOQUEIO RIGOROSO (Freeze UI):
  * - PEDIDO 9: GUIA DE IMPLEMENTAÇÃO DA EDGE FUNCTION AI-PROXY.
- * - PEDIDO 8: GUIA DE IMPLEMENTAÇÃO DA EDGE FUNCTION ADMIN-AUTH-HELPER (V3).
- * - PEDIDO 8: CORREÇÃO EXTENSÃO VAULT -> SUPABASE_VAULT.
+ * - PEDIDO 8: GUIA DE IMPLEMENTAÇÃO DA EDGE FUNCTION ADMIN-AUTH-HELPER (V4).
+ * - PEDIDO 4: PADRONIZAÇÃO DE PREFIXO SB_ PARA URL E KEYS.
  * -----------------------------------------------------------------------------
  */
 
@@ -76,11 +76,12 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
   try {
-    const url = Deno.env.get('SUPABASE_URL') ?? Deno.env.get('SB_URL')
-    const key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? Deno.env.get('SB_SERVICE_ROLE_KEY')
+    // Pedido 4: Utilizando prefixo SB_ padronizado
+    const url = Deno.env.get('SB_URL')
+    const key = Deno.env.get('SB_SERVICE_ROLE_KEY')
 
     if (!url || !key) {
-      throw new Error('As variáveis de ambiente de ADMIN (Service Role) não estão configuradas na Edge Function.')
+      throw new Error('As variáveis de ambiente SB_URL ou SB_SERVICE_ROLE_KEY não estão configuradas na Edge Function.')
     }
 
     const supabaseAdmin = createClient(url, key)
@@ -114,16 +115,15 @@ serve(async (req) => {
   }
 })`;
 
-    const patchScript = `-- ⚡ PATCH / INFRAESTRUTURA v7.5 (Add-ons e Correção Vault)
+    const patchScript = `-- ⚡ PATCH / INFRAESTRUTURA v7.6 (Prefix Fix SB_)
 
--- 1. ATIVAR EXTENSÕES ESSENCIAIS (Pedido 8: Corrigido supabase_vault)
--- Nota: Se o comando abaixo falhar, ative "Vault" no menu 'Database -> Extensions' do Dashboard do Supabase.
+-- 1. ATIVAR EXTENSÕES ESSENCIAIS
 CREATE EXTENSION IF NOT EXISTS pg_cron;         
 CREATE EXTENSION IF NOT EXISTS pg_net;          
-CREATE EXTENSION IF NOT EXISTS supabase_vault;  -- Nome técnico correto no Supabase
+CREATE EXTENSION IF NOT EXISTS supabase_vault;  
 CREATE EXTENSION IF NOT EXISTS pg_graphql;
 
--- 2. SINCRONIZAÇÃO AUTOMÁTICA AUTH -> PUBLIC (Pedido 8)
+-- 2. SINCRONIZAÇÃO AUTOMÁTICA AUTH -> PUBLIC
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger AS $$
 BEGIN
@@ -190,13 +190,13 @@ CREATE TRIGGER on_auth_user_created
                     ) : activeTab === 'auth_helper' ? (
                         <div className="flex-grow flex flex-col overflow-hidden animate-fade-in">
                             <div className="bg-orange-900/10 border border-orange-500/30 p-4 rounded-lg text-sm text-orange-200 mb-4">
-                                <h3 className="font-bold flex items-center gap-2 mb-2 text-lg"><FaKey className="text-orange-400" /> Reparação: Erro de Edge Function (Pedido 8)</h3>
-                                <p>Para permitir que administradores alterem passwords de outros utilizadores, publique esta função:</p>
+                                <h3 className="font-bold flex items-center gap-2 mb-2 text-lg"><FaKey className="text-orange-400" /> Reparação: Erro de Edge Function (Pedido 4/8)</h3>
+                                <p>Para permitir que administradores alterem passwords de outros utilizadores, publique esta função atualizada com o prefixo <strong>SB_</strong>:</p>
                                 <div className="mt-2 flex gap-2">
                                     <code className="text-[10px] text-blue-400 bg-black p-1 rounded">supabase functions deploy admin-auth-helper</code>
                                 </div>
                                 <p className="mt-2 text-[11px] text-orange-300">
-                                    <FaExclamationTriangle className="inline mr-1" /> Certifique-se de que definiu o segredo <strong>SUPABASE_SERVICE_ROLE_KEY</strong> no Dashboard das Edge Functions.
+                                    <FaExclamationTriangle className="inline mr-1" /> Certifique-se de que definiu o segredo <strong>SB_SERVICE_ROLE_KEY</strong> no Dashboard das Edge Functions.
                                 </p>
                             </div>
                             <div className="flex-grow flex flex-col overflow-hidden border border-gray-700 rounded-lg">

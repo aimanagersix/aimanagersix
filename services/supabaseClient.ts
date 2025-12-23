@@ -3,8 +3,8 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 let supabaseInstance: SupabaseClient | null = null;
 
 /**
- * Cliente Supabase V2.4 (Prefix SB_ Migration)
- * Deteção robusta de infraestrutura com prioridade para prefixo SB_.
+ * Cliente Supabase V2.5 (Prefix SB_ Standardization)
+ * Deteção robusta de infraestrutura focada no prefixo SB_.
  */
 export const getSupabase = (): SupabaseClient => {
     if (supabaseInstance) {
@@ -12,25 +12,26 @@ export const getSupabase = (): SupabaseClient => {
     }
 
     // 1. Deteção via LocalStorage (Configuração manual ou persistência)
-    const storageUrl = typeof window !== 'undefined' ? localStorage.getItem('SUPABASE_URL') : null;
-    const storageKey = typeof window !== 'undefined' ? localStorage.getItem('SUPABASE_ANON_KEY') : null;
+    // Pedido 4: Prioriza prefixo SB_
+    const storageUrl = typeof window !== 'undefined' ? (localStorage.getItem('SB_URL') || localStorage.getItem('SUPABASE_URL')) : null;
+    const storageKey = typeof window !== 'undefined' ? (localStorage.getItem('SB_ANON_KEY') || localStorage.getItem('SUPABASE_ANON_KEY')) : null;
 
-    // 2. Deteção via process.env (Injetado via Vite Config com suporte a prefixo SB_)
-    const envUrl = process.env.SUPABASE_URL;
-    const envKey = process.env.SUPABASE_ANON_KEY;
+    // 2. Deteção via process.env (Injetado via Vite Config com prefixo SB_)
+    const envUrl = process.env.SB_URL;
+    const envKey = process.env.SB_ANON_KEY;
 
     const finalUrl = envUrl || storageUrl;
     const finalKey = envKey || storageKey;
 
     if (finalUrl && finalKey && finalUrl !== '' && finalKey !== '') {
         try {
-            console.log("AIManager: A inicializar Supabase...");
+            console.log("AIManager: A inicializar Supabase (SB_ Prefix)...");
             supabaseInstance = createClient(finalUrl, finalKey);
             
             // Sincronizar storage para consistência
             if (envUrl && typeof window !== 'undefined' && storageUrl !== envUrl) {
-                localStorage.setItem('SUPABASE_URL', finalUrl);
-                localStorage.setItem('SUPABASE_ANON_KEY', finalKey);
+                localStorage.setItem('SB_URL', finalUrl);
+                localStorage.setItem('SB_ANON_KEY', finalKey);
             }
             
             return supabaseInstance;
