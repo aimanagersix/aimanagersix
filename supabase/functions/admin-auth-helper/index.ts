@@ -1,4 +1,4 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+iimport { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
@@ -24,11 +24,12 @@ serve(async (req) => {
     
     const action = String(body.action || '').trim().toLowerCase();
     const targetUserId = String(body.targetUserId || '').trim();
-    const newPassword = body.newPassword;
+    const newPassword = body.newPassword || body.password; // Suporte para ambos os nomes
     const email = body.email;
 
-    console.log(`[AuthHelper v6.9] Action: ${action} | Target: ${targetUserId || email}`);
+    console.log(`[AuthHelper v6.10] Action: ${action} | Target: ${targetUserId || email}`);
 
+    // AÇÃO 1: Atualizar Password
     if (action === 'update_password') {
       if (!targetUserId || !newPassword) throw new Error('Parâmetros em falta no payload.');
       const { data, error } = await supabaseAdmin.auth.admin.updateUserById(targetUserId, { password: newPassword })
@@ -36,15 +37,30 @@ serve(async (req) => {
       return new Response(JSON.stringify({ success: true, user_id: data.user.id }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
     }
 
+    // AÇÃO 2: Criar Utilizador (Provisionamento Manual)
     if (action === 'create_user') {
-      if (!email || !newPassword) throw new Error('Email e Password obrigatórios.');
-      const { data, error } = await supabaseAdmin.auth.admin.createUser({ email, password, email_confirm: true })
+      if (!email || !newPassword) throw new Error('Email e Password são obrigatórios para provisionamento.');
+      
+      const { data, error } = await supabaseAdmin.auth.admin.createUser({
+          email: email,
+          password: newPassword, // FIX: Corrigido de "password: password" (que estava indefinido) para newPassword
+          email_confirm: true
+      })
+      
       if (error) throw error;
-      return new Response(JSON.stringify({ success: true, user: data.user }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
+
+      return new Response(JSON.stringify({ success: true, user: data.user }), { 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }, 
+        status: 200 
+      })
     }
     
     throw new Error(`Ação "${action}" não suportada.`)
   } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 })
+    console.error("[AuthHelper] Erro capturado:", error.message);
+    return new Response(JSON.stringify({ error: error.message }), { 
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }, 
+      status: 400 
+    })
   }
 })
