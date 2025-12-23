@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
 import Modal from './common/Modal';
-import { FaDatabase, FaCheck, FaCopy, FaExclamationTriangle, FaCode, FaBolt, FaShieldAlt, FaSync, FaSearch, FaTools, FaInfoCircle, FaRobot, FaTerminal, FaKey, FaEnvelope } from 'react-icons/fa';
+/* Added FaPlay to imports */
+import { FaDatabase, FaCheck, FaCopy, FaExclamationTriangle, FaCode, FaBolt, FaShieldAlt, FaSync, FaSearch, FaTools, FaInfoCircle, FaRobot, FaTerminal, FaKey, FaEnvelope, FaExternalLinkAlt, FaListOl, FaPlay } from 'react-icons/fa';
 
 /**
- * DB Manager UI - v9.0 (Universal Infrastructure for MCP)
+ * DB Manager UI - v10.0 (Guided Infrastructure Implementation)
  * -----------------------------------------------------------------------------
  * STATUS DE BLOQUEIO RIGOROSO (Freeze UI):
  * - PEDIDO 9: GUIA DE IMPLEMENTAÇÃO DA EDGE FUNCTION AI-PROXY.
  * - PEDIDO 8: GUIA DE IMPLEMENTAÇÃO DA EDGE FUNCTION ADMIN-AUTH-HELPER (V6).
- * - PEDIDO 4: SCRIPT UNIVERSAL "ABSOLUTE ZERO" COM INSPEÇÃO PARA MCP.
+ * - PEDIDO 4: SCRIPT UNIVERSAL "ABSOLUTE ZERO" COM GUIA DE EXECUÇÃO MANUAL.
  * -----------------------------------------------------------------------------
  */
 
@@ -26,7 +27,7 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
         setTimeout(() => setCopied(null), 2000);
     };
 
-    const universalZeroScript = `-- 🛡️ AIMANAGER - SCRIPT UNIVERSAL "ABSOLUTE ZERO" (v9.0)
+    const universalZeroScript = `-- 🛡️ AIMANAGER - SCRIPT UNIVERSAL "ABSOLUTE ZERO" (v10.0)
 -- Este script reconstrói a base de dados completa para compatibilidade MCP.
 
 -- 1. EXTENSÕES
@@ -221,16 +222,29 @@ serve(async (req) => {
         <Modal title="Gestão de Infraestrutura (Absolute Zero)" onClose={onClose} maxWidth="max-w-6xl">
             <div className="space-y-4 h-[85vh] flex flex-col">
                 <div className="flex-shrink-0 flex border-b border-gray-700 bg-gray-900/50 rounded-t-lg overflow-x-auto custom-scrollbar whitespace-nowrap">
-                    <button onClick={() => setActiveTab('full')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'full' ? 'border-brand-primary text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaCode /> Inicialização Universal (v9.0)</button>
+                    <button onClick={() => setActiveTab('full')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'full' ? 'border-brand-primary text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaCode /> Inicialização Universal (v10.0)</button>
                     <button onClick={() => setActiveTab('ai_bridge')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'ai_bridge' ? 'border-purple-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaRobot /> Ponte de IA (Deno)</button>
                     <button onClick={() => setActiveTab('auth_helper')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'auth_helper' ? 'border-orange-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaKey /> Gestão Auth (Deno)</button>
                 </div>
 
                 <div className="flex-grow overflow-hidden flex flex-col gap-4">
-                    <div className="bg-blue-900/10 border border-blue-500/30 p-4 rounded-lg text-sm text-blue-200">
-                        <h3 className="font-bold flex items-center gap-2 mb-1"><FaInfoCircle className="text-blue-400" /> MCP Ready Infrastructure</h3>
-                        <p>Este script cria todas as tabelas (42 no total) e as funções de introspecção necessárias para que a IA possa gerir o projeto.</p>
-                    </div>
+                    
+                    {activeTab === 'full' && (
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 flex-shrink-0">
+                            <div className="bg-blue-900/20 border border-blue-500/30 p-4 rounded-lg flex flex-col gap-2">
+                                <h4 className="text-blue-300 font-bold flex items-center gap-2 text-sm"><FaListOl /> 1. Preparar</h4>
+                                <p className="text-[11px] text-gray-400">Abra o seu projeto no <strong>Supabase Dashboard</strong> e clique em <strong>"SQL Editor"</strong>.</p>
+                            </div>
+                            <div className="bg-purple-900/20 border border-purple-500/30 p-4 rounded-lg flex flex-col gap-2">
+                                <h4 className="text-purple-300 font-bold flex items-center gap-2 text-sm"><FaCopy /> 2. Copiar</h4>
+                                <p className="text-[11px] text-gray-400">Clique no botão <strong>"Copiar SQL"</strong> abaixo para obter o script universal v10.0.</p>
+                            </div>
+                            <div className="bg-green-900/20 border border-green-500/30 p-4 rounded-lg flex flex-col gap-2">
+                                <h4 className="text-green-300 font-bold flex items-center gap-2 text-sm"><FaPlay /> 3. Executar</h4>
+                                <p className="text-[11px] text-gray-400">Cole o código no Supabase e clique em <strong>"Run"</strong>. Todas as 42 tabelas serão criadas.</p>
+                            </div>
+                        </div>
+                    )}
 
                     <div className="relative flex-grow bg-black rounded-lg border border-gray-700 shadow-2xl overflow-hidden">
                         <div className="absolute top-2 right-4 z-20">
