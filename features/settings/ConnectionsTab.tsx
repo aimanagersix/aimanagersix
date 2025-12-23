@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { FaKey, FaSave, FaCheckCircle, FaTimesCircle, FaEdit, FaShieldAlt, FaRobot, FaExternalLinkAlt, FaSync, FaFlask } from 'react-icons/fa';
+import { FaKey, FaSave, FaCheckCircle, FaTimesCircle, FaEdit, FaShieldAlt, FaRobot, FaExternalLinkAlt, FaSync, FaFlask, FaSlack, FaEnvelope, FaInfoCircle } from 'react-icons/fa';
 import { getAiConfigurationType } from '../../services/geminiService';
 import { getSupabase } from '../../services/supabaseClient';
 
@@ -32,7 +32,7 @@ const ConnectionCard = ({
     description: string,
     children?: React.ReactNode 
 }) => (
-    <div className="bg-gray-900/50 border border-gray-700 p-5 rounded-xl shadow-inner group hover:border-gray-600 transition-all">
+    <div className="bg-gray-900/50 border border-gray-700 p-5 rounded-xl shadow-inner group hover:border-gray-600 transition-all flex flex-col">
         <div className="flex justify-between items-start mb-3">
             <div className="flex items-center gap-3">
                 <div className="p-2 bg-gray-800 rounded-lg text-gray-400 group-hover:text-white transition-colors">{icon}</div>
@@ -43,7 +43,7 @@ const ConnectionCard = ({
             </div>
             {status}
         </div>
-        <div className="mt-4 space-y-3">
+        <div className="mt-4 space-y-3 flex-grow">
             {children}
         </div>
     </div>
@@ -58,17 +58,19 @@ const ConnectionsTab: React.FC<ConnectionsTabProps> = ({ settings, onSettingsCha
         setIsAiTesting(true);
         try {
             const supabase = getSupabase();
-            // Tenta invocar a função para ver se a GEMINI_API_KEY nos Secrets funciona
             const { data, error } = await supabase.functions.invoke('ai-proxy', {
                 body: { prompt: "Responda apenas 'OK' se estiveres a ler a chave secreta corretamente." }
             });
             
             if (error) throw error;
             setAiConnectionStatus('success');
-        } catch (e) {
+        } catch (e: any) {
             console.error(e);
             setAiConnectionStatus('error');
-            alert("Erro: A função 'ai-proxy' não respondeu. Verifique se configurou o Secret 'GEMINI_API_KEY' no Dashboard do Supabase.");
+            const errorMsg = e.message?.includes('404') 
+                ? "Erro: A função 'ai-proxy' não foi encontrada no seu Supabase. Precisa de fazer o deploy da função primeiro." 
+                : "Erro: A chave secreta 'GEMINI_API_KEY' pode não estar configurada corretamente no painel do Supabase.";
+            alert(errorMsg);
         } finally {
             setIsAiTesting(false);
         }
@@ -86,13 +88,18 @@ const ConnectionsTab: React.FC<ConnectionsTabProps> = ({ settings, onSettingsCha
                     description="Cérebro da aplicação para triagem, análise de vulnerabilidades e automação."
                 >
                     <div className="bg-black/30 p-3 rounded border border-gray-800 text-xs text-gray-400">
-                        <p className="mb-2">A chave deve ser definida nos <strong>Secrets</strong> do Supabase como <code className="text-purple-400">GEMINI_API_KEY</code>.</p>
+                        <p className="mb-3">Se o terminal der erro, configure a chave <strong>manualmente</strong>:</p>
+                        <ol className="list-decimal list-inside space-y-2 mb-4 text-[11px]">
+                            <li>Vá ao site do <a href="https://supabase.com/dashboard" target="_blank" rel="noreferrer" className="text-brand-secondary underline">Supabase</a>.</li>
+                            <li><strong>Project Settings</strong> &gt; <strong>Edge Functions</strong>.</li>
+                            <li>Adicione o Secret: <code className="text-purple-400">GEMINI_API_KEY</code></li>
+                        </ol>
                         <button 
                             onClick={testAiConnection}
                             disabled={isAiTesting}
-                            className="w-full mt-2 flex items-center justify-center gap-2 py-2 bg-purple-600/20 hover:bg-purple-600/40 text-purple-300 rounded border border-purple-500/30 transition-all font-bold"
+                            className="w-full flex items-center justify-center gap-2 py-2 bg-purple-600/20 hover:bg-purple-600/40 text-purple-300 rounded border border-purple-500/30 transition-all font-bold"
                         >
-                            <FaFlask /> Testar Conetividade dos Secrets
+                            <FaFlask /> Testar Conetividade IA
                         </button>
                     </div>
                 </ConnectionCard>
@@ -122,6 +129,47 @@ const ConnectionsTab: React.FC<ConnectionsTabProps> = ({ settings, onSettingsCha
                     </div>
                 </ConnectionCard>
 
+                {/* BLOC: SLACK NOTIFICATIONS */}
+                <ConnectionCard 
+                    title="Slack (Webhooks)" 
+                    icon={<FaSlack size={20}/>} 
+                    status={<StatusBadge configured={!!settings.slackWebhookUrl} />}
+                    description="Envio automático de alertas críticos para canais de IT."
+                >
+                    <input 
+                        type="text" 
+                        placeholder="Slack Webhook URL (https://hooks.slack.com/...)" 
+                        value={settings.slackWebhookUrl || ''} 
+                        onChange={(e) => onSettingsChange('slackWebhookUrl', e.target.value)}
+                        className="w-full bg-gray-800 border border-gray-700 text-white rounded p-2 text-xs focus:border-brand-secondary outline-none font-mono"
+                    />
+                </ConnectionCard>
+
+                {/* BLOC: RESEND EMAIL */}
+                <ConnectionCard 
+                    title="Resend (E-mail API)" 
+                    icon={<FaEnvelope size={20}/>} 
+                    status={<StatusBadge configured={!!(settings.resendApiKey && settings.resendFromEmail)} />}
+                    description="Envio de e-mails transacionais (aniversários, reports)."
+                >
+                    <div className="grid grid-cols-1 gap-2">
+                        <input 
+                            type="password" 
+                            placeholder="Resend API Key (re_...)" 
+                            value={settings.resendApiKey || ''} 
+                            onChange={(e) => onSettingsChange('resendApiKey', e.target.value)}
+                            className="bg-gray-800 border border-gray-700 text-white rounded p-2 text-xs focus:border-brand-secondary outline-none"
+                        />
+                        <input 
+                            type="text" 
+                            placeholder="E-mail de Envio (ex: it@sua-empresa.pt)" 
+                            value={settings.resendFromEmail || ''} 
+                            onChange={(e) => onSettingsChange('resendFromEmail', e.target.value)}
+                            className="bg-gray-800 border border-gray-700 text-white rounded p-2 text-xs focus:border-brand-secondary outline-none"
+                        />
+                    </div>
+                </ConnectionCard>
+
                 {/* BLOC: INFRAESTRUTURA */}
                 <div className="lg:col-span-2">
                     <ConnectionCard 
@@ -137,7 +185,7 @@ const ConnectionsTab: React.FC<ConnectionsTabProps> = ({ settings, onSettingsCha
                                     type="text" 
                                     value={settings.sbUrl || ''} 
                                     onChange={(e) => onSettingsChange('sbUrl', e.target.value)}
-                                    className="w-full bg-gray-800 border border-gray-700 text-white rounded p-2 text-xs outline-none"
+                                    className="w-full bg-gray-800 border border-gray-700 text-white rounded p-2 text-xs outline-none font-mono"
                                 />
                             </div>
                             <div>
@@ -146,7 +194,7 @@ const ConnectionsTab: React.FC<ConnectionsTabProps> = ({ settings, onSettingsCha
                                     type="password" 
                                     value={settings.sbKey || ''} 
                                     onChange={(e) => onSettingsChange('sbKey', e.target.value)}
-                                    className="w-full bg-gray-800 border border-gray-700 text-white rounded p-2 text-xs outline-none"
+                                    className="w-full bg-gray-800 border border-gray-700 text-white rounded p-2 text-xs outline-none font-mono"
                                 />
                             </div>
                         </div>
@@ -159,7 +207,7 @@ const ConnectionsTab: React.FC<ConnectionsTabProps> = ({ settings, onSettingsCha
                     Obter Chave Gemini Grátis <FaExternalLinkAlt size={10}/>
                 </a>
                 <button onClick={onSave} className="bg-brand-primary text-white px-8 py-2 rounded-lg hover:bg-brand-secondary transition-all flex items-center gap-2 font-bold shadow-lg">
-                    <FaSave /> Guardar Configurações
+                    <FaSave /> Guardar Todas as Configurações
                 </button>
             </div>
         </div>
