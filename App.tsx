@@ -212,27 +212,35 @@ export const App: React.FC = () => {
             } else setIsAppLoading(false);
         };
         initSession();
+        
         const { data: { subscription } } = supabase.auth.onAuthStateChange((_e: any, curSess: any) => {
             setSession(curSess);
             if (!curSess) {
                 setCurrentUser(null);
+                setIsAppLoading(false); // Garante que sai do estado loading ao fazer logout
             }
         });
+
         const interval = setInterval(() => { if(!isAppLoading && currentUser) refreshAll(); }, 30000);
         return () => { subscription.unsubscribe(); clearInterval(interval); };
     }, [org.data.collaborators, isConfigured, isAppLoading, currentUser, refreshAll]);
 
     const handleLogout = useCallback(async () => {
         const supabase = getSupabase();
-        setIsAppLoading(true);
         try {
             await supabase.auth.signOut();
+            // Limpeza extensiva de estado local e persistência
             localStorage.removeItem('aimanager_global_cache');
+            localStorage.removeItem('aimanager_cache_timestamp');
+            
             setCurrentUser(null);
             setSession(null);
-            window.location.href = window.location.origin; // Redirect to root (Login)
+            setIsAppLoading(false); // Desbloqueia a renderização do LoginPage
+            
+            // Força o redirecionamento para a raiz para limpar a hash da URL
+            window.location.href = '/';
         } catch (e) {
-            console.error("Logout error", e);
+            console.error("Erro crítico no Logout:", e);
             window.location.reload();
         }
     }, []);
@@ -244,8 +252,12 @@ export const App: React.FC = () => {
     }, []);
 
     if (!isConfigured) return <ConfigurationSetup onConfigured={() => setIsConfigured(true)} />;
-    if (isAppLoading) return <div className="min-h-screen bg-background-dark flex flex-col items-center justify-center text-white"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-secondary mb-4"></div><p className="font-bold tracking-widest text-gray-500 uppercase text-xs">AIManager Absolute Zero</p></div>;
-    if (!currentUser) return <LoginPage onLogin={async () => ({ success: true })} onForgotPassword={() => {}} />;
+    
+    // Se não houver utilizador e não estiver em carregamento inicial, mostra Login
+    if (!currentUser && !isAppLoading) return <LoginPage onLogin={async () => ({ success: true })} onForgotPassword={() => {}} />;
+    
+    // Se estiver em carregamento ou processando logout, mostra a tela de splash
+    if (isAppLoading || (!currentUser && session)) return <div className="min-h-screen bg-background-dark flex flex-col items-center justify-center text-white"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-secondary mb-4"></div><p className="font-bold tracking-widest text-gray-500 uppercase text-xs">Sincronizando Sistema...</p></div>;
 
     const mainMarginClass = layoutMode === 'side' ? (sidebarExpanded ? 'md:ml-64' : 'md:ml-20') : '';
 
