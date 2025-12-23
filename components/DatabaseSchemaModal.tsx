@@ -3,12 +3,12 @@ import Modal from './common/Modal';
 import { FaDatabase, FaCheck, FaCopy, FaExclamationTriangle, FaCode, FaBolt, FaShieldAlt, FaSync, FaSearch, FaTools, FaInfoCircle, FaRobot, FaTerminal, FaKey, FaEnvelope, FaExternalLinkAlt, FaListOl, FaPlay, FaFolderOpen, FaTrash, FaLock, FaExclamationCircle } from 'react-icons/fa';
 
 /**
- * DB Manager UI - v20.0 (Windows Filesystem Fix v6.9)
+ * DB Manager UI - v21.0 (Auth Logic Fix v6.10)
  * -----------------------------------------------------------------------------
  * STATUS DE BLOQUEIO RIGOROSO (Freeze UI):
  * - PEDIDO 9: GUIA DE IMPLEMENTAÇÃO DA EDGE FUNCTION AI-PROXY.
- * - PEDIDO 8: GUIA DE IMPLEMENTAÇÃO DA EDGE FUNCTION ADMIN-AUTH-HELPER (V6.9).
- * - PEDIDO 4: RESOLUÇÃO DE ERRO 400 (Entrypoint path does not exist).
+ * - PEDIDO 8: GUIA DE IMPLEMENTAÇÃO DA EDGE FUNCTION ADMIN-AUTH-HELPER (V6.10).
+ * - PEDIDO 4: CORREÇÃO DE ERRO 400 (Variáveis indefinidas no createUser).
  * -----------------------------------------------------------------------------
  */
 
@@ -80,11 +80,12 @@ serve(async (req) => {
     
     const action = String(body.action || '').trim().toLowerCase();
     const targetUserId = String(body.targetUserId || '').trim();
-    const newPassword = body.newPassword;
+    const newPassword = body.newPassword || body.password; // Suporte para ambos os nomes
     const email = body.email;
 
-    console.log(\`[AuthHelper v6.9] Action: \${action} | Target: \${targetUserId || email}\`);
+    console.log(\`[AuthHelper v6.10] Action: \${action} | Target: \${targetUserId || email}\`);
 
+    // AÇÃO 1: Atualizar Password
     if (action === 'update_password') {
       if (!targetUserId || !newPassword) throw new Error('Parâmetros em falta no payload.');
       const { data, error } = await supabaseAdmin.auth.admin.updateUserById(targetUserId, { password: newPassword })
@@ -92,16 +93,31 @@ serve(async (req) => {
       return new Response(JSON.stringify({ success: true, user_id: data.user.id }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
     }
 
+    // AÇÃO 2: Criar Utilizador (Provisionamento Manual)
     if (action === 'create_user') {
-      if (!email || !newPassword) throw new Error('Email e Password obrigatórios.');
-      const { data, error } = await supabaseAdmin.auth.admin.createUser({ email, password, email_confirm: true })
+      if (!email || !newPassword) throw new Error('Email e Password são obrigatórios para provisionamento.');
+      
+      const { data, error } = await supabaseAdmin.auth.admin.createUser({
+          email: email,
+          password: newPassword, // FIX: Corrigido de "password: password" (que estava indefinido) para newPassword
+          email_confirm: true
+      })
+      
       if (error) throw error;
-      return new Response(JSON.stringify({ success: true, user: data.user }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
+
+      return new Response(JSON.stringify({ success: true, user: data.user }), { 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }, 
+        status: 200 
+      })
     }
     
     throw new Error(\`Ação "\${action}" não suportada.\`)
   } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 })
+    console.error("[AuthHelper] Erro capturado:", error.message);
+    return new Response(JSON.stringify({ error: error.message }), { 
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }, 
+      status: 400 
+    })
   }
 })`;
 
@@ -111,22 +127,21 @@ serve(async (req) => {
                 <div className="flex-shrink-0 flex border-b border-gray-700 bg-gray-900/50 rounded-t-lg overflow-x-auto custom-scrollbar whitespace-nowrap">
                     <button onClick={() => setActiveTab('full')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'full' ? 'border-brand-primary text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaCode /> Inicialização Universal</button>
                     <button onClick={() => setActiveTab('ai_bridge')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'ai_bridge' ? 'border-purple-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaRobot /> Ponte de IA (Deno)</button>
-                    <button onClick={() => setActiveTab('auth_helper')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'auth_helper' ? 'border-orange-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaKey /> Gestão Auth (v6.9)</button>
+                    <button onClick={() => setActiveTab('auth_helper')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'auth_helper' ? 'border-orange-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaKey /> Gestão Auth (v6.10)</button>
                 </div>
 
                 <div className="flex-grow overflow-hidden flex flex-col gap-4">
                     
                     {activeTab === 'auth_helper' && (
                         <>
-                        {/* Erro de Ficheiro Não Encontrado (Entrypoint path does not exist) */}
+                        {/* Guia de Ficheiro Não Encontrado */}
                         <div className="bg-red-900/20 border border-red-500/30 p-4 rounded-lg animate-pulse mb-2">
-                            <h4 className="text-red-400 font-bold flex items-center gap-2 text-sm uppercase mb-2"><FaExclamationCircle /> RESOLVER ERRO 400 (Entrypoint path does not exist)</h4>
-                            <p className="text-[11px] text-gray-300">Este erro ocorre porque o ficheiro <strong>index.ts</strong> não existe fisicamente no seu computador. Siga estes passos exatos:</p>
+                            <h4 className="text-red-400 font-bold flex items-center gap-2 text-sm uppercase mb-2"><FaExclamationCircle /> RESOLVER ERRO 400 (Non-2xx Status Code)</h4>
+                            <p className="text-[11px] text-gray-300">Este erro ocorria devido a uma variável incorreta na função. Siga estes passos para atualizar o seu servidor:</p>
                             <ol className="text-[11px] text-gray-400 list-decimal ml-4 mt-2 space-y-2">
-                                <li>No seu terminal Windows, crie a pasta: <br/><code className="text-white bg-black p-1 rounded select-all">mkdir -p supabase/functions/admin-auth-helper</code></li>
-                                <li>Vá a essa pasta e crie um ficheiro chamado <code className="text-white">index.ts</code>.</li>
-                                <li>Clique no botão <strong>"Copiar Código"</strong> abaixo e cole o conteúdo no ficheiro <code className="text-white">index.ts</code>.</li>
-                                <li>Execute: <code className="text-white bg-black p-1 rounded select-all">npx supabase functions deploy admin-auth-helper --project-ref yyiwkrkuhlkqibhowdmq</code></li>
+                                <li>No seu PC, abra o ficheiro <code className="text-white">supabase/functions/admin-auth-helper/index.ts</code>.</li>
+                                <li>Clique no botão <strong>"Copiar Código"</strong> abaixo e substitua o conteúdo do ficheiro.</li>
+                                <li>Execute no terminal: <br/><code className="text-white bg-black p-1 rounded select-all">npx supabase functions deploy admin-auth-helper --project-ref yyiwkrkuhlkqibhowdmq</code></li>
                             </ol>
                         </div>
 

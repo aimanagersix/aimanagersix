@@ -3,7 +3,7 @@ import { getSupabase } from './supabaseClient';
 const sb = () => getSupabase();
 
 /**
- * Serviço de Autenticação v1.14 (Deployment Diagnostic)
+ * Serviço de Autenticação v1.15 (Runtime Rescue)
  * Focado em distinguir erros de servidor de erros de privilégios de conta local.
  */
 export const adminResetPassword = async (userId: string, newPassword: string) => {
@@ -14,7 +14,7 @@ export const adminResetPassword = async (userId: string, newPassword: string) =>
         throw new Error("ID de utilizador ou nova password inválidos.");
     }
 
-    console.log(`[AuthService] Reset v1.14 -> Target: ${cleanUserId}`);
+    console.log(`[AuthService] Reset v1.15 -> Target: ${cleanUserId}`);
     
     const payload = { 
         action: 'update_password', 
@@ -33,20 +33,19 @@ export const adminResetPassword = async (userId: string, newPassword: string) =>
         if (error) {
             console.error("[AuthService] Erro na Edge Function:", error);
             
-            // Tratamento detalhado de erros de deploy/privilégios
-            if (error.status === 403 || error.message?.includes('privileges')) {
-                throw new Error("ERRO_PRIVILEGIOS: A conta ligada ao terminal não tem permissão para gerir o projeto yyiwkrkuhlkqibhowdmq. Siga o Guia de Resgate no painel BD.");
+            // Tentativa de obter erro detalhado do corpo da resposta (Pedido 4)
+            let detailedMsg = error.message;
+            if (error.context?.json?.error) detailedMsg = error.context.json.error;
+
+            if (error.status === 403 || detailedMsg?.includes('privileges')) {
+                throw new Error("ERRO_PRIVILEGIOS: A conta ligada ao terminal não tem permissão. Siga o Guia de Resgate no painel BD.");
             }
             
-            if (error.message?.includes('User not found')) {
+            if (detailedMsg?.includes('User not found')) {
                 throw new Error("USER_NOT_FOUND");
             }
             
-            if (error.status === 404 || error.message?.includes('not found')) {
-                throw new Error("ERRO_DEPLOY: A Edge Function não foi encontrada. Certifique-se de que o deploy foi bem sucedido.");
-            }
-            
-            throw new Error(`Erro Técnico: ${error.message}`);
+            throw new Error(`Erro Técnico (${error.status}): ${detailedMsg}`);
         }
         
         await sb().from('collaborators').update({ 
@@ -64,7 +63,7 @@ export const adminResetPassword = async (userId: string, newPassword: string) =>
  * Provisionamento forçado de utilizador.
  */
 export const adminProvisionUser = async (userId: string, email: string, initialPassword: string) => {
-    console.log(`[AuthService] Provisioning v1.14 -> ${email}`);
+    console.log(`[AuthService] Provisioning v1.15 -> ${email}`);
     
     const payload = { 
         action: 'create_user', 
@@ -82,8 +81,14 @@ export const adminProvisionUser = async (userId: string, email: string, initialP
         });
 
         if (error) {
-            if (error.status === 403) throw new Error("A chave de serviço não tem permissão para criar utilizadores. Verifique o SB_SERVICE_ROLE_KEY.");
-            throw new Error(`Erro ao provisionar conta: ${error.message}`);
+            console.error("[AuthService] Erro no provisionamento:", error);
+            
+            // Pedido 4: Captura de erro 400 (ex: User already exists)
+            let detailedMsg = error.message;
+            if (error.context?.json?.error) detailedMsg = error.context.json.error;
+
+            if (error.status === 403) throw new Error("A chave de serviço não tem permissão. Verifique o SB_SERVICE_ROLE_KEY.");
+            throw new Error(`Erro ao provisionar conta: ${detailedMsg}`);
         }
 
         if (data.user?.id && data.user.id !== userId) {
