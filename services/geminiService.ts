@@ -7,16 +7,25 @@ import { VulnerabilityScanConfig } from "../types";
 const flashModel = "gemini-3-flash-preview";
 const proModel = "gemini-3-pro-preview";
 
-// --- SECURITY LOGIC ---
-const USE_PROXY = !process.env.API_KEY;
+/**
+ * Verifica como a IA está configurada.
+ * Retorna 'direct' se houver chave no .env local, 'proxy' se for usar Supabase, ou 'none'.
+ */
+export const getAiConfigurationType = (): 'direct' | 'proxy' | 'none' => {
+    if (process.env.API_KEY && process.env.API_KEY.length > 5) {
+        return 'direct';
+    }
+    // Se não há chave local, assumimos que o utilizador quer usar o Proxy do Supabase
+    return 'proxy';
+};
 
 export const isAiConfigured = (): boolean => {
-    return USE_PROXY || (!!process.env.API_KEY && process.env.API_KEY.length > 0);
+    return getAiConfigurationType() !== 'none';
 };
 
 /**
- * Executes a request to Gemini models following strict SDK guidelines v25.
- * Uses .text property instead of .text() method.
+ * Executa um pedido à Gemini.
+ * Se tivermos chave local, vai direto. Se não, usa a Edge Function do Supabase.
  */
 const runGeminiRequest = async (
     modelName: string, 
@@ -25,7 +34,10 @@ const runGeminiRequest = async (
     schema?: any,
     responseMimeType?: string
 ): Promise<string> => {
-    if (USE_PROXY) {
+    const configType = getAiConfigurationType();
+
+    // MODO 1: VIA PROXY (Supabase Secrets)
+    if (configType === 'proxy') {
         const supabase = getSupabase();
         const { data, error } = await supabase.functions.invoke('ai-proxy', {
             body: {
@@ -40,13 +52,17 @@ const runGeminiRequest = async (
         });
 
         if (error) {
-            console.error("[Absolute Proxy Error]:", error);
-            const msg = error.message || "IA Offline.";
-            throw new Error(`IA Error: ${msg}`);
+            console.error("[AI Bridge Error]:", error);
+            // Se o erro for "Not Found", é porque a função ainda não foi publicada
+            if (error.message?.includes('404')) {
+                throw new Error("Ponte de IA não encontrada. Publicou a função 'ai-proxy' no Supabase?");
+            }
+            throw new Error(`Erro na IA: ${error.message}`);
         }
         return data?.text || "";
     }
 
+    // MODO 2: DIRETO (Chave no .env local)
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
     
     const parts: any[] = [];
@@ -75,14 +91,14 @@ const runGeminiRequest = async (
         if (result === undefined) throw new Error("Resposta vazia da IA.");
         return result.trim();
     } catch (e: any) {
-        console.error("[Absolute Direct Error]:", e);
-        throw new Error(`IA Error: ${e.message}`);
+        console.error("[Direct AI Error]:", e);
+        throw new Error(`Erro na IA (Local): ${e.message}`);
     }
 };
 
 export const extractTextFromImage = async (base64Image: string, mimeType: string): Promise<string> => {
   try {
-    const prompt = "Extract the most prominent serial number or alphanumeric code from this image. Return only the code itself.";
+    const prompt = "Extraia o número de série ou código de património desta imagem. Retorne apenas o código.";
     return await runGeminiRequest(flashModel, prompt, [{ data: base64Image, mimeType }]);
   } catch (error) {
     console.error("Vision Error:", error);
@@ -92,7 +108,7 @@ export const extractTextFromImage = async (base64Image: string, mimeType: string
 
 export const getDeviceInfoFromText = async (serialNumber: string): Promise<{ brand: string; type: string }> => {
     try {
-        const prompt = `Based on serial "${serialNumber}", identify brand and type. JSON output.`;
+        const prompt = `Com base no número de série "${serialNumber}", identifique a marca e o tipo de equipamento informático. Formato JSON.`;
         const schema = {
             type: Type.OBJECT,
             properties: {
@@ -120,7 +136,7 @@ export const parseNaturalLanguageAction = async (
     context: { brands: string[], types: string[], users: {name: string, id: string}[], currentUser: string }
 ): Promise<MagicActionResponse> => {
     try {
-        const prompt = `Assistant IT Manager. User request: "${text}". Context: ${JSON.stringify(context)}. Identify intent and data.`;
+        const prompt = `Assistente de Gestão de TI. Pedido do utilizador: "${text}". Contexto: ${JSON.stringify(context)}. Identifique a intenção e os dados.`;
         const schema = {
             type: Type.OBJECT,
             properties: {
@@ -153,7 +169,7 @@ export const parseNaturalLanguageAction = async (
 
 export const analyzeTicketRequest = async (description: string): Promise<any> => {
     try {
-        const prompt = `Analyze IT ticket: "${description}". Categorize, prioritize, solution suggested.`;
+        const prompt = `Analise este ticket de TI: "${description}". Categorize, defina prioridade e sugira uma solução técnica curta.`;
         const schema = {
             type: Type.OBJECT,
             properties: {
@@ -175,9 +191,9 @@ export const analyzeTicketRequest = async (description: string): Promise<any> =>
 export const generateTicketResolutionSummary = async (description: string, activities: string[]): Promise<string> => {
     try {
         const activityContext = activities.length > 0 ? activities.join('; ') : "Sem notas técnicas registadas.";
-        const prompt = `As a professional IT Support, write a clean, 2-3 sentence technical summary of the solution for the following ticket: "${description}".
-        The technicians performed these actions: "${activityContext}". 
-        Language: Portuguese (PT). Be direct and factual for a Knowledge Base entry.`;
+        const prompt = `Como um técnico de suporte de TI, escreva um resumo técnico limpo (2-3 frases) da solução para este ticket: "${description}".
+        Ações realizadas: "${activityContext}". 
+        Idioma: Português (PT). Seja direto.`;
         
         return await runGeminiRequest(flashModel, prompt);
     } catch (error) {
@@ -188,7 +204,7 @@ export const generateTicketResolutionSummary = async (description: string, activ
 
 export const analyzeBackupScreenshot = async (base64Image: string, mimeType: string): Promise<{ status: string; date: string; systemName: string }> => {
     try {
-        const prompt = "Analyze this backup report screenshot. Extract: 1. Status (Sucesso, Falha, or Parcial), 2. Date of backup (YYYY-MM-DD), 3. System Name. JSON output.";
+        const prompt = "Analise este screenshot de relatório de backup. Extraia: 1. Estado (Sucesso, Falha ou Parcial), 2. Data do backup (YYYY-MM-DD), 3. Nome do Sistema. JSON output.";
         const schema = {
             type: Type.OBJECT,
             properties: {
@@ -208,7 +224,7 @@ export const analyzeBackupScreenshot = async (base64Image: string, mimeType: str
 
 export const scanForVulnerabilities = async (inventory: string[], config?: VulnerabilityScanConfig): Promise<any[]> => {
     try {
-        const prompt = `Vulnerability Scanner. Inventory: ${JSON.stringify(inventory)}. High/Critical CVEs search.`;
+        const prompt = `Scanner de Vulnerabilidades. Inventário: ${JSON.stringify(inventory)}. Procure por CVEs Críticos/Altos recentes.`;
         const schema = {
             type: Type.ARRAY,
             items: {
@@ -231,7 +247,7 @@ export const scanForVulnerabilities = async (inventory: string[], config?: Vulne
 };
 
 export const generateNis2Notification = async (ticket: any, activities: any[]): Promise<any> => {
-    const prompt = `NIS2 incident notification. ${JSON.stringify(ticket)}. JSON output.`;
+    const prompt = `Notificação de incidente NIS2. ${JSON.stringify(ticket)}. JSON output.`;
     const schema = {
         type: Type.OBJECT,
         properties: {
@@ -245,7 +261,7 @@ export const generateNis2Notification = async (ticket: any, activities: any[]): 
 };
 
 export const extractFindingsFromReport = async (base64File: string, mimeType: string): Promise<any[]> => {
-    const prompt = "Pentest report analysis. Extract critical findings.";
+    const prompt = "Análise de relatório de Pentest. Extraia descobertas críticas.";
     const schema = {
         type: Type.ARRAY,
         items: {

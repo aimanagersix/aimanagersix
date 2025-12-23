@@ -4,11 +4,11 @@ import Modal from './common/Modal';
 import { FaDatabase, FaCheck, FaCopy, FaExclamationTriangle, FaCode, FaBolt, FaShieldAlt, FaSync, FaSearch, FaTools, FaInfoCircle, FaRobot, FaTerminal, FaKey } from 'react-icons/fa';
 
 /**
- * DB Manager UI - v6.0 (AI Bridge Integration)
+ * DB Manager UI - v6.1 (Simplified AI Bridge)
  * -----------------------------------------------------------------------------
  * STATUS DE BLOQUEIO RIGOROSO (Freeze UI):
  * - PEDIDO 4 & 7: MANTER E EXPANDIR ABAS
- * - PEDIDO 9: ADICIONADA ABA IA BRIDGE (ALTERNATIVA AO MCP)
+ * - PEDIDO 9: CLAREZA SOBRE O USO DA CHAVE GEMINI EXISTENTE
  * -----------------------------------------------------------------------------
  */
 
@@ -26,18 +26,19 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
         setTimeout(() => setCopied(null), 2000);
     };
 
-    const aiBridgeCli = `# 🚀 CONFIGURAÇÃO DA PONTE DE IA (TERMINAL)
-# Execute estes comandos para dar "super-poderes" à IA no seu Supabase.
+    const aiBridgeCli = `# 🚀 ATIVAR INTELIGÊNCIA DA BASE DE DADOS
+# Use a sua chave da Gemini que já tem guardada.
 
-# 1. Instalar o CLI do Supabase (se ainda não tiver)
-# npm install supabase --save-dev
+# 1. Abra o seu terminal (GitHub Desktop ou VS Code)
+# 2. Defina a chave nos Secrets do Supabase:
+supabase secrets set GEMINI_API_KEY=COLE_AQUI_A_SUA_CHAVE_EXISTENTE
 
-# 2. Configurar a Chave Secreta da Gemini
-# Substitua 'SUA_CHAVE_AQUI' pela chave que obteve no Google AI Studio
-supabase secrets set GEMINI_API_KEY=SUA_CHAVE_AQUI
-
-# 3. Publicar a Função de Proxy de IA
+# 3. Publique a função de ponte:
 supabase functions deploy ai-proxy
+
+# 💡 O QUE ISTO FAZ?
+# Cria um túnel seguro para que eu (a IA) consiga analisar os erros
+# da sua base de dados e sugerir correções automáticas.
 `;
 
     const fullInitScript = `-- 🛡️ AIManager - Script de Inicialização Completa (Novo Cliente)
@@ -105,7 +106,7 @@ CREATE TABLE IF NOT EXISTS calendar_events (id UUID PRIMARY KEY DEFAULT gen_rand
             <div className="space-y-4 h-[85vh] flex flex-col">
                 <div className="flex-shrink-0 flex border-b border-gray-700 bg-gray-900/50 rounded-t-lg overflow-x-auto custom-scrollbar whitespace-nowrap">
                     <button onClick={() => setActiveTab('full')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'full' ? 'border-brand-primary text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaCode /> Inicialização</button>
-                    <button onClick={() => setActiveTab('ai_bridge')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'ai_bridge' ? 'border-purple-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaRobot /> Ponte de IA (MCP Alternativa)</button>
+                    <button onClick={() => setActiveTab('ai_bridge')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'ai_bridge' ? 'border-purple-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaRobot /> Ponte de IA (Super Poderes)</button>
                     <button onClick={() => setActiveTab('security')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'security' ? 'border-red-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaShieldAlt /> Segurança & RLS</button>
                     <button onClick={() => setActiveTab('seeding')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'seeding' ? 'border-green-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaDatabase /> Seed</button>
                     <button onClick={() => setActiveTab('patch')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'patch' ? 'border-orange-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaBolt /> Manutenção</button>
@@ -115,16 +116,14 @@ CREATE TABLE IF NOT EXISTS calendar_events (id UUID PRIMARY KEY DEFAULT gen_rand
                     {activeTab === 'ai_bridge' ? (
                         <div className="flex flex-col gap-4 animate-fade-in">
                             <div className="bg-purple-900/20 border border-purple-500/30 p-5 rounded-lg text-sm text-purple-200">
-                                <h3 className="font-bold flex items-center gap-2 mb-3 text-lg"><FaRobot className="text-purple-400" /> Como Ativar a Inteligência do Banco de Dados</h3>
-                                <p className="mb-4">Como não usas o Cursor, a forma de dares "olhos" à IA sobre o teu projeto é configurando os <strong>Secrets</strong> do Supabase no teu terminal habitual.</p>
-                                <ol className="list-decimal list-inside space-y-3 ml-2 text-purple-100/90">
-                                    <li>Abre o teu terminal de ligação ao GitHub.</li>
-                                    <li>Certifica-te que estás na pasta do projeto.</li>
-                                    <li>Copia e executa os comandos abaixo.</li>
-                                </ol>
+                                <h3 className="font-bold flex items-center gap-2 mb-3 text-lg"><FaRobot className="text-purple-400" /> Como Ativar o Diagnóstico Automático</h3>
+                                <p className="mb-4">Para que eu consiga ver os seus erros de base de dados e sugerir correções, precisa de configurar a <strong>Edge Function</strong> no seu Supabase.</p>
+                                <div className="bg-black/40 p-4 rounded border border-gray-700 font-mono text-[11px] text-green-400 mb-2">
+                                    supabase secrets set GEMINI_API_KEY=A_SUA_CHAVE_EXISTENTE
+                                </div>
                             </div>
 
-                            <div className="relative flex-grow bg-black rounded-lg border border-gray-700 shadow-2xl overflow-hidden min-h-[300px]">
+                            <div className="relative flex-grow bg-black rounded-lg border border-gray-700 shadow-2xl overflow-hidden min-h-[250px]">
                                 <div className="absolute top-2 right-4 z-20">
                                     <button 
                                         onClick={() => handleCopy(aiBridgeCli, 'ai_cli')} 
@@ -137,19 +136,12 @@ CREATE TABLE IF NOT EXISTS calendar_events (id UUID PRIMARY KEY DEFAULT gen_rand
                                     <pre className="whitespace-pre-wrap">{aiBridgeCli}</pre>
                                 </div>
                             </div>
-
-                            <div className="bg-blue-900/10 border border-blue-500/20 p-4 rounded-lg flex items-start gap-3">
-                                <FaInfoCircle className="text-blue-400 mt-1" />
-                                <div className="text-xs text-gray-400">
-                                    <strong>Onde coloco a chave?</strong> No comando acima, onde diz <code className="text-purple-300">SUA_CHAVE_AQUI</code>, deves colar a tua API Key da Gemini. Isto cria um túnel seguro entre a IA e o teu banco de dados.
-                                </div>
-                            </div>
                         </div>
                     ) : (
                         <>
                             <div className="bg-blue-900/10 border border-blue-500/30 p-4 rounded-lg text-xs text-blue-200">
-                                <h3 className="font-bold flex items-center gap-2 mb-1"><FaInfoCircle className="text-blue-400" /> Execução no Supabase Dashboard</h3>
-                                <p>Copie o script e execute-o no <strong>SQL Editor</strong> do seu Supabase Dashboard para atualizar a infraestrutura.</p>
+                                <h3 className="font-bold flex items-center gap-2 mb-1"><FaInfoCircle className="text-blue-400" /> Dashboard do Supabase</h3>
+                                <p>Execute os scripts no <strong>SQL Editor</strong> para manter a infraestrutura sincronizada.</p>
                             </div>
 
                             <div className="relative flex-grow bg-black rounded-lg border border-gray-700 shadow-2xl overflow-hidden group">
@@ -170,7 +162,7 @@ CREATE TABLE IF NOT EXISTS calendar_events (id UUID PRIMARY KEY DEFAULT gen_rand
                                     </button>
                                 </div>
                                 <div className="h-full overflow-auto custom-scrollbar p-6 bg-gray-950 font-mono text-xs text-blue-400">
-                                    <pre className="whitespace-pre-wrap">{activeTab === 'full' ? fullInitScript : `-- Selecione outra aba ou use a Integração IA`}</pre>
+                                    <pre className="whitespace-pre-wrap">{activeTab === 'full' ? fullInitScript : `-- Selecione outra aba para ver o script`}</pre>
                                 </div>
                             </div>
                         </>
