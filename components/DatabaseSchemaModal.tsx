@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
 import Modal from './common/Modal';
-import { FaDatabase, FaCheck, FaCopy, FaExclamationTriangle, FaCode, FaBolt, FaShieldAlt, FaSync, FaSearch, FaTools, FaInfoCircle, FaRobot, FaTerminal, FaKey, FaEnvelope, FaExternalLinkAlt, FaListOl, FaPlay, FaFolderOpen } from 'react-icons/fa';
+import { FaDatabase, FaCheck, FaCopy, FaExclamationTriangle, FaCode, FaBolt, FaShieldAlt, FaSync, FaSearch, FaTools, FaInfoCircle, FaRobot, FaTerminal, FaKey, FaEnvelope, FaExternalLinkAlt, FaListOl, FaPlay, FaFolderOpen, FaTrash } from 'react-icons/fa';
 
 /**
- * DB Manager UI - v16.0 (Deploy Guide & Project Logic v6.6)
+ * DB Manager UI - v17.0 (CLI Legacy Cleanup & Auth v6.7)
  * -----------------------------------------------------------------------------
  * STATUS DE BLOQUEIO RIGOROSO (Freeze UI):
  * - PEDIDO 9: GUIA DE IMPLEMENTAÇÃO DA EDGE FUNCTION AI-PROXY.
- * - PEDIDO 8: GUIA DE IMPLEMENTAÇÃO DA EDGE FUNCTION ADMIN-AUTH-HELPER (V6.6).
- * - PEDIDO 4: CORREÇÃO DE ERRO DE DIRETÓRIO NO BASH E USER NOT FOUND.
+ * - PEDIDO 8: GUIA DE IMPLEMENTAÇÃO DA EDGE FUNCTION ADMIN-AUTH-HELPER (V6.7).
+ * - PEDIDO 4: CORREÇÃO DE ERRO 403 E LIMPEZA DE PROJETO ANTIGO NO BASH.
  * -----------------------------------------------------------------------------
  */
 
@@ -69,28 +69,28 @@ serve(async (req) => {
     const url = Deno.env.get('SB_URL') || Deno.env.get('SUPABASE_URL')
     const key = Deno.env.get('SB_SERVICE_ROLE_KEY') || Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
 
-    console.log("[AuthHelper v6.6] Inicializando no Projeto:", url);
-
     if (!url || !key) {
-      throw new Error('Chaves de ambiente ausentes no servidor Deno.');
+      throw new Error('Chaves de ambiente (URL/SERVICE_KEY) ausentes no servidor Deno.');
     }
 
     const supabaseAdmin = createClient(url, key)
-    const text = await req.text();
+    const rawBody = await req.text();
     let body = {};
-    try { body = JSON.parse(text); } catch (e) { throw new Error("Body JSON inválido."); }
+    try { body = JSON.parse(rawBody); } catch (e) { throw new Error("Body JSON inválido."); }
     
     const action = String(body.action || '').trim().toLowerCase();
     const targetUserId = String(body.targetUserId || '').trim();
     const newPassword = body.newPassword;
 
+    console.log(\`[AuthHelper v6.7] Action: \${action} | Target: \${targetUserId}\`);
+
     if (action === 'update_password') {
-      if (!targetUserId || !newPassword) throw new Error('Parâmetros targetUserId ou newPassword ausentes.');
+      if (!targetUserId || !newPassword) throw new Error('Parâmetros em falta no payload.');
       
       const { data, error } = await supabaseAdmin.auth.admin.updateUserById(targetUserId, { password: newPassword })
       
       if (error) {
-          console.error(\`[AuthHelper] Erro no Projeto \${url}:\`, error.message);
+          console.error(\`[AuthHelper] Falha no Supabase: \`, error.message);
           throw error;
       }
 
@@ -102,7 +102,6 @@ serve(async (req) => {
     
     throw new Error(\`Ação "\${action}" não suportada.\`)
   } catch (error) {
-    console.error("[AuthHelper] CATCH:", error.message);
     return new Response(JSON.stringify({ error: error.message }), { 
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }, 
       status: 400 
@@ -116,26 +115,35 @@ serve(async (req) => {
                 <div className="flex-shrink-0 flex border-b border-gray-700 bg-gray-900/50 rounded-t-lg overflow-x-auto custom-scrollbar whitespace-nowrap">
                     <button onClick={() => setActiveTab('full')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'full' ? 'border-brand-primary text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaCode /> Inicialização Universal (v10.0)</button>
                     <button onClick={() => setActiveTab('ai_bridge')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'ai_bridge' ? 'border-purple-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaRobot /> Ponte de IA (Deno)</button>
-                    <button onClick={() => setActiveTab('auth_helper')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'auth_helper' ? 'border-orange-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaKey /> Gestão Auth (v6.6)</button>
+                    <button onClick={() => setActiveTab('auth_helper')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'auth_helper' ? 'border-orange-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaKey /> Gestão Auth (v6.7)</button>
                 </div>
 
                 <div className="flex-grow overflow-hidden flex flex-col gap-4">
                     
                     {activeTab === 'auth_helper' && (
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 flex-shrink-0">
-                            <div className="bg-blue-900/20 border border-blue-500/30 p-4 rounded-lg flex flex-col gap-2">
-                                <h4 className="text-blue-300 font-bold flex items-center gap-2 text-sm"><FaFolderOpen /> 1. Criar Pasta</h4>
-                                <p className="text-[11px] text-gray-400">No seu PC, crie a pasta: <br/><code className="text-white">supabase/functions/admin-auth-helper</code></p>
+                        <>
+                        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 flex-shrink-0">
+                            <div className="bg-red-900/20 border border-red-500/30 p-3 rounded-lg flex flex-col gap-1">
+                                <h4 className="text-red-300 font-bold flex items-center gap-2 text-xs uppercase"><FaTrash /> 0. Limpar Antigo</h4>
+                                <p className="text-[10px] text-gray-400">Apague a pasta local <strong>.supabase</strong> para remover o projeto antigo da memória do terminal.</p>
                             </div>
-                            <div className="bg-purple-900/20 border border-purple-500/30 p-4 rounded-lg flex flex-col gap-2">
-                                <h4 className="text-purple-300 font-bold flex items-center gap-2 text-sm"><FaCopy /> 2. Copiar Código</h4>
-                                <p className="text-[11px] text-gray-400">Copie o código abaixo para um ficheiro <code className="text-white">index.ts</code> dentro da pasta criada.</p>
+                            <div className="bg-blue-900/20 border border-blue-500/30 p-3 rounded-lg flex flex-col gap-1">
+                                <h4 className="text-blue-300 font-bold flex items-center gap-2 text-xs uppercase"><FaSync /> 1. Religar</h4>
+                                <p className="text-[10px] text-gray-400"><code>npx supabase link --project-ref yyiwkrkuhlkqibhowdmq</code></p>
                             </div>
-                            <div className="bg-green-900/20 border border-green-500/30 p-4 rounded-lg flex flex-col gap-2">
-                                <h4 className="text-green-300 font-bold flex items-center gap-2 text-sm"><FaTerminal /> 3. Deploy</h4>
-                                <p className="text-[11px] text-gray-400">No terminal: <br/><code className="text-white">npx supabase functions deploy admin-auth-helper --project-ref yyiwkrkuhlkqibhowdmq</code></p>
+                            <div className="bg-purple-900/20 border border-purple-500/30 p-3 rounded-lg flex flex-col gap-1">
+                                <h4 className="text-purple-300 font-bold flex items-center gap-2 text-xs uppercase"><FaCopy /> 2. Copiar</h4>
+                                <p className="text-[10px] text-gray-400">Copie o código abaixo para o ficheiro <strong>index.ts</strong> na pasta da função.</p>
+                            </div>
+                            <div className="bg-green-900/20 border border-green-500/30 p-3 rounded-lg flex flex-col gap-1">
+                                <h4 className="text-green-300 font-bold flex items-center gap-2 text-xs uppercase"><FaTerminal /> 3. Deploy</h4>
+                                <p className="text-[10px] text-gray-400"><code>npx supabase functions deploy admin-auth-helper</code></p>
                             </div>
                         </div>
+                        <div className="bg-yellow-900/10 border border-yellow-500/30 p-3 rounded text-[10px] text-yellow-300 flex items-center gap-2">
+                            <FaExclamationTriangle /> <strong>Privilégios (403):</strong> Se o deploy der 403, faça <code>npx supabase logout</code> e <code>npx supabase login</code> novamente.
+                        </div>
+                        </>
                     )}
 
                     <div className="relative flex-grow bg-black rounded-lg border border-gray-700 shadow-2xl overflow-hidden">
