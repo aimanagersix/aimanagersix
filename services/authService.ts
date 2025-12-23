@@ -2,15 +2,25 @@ import { getSupabase } from './supabaseClient';
 
 const sb = () => getSupabase();
 
+/**
+ * Serviço de Autenticação v1.4 (Repair Mode)
+ * Focado na correção do erro de reset administrativo.
+ */
 export const adminResetPassword = async (userId: string, newPassword: string) => {
-    // Pedido 4: Garantir que o payload seja enviado de forma absolutamente limpa
-    // Adicionados logs de pré-envio para depuração no ambiente de execução
-    console.log(`[AuthService] A preparar pedido RPC para: ${userId}`);
+    // Pedido 4: Normalização extrema do payload para evitar erros de parsing no Deno/Edge
+    const cleanUserId = String(userId || '').trim();
+    const cleanPassword = String(newPassword || '').trim();
+
+    if (!cleanUserId || !cleanPassword) {
+        throw new Error("ID de utilizador ou nova password inválidos.");
+    }
+
+    console.log(`[AuthService] Iniciando invoke para reset de: ${cleanUserId}`);
     
     const payload = { 
         action: 'update_password', 
-        targetUserId: userId.trim(), 
-        newPassword: newPassword.trim() 
+        targetUserId: cleanUserId, 
+        newPassword: cleanPassword 
     };
 
     try {
@@ -19,31 +29,30 @@ export const adminResetPassword = async (userId: string, newPassword: string) =>
         });
         
         if (error) {
-            console.error("[AuthService] Falha Crítica na Edge Function:", error);
+            console.error("[AuthService] Resposta de erro da Edge Function:", error);
             
-            let friendlyError = "A operação de reset falhou.";
+            // O erro reportado pelo utilizador "Ação não é suportada" vem daqui
+            let errorMsg = "Falha no reset de password.";
             
-            if (error.message?.includes('Ação inválida')) {
-                friendlyError = "O servidor de autenticação não reconheceu o comando 'update_password'. Certifique-se de que a Edge Function está atualizada no projeto yyiwkrkuhlkqibhowdmq.";
-            } else if (error.message?.includes('404')) {
-                friendlyError = "Serviço de Autenticação indisponível (Erro 404). Contacte o suporte.";
+            if (error.message?.includes('Ação ""') || error.message?.includes('Ação inválida')) {
+                errorMsg = "O comando enviado não foi reconhecido pela Edge Function. Verifique se o código mais recente foi publicado no projeto yyiwkrkuhlkqibhowdmq.";
+            } else if (error.message?.includes('Requested entity was not found')) {
+                errorMsg = "A Edge Function 'admin-auth-helper' não foi encontrada. Por favor, faça o deploy via CLI.";
             } else {
-                friendlyError = `Erro da Edge Function: ${error.message}`;
+                errorMsg = `Erro técnico: ${error.message}`;
             }
             
-            throw new Error(friendlyError);
+            throw new Error(errorMsg);
         }
         
-        console.log(`[AuthService] Resposta da Função:`, data);
-        
-        // Sincronizar timestamp de atualização local
+        // Atualiza o metadado local de conformidade
         await sb().from('collaborators').update({ 
             password_updated_at: new Date().toISOString() 
-        }).eq('id', userId);
+        }).eq('id', cleanUserId);
         
         return { success: true, data };
     } catch (e: any) {
-        console.error("[AuthService] Exceção na chamada RPC:", e);
+        console.error("[AuthService] Exceção crítica no pedido:", e);
         throw e;
     }
 };
