@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import Modal from './common/Modal';
-import { FaDatabase, FaCheck, FaCopy, FaExclamationTriangle, FaCode, FaBolt, FaShieldAlt, FaSync, FaSearch, FaTools, FaInfoCircle, FaRobot, FaTerminal } from 'react-icons/fa';
+import { FaDatabase, FaCheck, FaCopy, FaExclamationTriangle, FaCode, FaBolt, FaShieldAlt, FaSync, FaSearch, FaTools, FaInfoCircle, FaRobot, FaTerminal, FaKey } from 'react-icons/fa';
 
 /**
- * DB Manager UI - v7.0 (AI Bridge Deployment Guide)
+ * DB Manager UI - v7.1 (Authentication Helper Deploy Guide)
  * -----------------------------------------------------------------------------
  * STATUS DE BLOQUEIO RIGOROSO (Freeze UI):
  * - PEDIDO 9: GUIA DE IMPLEMENTAÇÃO DA EDGE FUNCTION AI-PROXY.
+ * - PEDIDO 8: GUIA DE IMPLEMENTAÇÃO DA EDGE FUNCTION ADMIN-AUTH-HELPER.
  * -----------------------------------------------------------------------------
  */
 
@@ -16,7 +17,7 @@ interface DatabaseSchemaModalProps {
 
 const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) => {
     const [copied, setCopied] = useState<string | null>(null);
-    const [activeTab, setActiveTab] = useState<'full' | 'triggers' | 'functions' | 'security' | 'seeding' | 'patch' | 'ai_bridge'>('full');
+    const [activeTab, setActiveTab] = useState<'full' | 'triggers' | 'functions' | 'security' | 'seeding' | 'patch' | 'ai_bridge' | 'auth_helper'>('full');
     
     const handleCopy = (text: string, id: string) => {
         navigator.clipboard.writeText(text);
@@ -45,7 +46,7 @@ serve(async (req) => {
     if (prompt) parts.push({ text: prompt })
 
     const response = await ai.models.generateContent({
-        model: model || 'gemini-2.0-flash-exp',
+        model: model || 'gemini-3-flash-preview',
         contents: { parts },
         config: config || {}
     })
@@ -62,55 +63,92 @@ serve(async (req) => {
   }
 })`;
 
+    const authHelperCode = `import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
+serve(async (req) => {
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+
+  try {
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    )
+
+    const { action, targetUserId, newPassword } = await req.json()
+
+    if (action === 'update_password') {
+      const { data, error } = await supabaseAdmin.auth.admin.updateUserById(
+        targetUserId,
+        { password: newPassword }
+      )
+      if (error) throw error
+      return new Response(JSON.stringify({ success: true, data }), { 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200 
+      })
+    }
+
+    throw new Error('Ação inválida')
+  } catch (error) {
+    return new Response(JSON.stringify({ error: error.message }), { 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 400 
+    })
+  }
+})`;
+
     return (
         <Modal title="Consola de Base de Dados (SQL & Edge)" onClose={onClose} maxWidth="max-w-6xl">
             <div className="space-y-4 h-[85vh] flex flex-col">
                 <div className="flex-shrink-0 flex border-b border-gray-700 bg-gray-900/50 rounded-t-lg overflow-x-auto custom-scrollbar whitespace-nowrap">
                     <button onClick={() => setActiveTab('full')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'full' ? 'border-brand-primary text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaCode /> Inicialização</button>
-                    <button onClick={() => setActiveTab('ai_bridge')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'ai_bridge' ? 'border-purple-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaRobot /> Ponte de IA (Deploy)</button>
+                    <button onClick={() => setActiveTab('ai_bridge')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'ai_bridge' ? 'border-purple-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaRobot /> Ponte de IA</button>
+                    <button onClick={() => setActiveTab('auth_helper')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'auth_helper' ? 'border-orange-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaKey /> Gestão Auth (Fix)</button>
                     <button onClick={() => setActiveTab('triggers')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'triggers' ? 'border-yellow-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaSync /> Triggers</button>
                     <button onClick={() => setActiveTab('functions')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'functions' ? 'border-green-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaSearch /> Funções</button>
                     <button onClick={() => setActiveTab('security')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'security' ? 'border-red-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaShieldAlt /> Segurança</button>
-                    <button onClick={() => setActiveTab('patch')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'patch' ? 'border-orange-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaBolt /> Patch</button>
+                    <button onClick={() => setActiveTab('patch')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'patch' ? 'border-blue-400 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaBolt /> Patch</button>
                 </div>
 
                 <div className="flex-grow overflow-hidden flex flex-col gap-4">
-                    {activeTab === 'ai_bridge' ? (
+                    {activeTab === 'auth_helper' ? (
                         <div className="flex-grow flex flex-col overflow-hidden animate-fade-in">
-                            <div className="bg-purple-900/10 border border-purple-500/30 p-4 rounded-lg text-sm text-purple-200 mb-4">
-                                <h3 className="font-bold flex items-center gap-2 mb-2 text-lg"><FaRobot className="text-purple-400" /> Guia de Implementação (ID: yyiwkrkuhlkqibhowdmq)</h3>
-                                <p>Siga estes 3 passos no terminal do seu computador para ativar a IA:</p>
-                            </div>
-                            
-                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
-                                <div className="bg-gray-800 p-4 rounded border border-gray-700">
-                                    <h4 className="text-white font-bold text-xs uppercase mb-2">1. Criar Função</h4>
-                                    <div className="relative">
-                                        <code className="text-[10px] text-blue-400 block bg-black p-2 rounded">supabase functions new ai-proxy</code>
-                                        <button onClick={() => handleCopy("supabase functions new ai-proxy", 'bash1')} className="absolute top-1 right-1 text-gray-500 hover:text-white"><FaCopy/></button>
-                                    </div>
-                                </div>
-                                <div className="bg-gray-800 p-4 rounded border border-gray-700">
-                                    <h4 className="text-white font-bold text-xs uppercase mb-2">2. Configurar Chave</h4>
-                                    <div className="relative">
-                                        <code className="text-[10px] text-blue-400 block bg-black p-2 rounded">supabase secrets set GEMINI_API_KEY=...</code>
-                                        <button onClick={() => handleCopy("supabase secrets set GEMINI_API_KEY=", 'bash2')} className="absolute top-1 right-1 text-gray-500 hover:text-white"><FaCopy/></button>
-                                    </div>
-                                </div>
-                                <div className="bg-gray-800 p-4 rounded border border-gray-700">
-                                    <h4 className="text-white font-bold text-xs uppercase mb-2">3. Publicar</h4>
-                                    <div className="relative">
-                                        <code className="text-[10px] text-blue-400 block bg-black p-2 rounded">supabase functions deploy ai-proxy</code>
-                                        <button onClick={() => handleCopy("supabase functions deploy ai-proxy", 'bash3')} className="absolute top-1 right-1 text-gray-500 hover:text-white"><FaCopy/></button>
-                                    </div>
+                            <div className="bg-orange-900/10 border border-orange-500/30 p-4 rounded-lg text-sm text-orange-200 mb-4">
+                                <h3 className="font-bold flex items-center gap-2 mb-2 text-lg"><FaKey className="text-orange-400" /> Reparação: Erro de Edge Function (Pedido 8)</h3>
+                                <p>Para permitir que administradores alterem passwords de outros utilizadores, publique esta função:</p>
+                                <div className="mt-2 flex gap-2">
+                                    <code className="text-[10px] text-blue-400 bg-black p-1 rounded">supabase functions deploy admin-auth-helper</code>
                                 </div>
                             </div>
-
                             <div className="flex-grow flex flex-col overflow-hidden border border-gray-700 rounded-lg">
                                 <div className="bg-gray-800 px-4 py-2 border-b border-gray-700 flex justify-between items-center">
-                                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2"><FaTerminal/> supabase/functions/ai-proxy/index.ts</span>
-                                    <button onClick={() => handleCopy(aiProxyCode, 'deno')} className="px-3 py-1 bg-purple-600 text-white text-[10px] font-bold rounded flex items-center gap-1 hover:bg-purple-500">
-                                        {copied === 'deno' ? <FaCheck/> : <FaCopy/>} Copiar Código
+                                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2"><FaTerminal/> admin-auth-helper/index.ts</span>
+                                    <button onClick={() => handleCopy(authHelperCode, 'deno_auth')} className="px-3 py-1 bg-orange-600 text-white text-[10px] font-bold rounded flex items-center gap-1 hover:bg-orange-500">
+                                        {copied === 'deno_auth' ? <FaCheck/> : <FaCopy/>} Copiar Código
+                                    </button>
+                                </div>
+                                <div className="flex-grow overflow-auto p-4 bg-black font-mono text-[11px] text-green-400">
+                                    <pre className="whitespace-pre-wrap">{authHelperCode}</pre>
+                                </div>
+                            </div>
+                        </div>
+                    ) : activeTab === 'ai_bridge' ? (
+                        <div className="flex-grow flex flex-col overflow-hidden animate-fade-in">
+                            <div className="bg-purple-900/10 border border-purple-500/30 p-4 rounded-lg text-sm text-purple-200 mb-4">
+                                <h3 className="font-bold flex items-center gap-2 mb-2 text-lg"><FaRobot className="text-purple-400" /> Guia de Implementação IA</h3>
+                                <p>Publique esta função para ativar a triagem inteligente e análise CVE:</p>
+                            </div>
+                            <div className="flex-grow flex flex-col overflow-hidden border border-gray-700 rounded-lg">
+                                <div className="bg-gray-800 px-4 py-2 border-b border-gray-700 flex justify-between items-center">
+                                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2"><FaTerminal/> ai-proxy/index.ts</span>
+                                    <button onClick={() => handleCopy(aiProxyCode, 'deno_ai')} className="px-3 py-1 bg-purple-600 text-white text-[10px] font-bold rounded flex items-center gap-1 hover:bg-purple-500">
+                                        {copied === 'deno_ai' ? <FaCheck/> : <FaCopy/>} Copiar Código
                                     </button>
                                 </div>
                                 <div className="flex-grow overflow-auto p-4 bg-black font-mono text-[11px] text-green-400">
@@ -122,7 +160,7 @@ serve(async (req) => {
                         <div className="flex-grow flex flex-col overflow-hidden">
                             <div className="bg-blue-900/10 border border-blue-500/30 p-4 rounded-lg text-xs text-blue-200 mb-4">
                                 <h3 className="font-bold flex items-center gap-2 mb-1"><FaInfoCircle className="text-blue-400" /> Referência de Gestão (yyiwkrkuhlkqibhowdmq)</h3>
-                                <p>Execute os scripts no <strong>SQL Editor</strong> do Supabase para manter a infraestrutura sincronizada.</p>
+                                <p>Execute os scripts no <strong>SQL Editor</strong> para manter a infraestrutura sincronizada.</p>
                             </div>
 
                             <div className="relative flex-grow bg-black rounded-lg border border-gray-700 shadow-2xl overflow-hidden">

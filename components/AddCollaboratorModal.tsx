@@ -6,11 +6,11 @@ import { FaCamera, FaKey, FaUserShield, FaUserTie, FaBuilding, FaMapMarkerAlt, F
 import * as dataService from '../services/dataService';
 
 /**
- * ADD COLLABORATOR MODAL - V5.3 (Synced Roles only)
+ * ADD COLLABORATOR MODAL - V5.2 (Fixed Roles & Edit Access)
  * -----------------------------------------------------------------------------
  * STATUS DE BLOQUEIO RIGOROSO (Freeze UI):
  * - PEDIDO 8: RESTAURADO COM TODOS OS CAMPOS.
- * - PEDIDO 10: DROPDOWN SINCRONIZADO APENAS COM PERFIS DEFINIDOS NA DB.
+ * - PEDIDO 10: FIX PERFIS DUPLICADOS E EDIÇÃO DE ACESSO.
  * -----------------------------------------------------------------------------
  */
 
@@ -82,8 +82,7 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
     useEffect(() => {
         const loadConfig = async () => {
             const [roles, data] = await Promise.all([dataService.getCustomRoles(), dataService.fetchAllData()]);
-            // Ordenar perfis alfabeticamente para melhor UX
-            setAvailableRoles(roles.sort((a, b) => a.name.localeCompare(b.name)));
+            setAvailableRoles(roles);
             setJobTitles(data.configJobTitles || []);
         };
         loadConfig();
@@ -128,6 +127,12 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
         for (let i = 0; i < 12; i++) newPass += charset.charAt(Math.floor(Math.random() * charset.length));
         setPassword(newPass);
     };
+
+    // Pedido 10: Filtrar perfis dinâmicos para evitar duplicados com os perfis padrão
+    const filteredRoles = useMemo(() => {
+        const standardNames = ['Utilizador', 'Técnico', 'Admin', 'SuperAdmin'];
+        return availableRoles.filter(role => !standardNames.includes(role.name));
+    }, [availableRoles]);
 
     return (
         <Modal title={collaboratorToEdit ? "Editar Colaborador" : "Adicionar Colaborador"} onClose={onClose} maxWidth="max-w-4xl">
@@ -247,8 +252,10 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
                                 <div>
                                     <label className="block text-[10px] text-gray-500 uppercase font-black mb-1">Perfil (Role)</label>
                                     <select value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})} className="w-full bg-gray-800 border border-gray-700 text-white rounded p-2 text-sm">
-                                        <option value="">-- Selecionar Perfil --</option>
-                                        {availableRoles.map(r => <option key={r.id} value={r.name}>{r.name}</option>)}
+                                        <option value="Utilizador">Utilizador (Padrão)</option>
+                                        <option value="Técnico">Técnico (Suporte)</option>
+                                        <option value="Admin">Administrador (Total)</option>
+                                        {filteredRoles.map(r => <option key={r.id} value={r.name}>{r.name}</option>)}
                                     </select>
                                 </div>
                                 <div>
