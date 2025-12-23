@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FaKey, FaSave, FaCheckCircle, FaTimesCircle, FaEdit, FaShieldAlt, FaRobot, FaExternalLinkAlt, FaSync, FaFlask, FaSlack, FaEnvelope, FaInfoCircle } from 'react-icons/fa';
+import { FaKey, FaSave, FaCheckCircle, FaTimesCircle, FaEdit, FaShieldAlt, FaRobot, FaExternalLinkAlt, FaSync, FaFlask, FaSlack, FaEnvelope, FaInfoCircle, FaDatabase, FaUsers } from 'react-icons/fa';
 import { getAiConfigurationType } from '../../services/geminiService';
 import { getSupabase } from '../../services/supabaseClient';
 
@@ -51,7 +51,10 @@ const ConnectionCard = ({
 const ConnectionsTab: React.FC<ConnectionsTabProps> = ({ settings, onSettingsChange, onSave }) => {
     const aiConfigType = getAiConfigurationType();
     const [isAiTesting, setIsAiTesting] = useState(false);
+    const [isDbTesting, setIsDbTesting] = useState(false);
     const [aiConnectionStatus, setAiConnectionStatus] = useState<'idle' | 'success' | 'error'>(aiConfigType === 'direct' ? 'success' : 'idle');
+    const [dbConnectionStatus, setDbConnectionStatus] = useState<'idle' | 'success' | 'error'>('idle');
+    const [userCount, setUserCount] = useState<number | null>(null);
 
     const testAiConnection = async () => {
         setIsAiTesting(true);
@@ -62,7 +65,6 @@ const ConnectionsTab: React.FC<ConnectionsTabProps> = ({ settings, onSettingsCha
             });
             
             if (error) {
-                // Se o erro for de rede ou função não publicada
                 if (error.message?.includes('404') || error.message?.includes('Failed to fetch')) {
                     throw new Error("A função 'ai-proxy' não foi encontrada ou não está publicada no Supabase.");
                 }
@@ -79,6 +81,29 @@ const ConnectionsTab: React.FC<ConnectionsTabProps> = ({ settings, onSettingsCha
         }
     };
 
+    const testDirectDbAccess = async () => {
+        setIsDbTesting(true);
+        try {
+            const supabase = getSupabase();
+            // Consulta direta ignorando a Edge Function (Pedido 9)
+            const { count, error } = await supabase
+                .from('collaborators')
+                .select('*', { count: 'exact', head: true });
+            
+            if (error) throw error;
+            
+            setDbConnectionStatus('success');
+            setUserCount(count);
+            alert(`Sucesso! Ligação direta à base de dados operacional.\nUtilizadores criados detetados: ${count}`);
+        } catch (e: any) {
+            console.error(e);
+            setDbConnectionStatus('error');
+            alert(`Erro de Base de Dados:\n${e.message}`);
+        } finally {
+            setIsDbTesting(false);
+        }
+    };
+
     return (
         <div className="space-y-6 animate-fade-in p-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -88,12 +113,12 @@ const ConnectionsTab: React.FC<ConnectionsTabProps> = ({ settings, onSettingsCha
                     title="Inteligência Artificial (Gemini)" 
                     icon={<FaRobot size={20}/>} 
                     status={<StatusBadge configured={aiConnectionStatus === 'success'} testing={isAiTesting} label={aiConfigType === 'direct' ? 'MODO LOCAL' : 'MODO PONTE'} />}
-                    description="Cérebro da aplicação para triagem e automação (Projeto: yyiwkrkuhlkqibhowdmq)."
+                    description="Cérebro da aplicação para triagem e automação (Edge Function)."
                 >
                     <div className="bg-black/30 p-3 rounded border border-gray-800 text-xs text-gray-400">
                         <p className="mb-2">Configuração Manual (Sem CLI):</p>
                         <ol className="list-decimal list-inside space-y-1 mb-3 text-[11px]">
-                            <li>Aceda ao site do <a href="https://supabase.com/dashboard" target="_blank" rel="noreferrer" className="text-brand-secondary underline">Supabase</a>.</li>
+                            <li>Aceda ao <a href="https://supabase.com/dashboard" target="_blank" rel="noreferrer" className="text-brand-secondary underline">Dashboard Supabase</a>.</li>
                             <li>Vá a <strong>Settings</strong> &gt; <strong>Edge Functions</strong>.</li>
                             <li>Adicione o Secret: <code className="text-purple-400 font-bold">GEMINI_API_KEY</code></li>
                         </ol>
@@ -102,7 +127,29 @@ const ConnectionsTab: React.FC<ConnectionsTabProps> = ({ settings, onSettingsCha
                             disabled={isAiTesting}
                             className="w-full mt-2 flex items-center justify-center gap-2 py-2 bg-purple-600/20 hover:bg-purple-600/40 text-purple-300 rounded border border-purple-500/30 transition-all font-bold"
                         >
-                            <FaFlask /> Testar Conetividade dos Secrets
+                            <FaFlask /> Testar Ponte de IA
+                        </button>
+                    </div>
+                </ConnectionCard>
+
+                {/* BLOC: INFRAESTRUTURA SUPABASE (Expandido para Diagnóstico Direto) */}
+                <ConnectionCard 
+                    title="Infraestrutura Supabase" 
+                    icon={<FaKey size={20}/>} 
+                    status={<StatusBadge configured={dbConnectionStatus === 'success'} testing={isDbTesting} label="LIGAÇÃO DIRETA" />}
+                    description="Base de dados PostgreSQL e Autenticação (Projeto: yyiwkrkuhlkqibhowdmq)."
+                >
+                    <div className="bg-black/30 p-3 rounded border border-gray-800 text-xs text-gray-400 space-y-3">
+                        <div className="flex justify-between items-center bg-gray-900/50 p-2 rounded border border-gray-700">
+                            <span className="flex items-center gap-2 text-[11px]"><FaUsers className="text-brand-secondary"/> Utilizadores na DB:</span>
+                            <span className="font-mono text-white font-bold">{userCount !== null ? userCount : '---'}</span>
+                        </div>
+                        <button 
+                            onClick={testDirectDbAccess}
+                            disabled={isDbTesting}
+                            className="w-full flex items-center justify-center gap-2 py-2 bg-blue-600/20 hover:bg-blue-600/40 text-blue-300 rounded border border-blue-500/30 transition-all font-bold"
+                        >
+                            <FaDatabase /> Validar Acesso Direto (Contagem)
                         </button>
                     </div>
                 </ConnectionCard>
@@ -149,57 +196,28 @@ const ConnectionsTab: React.FC<ConnectionsTabProps> = ({ settings, onSettingsCha
                 </ConnectionCard>
 
                 {/* BLOC: RESEND EMAIL */}
-                <ConnectionCard 
-                    title="Resend (E-mail API)" 
-                    icon={<FaEnvelope size={20}/>} 
-                    status={<StatusBadge configured={!!(settings.resendApiKey && settings.resendFromEmail)} />}
-                    description="Envio de e-mails para aniversários e relatórios semanais."
-                >
-                    <div className="grid grid-cols-1 gap-2">
-                        <input 
-                            type="password" 
-                            placeholder="Resend API Key (re_...)" 
-                            value={settings.resendApiKey || ''} 
-                            onChange={(e) => onSettingsChange('resendApiKey', e.target.value)}
-                            className="bg-gray-800 border border-gray-700 text-white rounded p-2 text-xs focus:border-brand-secondary outline-none font-mono"
-                        />
-                        <input 
-                            type="text" 
-                            placeholder="E-mail do Remetente (ex: it@empresa.pt)" 
-                            value={settings.resendFromEmail || ''} 
-                            onChange={(e) => onSettingsChange('resendFromEmail', e.target.value)}
-                            className="bg-gray-800 border border-gray-700 text-white rounded p-2 text-xs focus:border-brand-secondary outline-none"
-                        />
-                    </div>
-                </ConnectionCard>
-
-                {/* BLOC: INFRAESTRUTURA SUPABASE */}
                 <div className="lg:col-span-2">
                     <ConnectionCard 
-                        title="Infraestrutura Supabase" 
-                        icon={<FaKey size={20}/>} 
-                        status={<StatusBadge configured={!!(settings.sbUrl && settings.sbKey)} />}
-                        description="Ligação central ao projeto: yyiwkrkuhlkqibhowdmq."
+                        title="Resend (E-mail API)" 
+                        icon={<FaEnvelope size={20}/>} 
+                        status={<StatusBadge configured={!!(settings.resendApiKey && settings.resendFromEmail)} />}
+                        description="Envio de e-mails automáticos (Aniversários, Relatórios)."
                     >
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label className="text-[10px] text-gray-500 uppercase font-bold block mb-1">Project URL</label>
-                                <input 
-                                    type="text" 
-                                    value={settings.sbUrl || ''} 
-                                    onChange={(e) => onSettingsChange('sbUrl', e.target.value)}
-                                    className="w-full bg-gray-800 border border-gray-700 text-white rounded p-2 text-xs outline-none font-mono"
-                                />
-                            </div>
-                            <div>
-                                <label className="text-[10px] text-gray-500 uppercase font-bold block mb-1">Anon Public Key</label>
-                                <input 
-                                    type="password" 
-                                    value={settings.sbKey || ''} 
-                                    onChange={(e) => onSettingsChange('sbKey', e.target.value)}
-                                    className="w-full bg-gray-800 border border-gray-700 text-white rounded p-2 text-xs outline-none font-mono"
-                                />
-                            </div>
+                            <input 
+                                type="password" 
+                                placeholder="Resend API Key (re_...)" 
+                                value={settings.resendApiKey || ''} 
+                                onChange={(e) => onSettingsChange('resendApiKey', e.target.value)}
+                                className="w-full bg-gray-800 border border-gray-700 text-white rounded p-2 text-xs focus:border-brand-secondary outline-none font-mono"
+                            />
+                            <input 
+                                type="text" 
+                                placeholder="E-mail do Remetente (ex: it@empresa.pt)" 
+                                value={settings.resendFromEmail || ''} 
+                                onChange={(e) => onSettingsChange('resendFromEmail', e.target.value)}
+                                className="w-full bg-gray-800 border border-gray-700 text-white rounded p-2 text-xs focus:border-brand-secondary outline-none"
+                            />
                         </div>
                     </ConnectionCard>
                 </div>
