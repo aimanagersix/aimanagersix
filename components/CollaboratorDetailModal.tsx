@@ -2,14 +2,15 @@ import React, { useState, useMemo } from 'react';
 import Modal from './common/Modal';
 import { Collaborator, Assignment, Equipment, Ticket, SoftwareLicense, LicenseAssignment, Brand, EquipmentType, ConfigItem } from '../types';
 // Add missing icons: FaIdCard, FaClock, FaMapMarkerAlt
-import { FaLaptop, FaTicketAlt, FaHistory, FaComment, FaEnvelope, FaPhone, FaMobileAlt, FaUserTag, FaEdit, FaKey, FaUserSlash, FaBoxOpen, FaPrint, FaExternalLinkAlt, FaInfoCircle, FaIdCard, FaClock, FaMapMarkerAlt } from './common/Icons';
+import { FaLaptop, FaTicketAlt, FaHistory, FaComment, FaEnvelope, FaPhone, FaMobileAlt, FaUserTag, FaEdit, FaKey, FaUserSlash, FaBoxOpen, FaPrint, FaExternalLinkAlt, FaInfoCircle, FaIdCard, FaClock, FaMapMarkerAlt, FaSpinner, FaTools, FaMagic } from './common/Icons';
 import * as dataService from '../services/dataService';
 
 /**
- * COLLABORATOR DETAIL MODAL - V5.0 (Restored History)
+ * COLLABORATOR DETAIL MODAL - V5.1 (Rescue Mode)
  * -----------------------------------------------------------------------------
  * STATUS DE BLOQUEIO RIGOROSO (Freeze UI):
  * - PEDIDO 8: RESTAURADO HISTÓRICO DE TICKETS, HARDWARE E SOFTWARE.
+ * - PEDIDO 4: ADICIONADO BOTÃO DE REPARAÇÃO DE IDENTIDADE (PROVISIONAMENTO).
  * -----------------------------------------------------------------------------
  */
 
@@ -38,6 +39,7 @@ export const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = (
     onViewTicket, onViewEquipment
 }) => {
     const [activeTab, setActiveTab] = useState<'active_assets' | 'tickets' | 'info'>('active_assets');
+    const [isRepairing, setIsRepairing] = useState(false);
 
     // Filtro de Ativos Atuais (Hardware)
     const assignedEquipment = useMemo(() => {
@@ -61,6 +63,22 @@ export const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = (
         return tickets.filter(t => t.collaborator_id === collaborator.id)
             .sort((a, b) => new Date(b.request_date).getTime() - new Date(a.request_date).getTime());
     }, [tickets, collaborator.id]);
+
+    const handleRepairLogin = async () => {
+        if (!confirm(`Deseja tentar provisionar manualmente a conta de login para ${collaborator.email}? Isto criará uma identidade no Supabase Auth e tentará linkar ao ID atual.`)) return;
+        
+        setIsRepairing(true);
+        try {
+            const tempPass = "AIManager" + Math.floor(1000 + Math.random() * 9000) + "!";
+            await dataService.adminProvisionUser(collaborator.id, collaborator.email, tempPass);
+            alert(`Sucesso! Conta provisionada com a password temporária: ${tempPass}\n\nO utilizador já deve aparecer no Dashboard do Supabase.`);
+            window.location.reload();
+        } catch (e: any) {
+            alert(`Erro na Reparação: ${e.message}`);
+        } finally {
+            setIsRepairing(false);
+        }
+    };
 
     return (
         <Modal title={`Ficha de Colaborador: ${collaborator.full_name}`} onClose={onClose} maxWidth="max-w-5xl">
@@ -87,6 +105,16 @@ export const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = (
                     </div>
                     <div className="flex flex-col items-end gap-3">
                         <div className="flex gap-2">
+                            {collaborator.can_login && (
+                                <button 
+                                    onClick={handleRepairLogin} 
+                                    disabled={isRepairing}
+                                    className="px-4 py-2 text-sm bg-orange-600 hover:bg-orange-500 text-white rounded-md flex items-center gap-2 shadow-lg transition-all"
+                                    title="Tentar criar conta Auth se ela estiver em falta"
+                                >
+                                    {isRepairing ? <FaSpinner className="animate-spin"/> : <FaMagic/>} Reparar Login
+                                </button>
+                            )}
                             <button onClick={() => { onClose(); onEdit(collaborator); }} className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-500 text-white rounded-md flex items-center gap-2 shadow-lg transition-all"><FaEdit/> Editar</button>
                             <button onClick={() => { onClose(); onStartChat(collaborator); }} className="px-4 py-2 text-sm bg-gray-700 hover:bg-gray-600 text-white rounded-md flex items-center gap-2 shadow-lg transition-all"><FaComment/> Chat</button>
                         </div>

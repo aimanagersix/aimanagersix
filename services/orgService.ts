@@ -2,9 +2,10 @@ import { getSupabase } from './supabaseClient';
 import { ResourceContact } from '../types';
 
 /**
- * Organization Service - V2.5
+ * Organization Service - V2.6
  * Pedido 7: Limpeza de payload rigorosa e propagação de erros.
  * Pedido 9: Ajuste de busca para garantir visibilidade total dos registos (3 colaboradores).
+ * Pedido 4: Adição de rastro de provisionamento.
  */
 
 const sb = () => getSupabase();

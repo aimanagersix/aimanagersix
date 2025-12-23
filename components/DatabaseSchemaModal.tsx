@@ -3,12 +3,12 @@ import Modal from './common/Modal';
 import { FaDatabase, FaCheck, FaCopy, FaExclamationTriangle, FaCode, FaBolt, FaShieldAlt, FaSync, FaSearch, FaTools, FaInfoCircle, FaRobot, FaTerminal, FaKey, FaEnvelope, FaExternalLinkAlt, FaListOl, FaPlay, FaFolderOpen, FaTrash } from 'react-icons/fa';
 
 /**
- * DB Manager UI - v17.0 (CLI Legacy Cleanup & Auth v6.7)
+ * DB Manager UI - v18.0 (Identity Recovery v6.8)
  * -----------------------------------------------------------------------------
  * STATUS DE BLOQUEIO RIGOROSO (Freeze UI):
  * - PEDIDO 9: GUIA DE IMPLEMENTAÇÃO DA EDGE FUNCTION AI-PROXY.
- * - PEDIDO 8: GUIA DE IMPLEMENTAÇÃO DA EDGE FUNCTION ADMIN-AUTH-HELPER (V6.7).
- * - PEDIDO 4: CORREÇÃO DE ERRO 403 E LIMPEZA DE PROJETO ANTIGO NO BASH.
+ * - PEDIDO 8: GUIA DE IMPLEMENTAÇÃO DA EDGE FUNCTION ADMIN-AUTH-HELPER (V6.8).
+ * - PEDIDO 4: REPARAÇÃO DO ERRO 'USER NOT FOUND' VIA PROVISIONAMENTO.
  * -----------------------------------------------------------------------------
  */
 
@@ -81,9 +81,11 @@ serve(async (req) => {
     const action = String(body.action || '').trim().toLowerCase();
     const targetUserId = String(body.targetUserId || '').trim();
     const newPassword = body.newPassword;
+    const email = body.email;
 
-    console.log(\`[AuthHelper v6.7] Action: \${action} | Target: \${targetUserId}\`);
+    console.log(\`[AuthHelper v6.8] Action: \${action} | Target: \${targetUserId || email}\`);
 
+    // AÇÃO 1: Atualizar Password
     if (action === 'update_password') {
       if (!targetUserId || !newPassword) throw new Error('Parâmetros em falta no payload.');
       
@@ -99,6 +101,24 @@ serve(async (req) => {
         status: 200 
       })
     }
+
+    // AÇÃO 2: Criar Utilizador (Provisionamento Manual)
+    if (action === 'create_user') {
+      if (!email || !newPassword) throw new Error('Email e Password são obrigatórios para provisionamento.');
+      
+      const { data, error } = await supabaseAdmin.auth.admin.createUser({
+          email: email,
+          password: newPassword,
+          email_confirm: true
+      })
+      
+      if (error) throw error;
+
+      return new Response(JSON.stringify({ success: true, user: data.user }), { 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }, 
+        status: 200 
+      })
+    }
     
     throw new Error(\`Ação "\${action}" não suportada.\`)
   } catch (error) {
@@ -110,12 +130,12 @@ serve(async (req) => {
 })`;
 
     return (
-        <Modal title="Gestão de Infraestrutura (Absolute Zero)" onClose={onClose} maxWidth="max-w-6xl">
+        <Modal title="Gestão de Infraestrutura (Recovery Mode)" onClose={onClose} maxWidth="max-w-6xl">
             <div className="space-y-4 h-[85vh] flex flex-col">
                 <div className="flex-shrink-0 flex border-b border-gray-700 bg-gray-900/50 rounded-t-lg overflow-x-auto custom-scrollbar whitespace-nowrap">
-                    <button onClick={() => setActiveTab('full')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'full' ? 'border-brand-primary text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaCode /> Inicialização Universal (v10.0)</button>
+                    <button onClick={() => setActiveTab('full')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'full' ? 'border-brand-primary text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaCode /> Inicialização Universal</button>
                     <button onClick={() => setActiveTab('ai_bridge')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'ai_bridge' ? 'border-purple-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaRobot /> Ponte de IA (Deno)</button>
-                    <button onClick={() => setActiveTab('auth_helper')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'auth_helper' ? 'border-orange-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaKey /> Gestão Auth (v6.7)</button>
+                    <button onClick={() => setActiveTab('auth_helper')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'auth_helper' ? 'border-orange-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaKey /> Gestão Auth (v6.8)</button>
                 </div>
 
                 <div className="flex-grow overflow-hidden flex flex-col gap-4">
@@ -125,7 +145,7 @@ serve(async (req) => {
                         <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 flex-shrink-0">
                             <div className="bg-red-900/20 border border-red-500/30 p-3 rounded-lg flex flex-col gap-1">
                                 <h4 className="text-red-300 font-bold flex items-center gap-2 text-xs uppercase"><FaTrash /> 0. Limpar Antigo</h4>
-                                <p className="text-[10px] text-gray-400">Apague a pasta local <strong>.supabase</strong> para remover o projeto antigo da memória do terminal.</p>
+                                <p className="text-[10px] text-gray-400">Apague a pasta local <strong>.supabase</strong> se mudar de projeto.</p>
                             </div>
                             <div className="bg-blue-900/20 border border-blue-500/30 p-3 rounded-lg flex flex-col gap-1">
                                 <h4 className="text-blue-300 font-bold flex items-center gap-2 text-xs uppercase"><FaSync /> 1. Religar</h4>
@@ -133,7 +153,7 @@ serve(async (req) => {
                             </div>
                             <div className="bg-purple-900/20 border border-purple-500/30 p-3 rounded-lg flex flex-col gap-1">
                                 <h4 className="text-purple-300 font-bold flex items-center gap-2 text-xs uppercase"><FaCopy /> 2. Copiar</h4>
-                                <p className="text-[10px] text-gray-400">Copie o código abaixo para o ficheiro <strong>index.ts</strong> na pasta da função.</p>
+                                <p className="text-[10px] text-gray-400">Copie o código abaixo para o ficheiro <strong>index.ts</strong>.</p>
                             </div>
                             <div className="bg-green-900/20 border border-green-500/30 p-3 rounded-lg flex flex-col gap-1">
                                 <h4 className="text-green-300 font-bold flex items-center gap-2 text-xs uppercase"><FaTerminal /> 3. Deploy</h4>
@@ -141,7 +161,7 @@ serve(async (req) => {
                             </div>
                         </div>
                         <div className="bg-yellow-900/10 border border-yellow-500/30 p-3 rounded text-[10px] text-yellow-300 flex items-center gap-2">
-                            <FaExclamationTriangle /> <strong>Privilégios (403):</strong> Se o deploy der 403, faça <code>npx supabase logout</code> e <code>npx supabase login</code> novamente.
+                            <FaExclamationTriangle /> <strong>Novo Recurso:</strong> A v6.8 permite provisionar utilizadores em falta através da ficha do colaborador.
                         </div>
                         </>
                     )}
