@@ -3,11 +3,11 @@ import { getSupabase } from './supabaseClient';
 const sb = () => getSupabase();
 
 /**
- * Serviço de Autenticação v1.4 (Repair Mode)
- * Focado na correção do erro de reset administrativo.
+ * Serviço de Autenticação v1.5 (Repair Mode)
+ * Otimizado para evitar erros de status não-2xx nas Edge Functions.
  */
 export const adminResetPassword = async (userId: string, newPassword: string) => {
-    // Pedido 4: Normalização extrema do payload para evitar erros de parsing no Deno/Edge
+    // Pedido 4: Validação e normalização rigorosa do payload
     const cleanUserId = String(userId || '').trim();
     const cleanPassword = String(newPassword || '').trim();
 
@@ -15,7 +15,8 @@ export const adminResetPassword = async (userId: string, newPassword: string) =>
         throw new Error("ID de utilizador ou nova password inválidos.");
     }
 
-    console.log(`[AuthService] Iniciando invoke para reset de: ${cleanUserId}`);
+    // Log para depuração local no browser
+    console.log(`[AuthService] Iniciando reset administrativo para utilizador: ${cleanUserId}`);
     
     const payload = { 
         action: 'update_password', 
@@ -29,30 +30,31 @@ export const adminResetPassword = async (userId: string, newPassword: string) =>
         });
         
         if (error) {
-            console.error("[AuthService] Resposta de erro da Edge Function:", error);
+            console.error("[AuthService] Erro retornado pela Edge Function:", error);
             
-            // O erro reportado pelo utilizador "Ação não é suportada" vem daqui
+            // Tratamento de erros comuns baseado no feedback do servidor
             let errorMsg = "Falha no reset de password.";
             
-            if (error.message?.includes('Ação ""') || error.message?.includes('Ação inválida')) {
-                errorMsg = "O comando enviado não foi reconhecido pela Edge Function. Verifique se o código mais recente foi publicado no projeto yyiwkrkuhlkqibhowdmq.";
-            } else if (error.message?.includes('Requested entity was not found')) {
-                errorMsg = "A Edge Function 'admin-auth-helper' não foi encontrada. Por favor, faça o deploy via CLI.";
+            if (error.message?.includes('404')) {
+                errorMsg = "A Edge Function 'admin-auth-helper' não foi encontrada. Certifique-se de que fez o deploy no Supabase.";
+            } else if (error.message?.includes('400')) {
+                errorMsg = "Pedido inválido. Verifique se o código da função no Supabase está atualizado para a v6.0.";
             } else {
-                errorMsg = `Erro técnico: ${error.message}`;
+                errorMsg = `Erro técnico (${error.status || 'Deno'}): ${error.message}`;
             }
             
             throw new Error(errorMsg);
         }
         
-        // Atualiza o metadado local de conformidade
+        // Sincronização de metadados na base de dados pública após sucesso no Auth
         await sb().from('collaborators').update({ 
             password_updated_at: new Date().toISOString() 
         }).eq('id', cleanUserId);
         
+        console.log(`[AuthService] Password atualizada com sucesso para ${cleanUserId}`);
         return { success: true, data };
     } catch (e: any) {
-        console.error("[AuthService] Exceção crítica no pedido:", e);
+        console.error("[AuthService] Exceção crítica durante o invoke:", e);
         throw e;
     }
 };

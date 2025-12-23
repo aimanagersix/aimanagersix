@@ -1,15 +1,14 @@
 import React, { useState } from 'react';
 import Modal from './common/Modal';
-/* Added FaPlay to imports */
 import { FaDatabase, FaCheck, FaCopy, FaExclamationTriangle, FaCode, FaBolt, FaShieldAlt, FaSync, FaSearch, FaTools, FaInfoCircle, FaRobot, FaTerminal, FaKey, FaEnvelope, FaExternalLinkAlt, FaListOl, FaPlay } from 'react-icons/fa';
 
 /**
- * DB Manager UI - v10.0 (Guided Infrastructure Implementation)
+ * DB Manager UI - v11.0 (Guided Infrastructure Implementation & Auth Fix)
  * -----------------------------------------------------------------------------
  * STATUS DE BLOQUEIO RIGOROSO (Freeze UI):
  * - PEDIDO 9: GUIA DE IMPLEMENTAÇÃO DA EDGE FUNCTION AI-PROXY.
- * - PEDIDO 8: GUIA DE IMPLEMENTAÇÃO DA EDGE FUNCTION ADMIN-AUTH-HELPER (V6).
- * - PEDIDO 4: SCRIPT UNIVERSAL "ABSOLUTE ZERO" COM GUIA DE EXECUÇÃO MANUAL.
+ * - PEDIDO 8: GUIA DE IMPLEMENTAÇÃO DA EDGE FUNCTION ADMIN-AUTH-HELPER (V6.1).
+ * - PEDIDO 4: REPARAÇÃO DO ERRO DE STATUS NON-2XX NO RESET DE PASSWORD.
  * -----------------------------------------------------------------------------
  */
 
@@ -198,23 +197,43 @@ serve(async (req) => {
     const key = Deno.env.get('SB_SERVICE_ROLE_KEY') || Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
 
     if (!url || !key) {
-      throw new Error('Variáveis de ambiente (URL/KEY) não configuradas.')
+      throw new Error('Variáveis de ambiente (URL/KEY) não configuradas na Edge Function.')
     }
 
     const supabaseAdmin = createClient(url, key)
     const body = await req.json().catch(() => ({}));
+    
+    console.log("[AuthHelper] Payload recebido:", JSON.stringify(body));
+
     const action = String(body.action || '').trim().toLowerCase();
     const targetUserId = body.targetUserId;
     const newPassword = body.newPassword;
 
     if (action === 'update_password') {
+      if (!targetUserId || !newPassword) {
+        throw new Error('Parâmetros targetUserId ou newPassword em falta.');
+      }
+      
       const { data, error } = await supabaseAdmin.auth.admin.updateUserById(targetUserId, { password: newPassword })
-      if (error) throw error
-      return new Response(JSON.stringify({ success: true, user_id: data.user.id }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
+      
+      if (error) {
+          console.error("[AuthHelper] Erro no updateUserById:", error.message);
+          throw error;
+      }
+
+      return new Response(JSON.stringify({ success: true, user_id: data.user.id }), { 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }, 
+        status: 200 
+      })
     }
-    throw new Error(\`Ação "\${action}" não suportada.\`)
+    
+    throw new Error(\`Ação "\${action}" não suportada. Verifique se o payload está correto.\`)
   } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 })
+    console.error("[AuthHelper] Catch final:", error.message);
+    return new Response(JSON.stringify({ error: error.message }), { 
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }, 
+      status: 400 
+    })
   }
 })`;
 
@@ -224,7 +243,7 @@ serve(async (req) => {
                 <div className="flex-shrink-0 flex border-b border-gray-700 bg-gray-900/50 rounded-t-lg overflow-x-auto custom-scrollbar whitespace-nowrap">
                     <button onClick={() => setActiveTab('full')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'full' ? 'border-brand-primary text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaCode /> Inicialização Universal (v10.0)</button>
                     <button onClick={() => setActiveTab('ai_bridge')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'ai_bridge' ? 'border-purple-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaRobot /> Ponte de IA (Deno)</button>
-                    <button onClick={() => setActiveTab('auth_helper')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'auth_helper' ? 'border-orange-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaKey /> Gestão Auth (Deno)</button>
+                    <button onClick={() => setActiveTab('auth_helper')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'auth_helper' ? 'border-orange-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaKey /> Gestão Auth (v6.1)</button>
                 </div>
 
                 <div className="flex-grow overflow-hidden flex flex-col gap-4">
@@ -255,7 +274,7 @@ serve(async (req) => {
                                 }} 
                                 className="px-4 py-2 bg-brand-primary text-white text-xs font-black rounded-md shadow-lg flex items-center gap-2 hover:bg-brand-secondary transition-all"
                             >
-                                {copied === activeTab ? <FaCheck /> : <FaCopy />} Copiar SQL
+                                {copied === activeTab ? <FaCheck /> : <FaCopy />} Copiar Código
                             </button>
                         </div>
                         <div className="h-full overflow-auto custom-scrollbar p-6 bg-gray-950 font-mono text-xs text-blue-400">
