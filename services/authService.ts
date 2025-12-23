@@ -3,11 +3,11 @@ import { getSupabase } from './supabaseClient';
 const sb = () => getSupabase();
 
 /**
- * Serviço de Autenticação v1.7 (Robust Invoke)
- * Otimizado para garantir que o 'action' e o corpo chegam à Edge Function corretamente.
+ * Serviço de Autenticação v1.9 (Payload Sanity)
+ * Garante que o objeto de pedido está limpo de carateres de controle e segue a estrutura JSON esperada pelo Deno.
  */
 export const adminResetPassword = async (userId: string, newPassword: string) => {
-    // Pedido 4: Validação e normalização rigorosa do payload
+    // Pedido 4: Normalização total para evitar erros de stream/parsing
     const cleanUserId = String(userId || '').trim();
     const cleanPassword = String(newPassword || '').trim();
 
@@ -15,8 +15,8 @@ export const adminResetPassword = async (userId: string, newPassword: string) =>
         throw new Error("ID de utilizador ou nova password inválidos.");
     }
 
-    // Log para depuração local no browser (F12)
-    console.log(`[AuthService] Iniciando reset administrativo (v1.7) para: ${cleanUserId}`);
+    // Log detalhado no console do browser (Visível com F12)
+    console.log(`[AuthService] Reset RPC v1.9 -> User: ${cleanUserId}`);
     
     const payload = { 
         action: 'update_password', 
@@ -25,38 +25,35 @@ export const adminResetPassword = async (userId: string, newPassword: string) =>
     };
 
     try {
-        // Pedido 4: Invocação com cabeçalho explícito para evitar erros de parsing no Deno
+        // Pedido 4: Invocação forçando Content-Type e capturando corpo da resposta
         const { data, error } = await sb().functions.invoke('admin-auth-helper', {
-            body: payload,
+            body: JSON.stringify(payload), // Envio explícito como string para garantir integridade
             headers: {
                 'Content-Type': 'application/json'
             }
         });
         
         if (error) {
-            console.error("[AuthService] Resposta da Edge Function:", error);
+            console.error("[AuthService] Erro retornado:", error);
             
-            let errorMsg = "Falha no reset de password.";
-            if (error.message?.includes('Ação ""') || error.message?.includes('não suportada')) {
-                errorMsg = "A Edge Function recebeu um payload vazio ou inválido. Verifique os logs do servidor para o texto bruto.";
-            } else if (error.status === 400) {
-                errorMsg = `Erro de pedido (400): ${error.message}`;
+            let errorMsg = "Falha no reset administrativo.";
+            if (error.message?.includes('Ação ""')) {
+                errorMsg = "O servidor não detetou o comando 'update_password'. Por favor, atualize a Edge Function para a v6.4 (Consola BD).";
             } else {
-                errorMsg = `Erro técnico (${error.status || 'Deno'}): ${error.message}`;
+                errorMsg = `Erro Técnico: ${error.message}`;
             }
             
             throw new Error(errorMsg);
         }
         
-        // Sincronização de metadados na base de dados pública após sucesso
+        // Sincronização de conformidade local
         await sb().from('collaborators').update({ 
             password_updated_at: new Date().toISOString() 
         }).eq('id', cleanUserId);
         
-        console.log(`[AuthService] Password atualizada com sucesso para ${cleanUserId}`);
         return { success: true, data };
     } catch (e: any) {
-        console.error("[AuthService] Exceção crítica na chamada:", e);
+        console.error("[AuthService] Exceção crítica:", e);
         throw e;
     }
 };

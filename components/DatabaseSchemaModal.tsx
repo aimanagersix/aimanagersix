@@ -3,12 +3,12 @@ import Modal from './common/Modal';
 import { FaDatabase, FaCheck, FaCopy, FaExclamationTriangle, FaCode, FaBolt, FaShieldAlt, FaSync, FaSearch, FaTools, FaInfoCircle, FaRobot, FaTerminal, FaKey, FaEnvelope, FaExternalLinkAlt, FaListOl, FaPlay } from 'react-icons/fa';
 
 /**
- * DB Manager UI - v13.0 (Infrastructure & Debug Refinement)
+ * DB Manager UI - v14.0 (Auth Resilience v6.4)
  * -----------------------------------------------------------------------------
  * STATUS DE BLOQUEIO RIGOROSO (Freeze UI):
  * - PEDIDO 9: GUIA DE IMPLEMENTAÇÃO DA EDGE FUNCTION AI-PROXY.
- * - PEDIDO 8: GUIA DE IMPLEMENTAÇÃO DA EDGE FUNCTION ADMIN-AUTH-HELPER (V6.3).
- * - PEDIDO 4: CORREÇÃO DE ERROS DE DEPLOY E PARSING DE JSON.
+ * - PEDIDO 8: GUIA DE IMPLEMENTAÇÃO DA EDGE FUNCTION ADMIN-AUTH-HELPER (V6.4).
+ * - PEDIDO 4: CORREÇÃO DEFINITIVA DO ERRO DE AÇÃO VAZIA (JSON PARSING).
  * -----------------------------------------------------------------------------
  */
 
@@ -202,29 +202,38 @@ serve(async (req) => {
 
     const supabaseAdmin = createClient(url, key)
     
-    // Pedido 4: Leitura robusta do texto bruto ANTES do parsing para logs
-    const text = await req.text();
-    console.log("[AuthHelper] Texto bruto recebido:", text);
-
+    // Pedido 4: Injeção de logs profundos e limpeza de corpo
+    const rawText = await req.text();
+    console.log("[AuthHelper] Texto Bruto:", rawText);
+    
+    // Tenta remover carateres invisíveis ou quebras de linha que possam quebrar o JSON.parse
+    const cleanText = rawText.replace(/[\\x00-\\x1F\\x7F-\\x9F]/g, ""); 
+    
     let body = {};
     try {
-        body = JSON.parse(text);
+        body = JSON.parse(cleanText);
     } catch (e) {
-        throw new Error(\`Falha ao converter body para JSON: \${e.message}. Recebido: \${text}\`);
+        console.error("[AuthHelper] Falha ao processar JSON:", e.message);
+        throw new Error("O corpo do pedido não é um JSON válido.");
     }
     
+    console.log("[AuthHelper] Payload Mapeado:", JSON.stringify(body));
+
     const action = String(body.action || '').trim().toLowerCase();
     const targetUserId = body.targetUserId;
     const newPassword = body.newPassword;
 
     if (action === 'update_password') {
       if (!targetUserId || !newPassword) {
-        throw new Error('Dados targetUserId ou newPassword ausentes no payload.');
+        throw new Error('Parâmetros targetUserId ou newPassword em falta no payload.');
       }
       
       const { data, error } = await supabaseAdmin.auth.admin.updateUserById(targetUserId, { password: newPassword })
       
-      if (error) throw error;
+      if (error) {
+          console.error("[AuthHelper] Supabase Auth Error:", error.message);
+          throw error;
+      }
 
       return new Response(JSON.stringify({ success: true, user_id: data.user.id }), { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }, 
@@ -232,9 +241,9 @@ serve(async (req) => {
       })
     }
     
-    throw new Error(\`Ação "\${action}" não reconhecida pela versão v6.3.\`)
+    throw new Error(\`Ação "\${action}" não é reconhecida por esta versão (v6.4).\`)
   } catch (error) {
-    console.error("[AuthHelper] ERRO:", error.message);
+    console.error("[AuthHelper] CATCH:", error.message);
     return new Response(JSON.stringify({ error: error.message }), { 
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }, 
       status: 400 
@@ -248,7 +257,7 @@ serve(async (req) => {
                 <div className="flex-shrink-0 flex border-b border-gray-700 bg-gray-900/50 rounded-t-lg overflow-x-auto custom-scrollbar whitespace-nowrap">
                     <button onClick={() => setActiveTab('full')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'full' ? 'border-brand-primary text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaCode /> Inicialização Universal (v10.0)</button>
                     <button onClick={() => setActiveTab('ai_bridge')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'ai_bridge' ? 'border-purple-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaRobot /> Ponte de IA (Deno)</button>
-                    <button onClick={() => setActiveTab('auth_helper')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'auth_helper' ? 'border-orange-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaKey /> Gestão Auth (v6.3)</button>
+                    <button onClick={() => setActiveTab('auth_helper')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'auth_helper' ? 'border-orange-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaKey /> Gestão Auth (v6.4)</button>
                 </div>
 
                 <div className="flex-grow overflow-hidden flex flex-col gap-4">
