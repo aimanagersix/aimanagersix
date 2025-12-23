@@ -3,11 +3,11 @@ import Modal from './common/Modal';
 import { FaDatabase, FaCheck, FaCopy, FaExclamationTriangle, FaCode, FaBolt, FaShieldAlt, FaSync, FaSearch, FaTools, FaInfoCircle, FaRobot, FaTerminal, FaKey, FaEnvelope } from 'react-icons/fa';
 
 /**
- * DB Manager UI - v7.4 (Infrastructure Fix: supabase_vault)
+ * DB Manager UI - v7.5 (Edge Function & JSX Fix)
  * -----------------------------------------------------------------------------
  * STATUS DE BLOQUEIO RIGOROSO (Freeze UI):
  * - PEDIDO 9: GUIA DE IMPLEMENTAÇÃO DA EDGE FUNCTION AI-PROXY.
- * - PEDIDO 8: GUIA DE IMPLEMENTAÇÃO DA EDGE FUNCTION ADMIN-AUTH-HELPER.
+ * - PEDIDO 8: GUIA DE IMPLEMENTAÇÃO DA EDGE FUNCTION ADMIN-AUTH-HELPER (V3).
  * - PEDIDO 8: CORREÇÃO EXTENSÃO VAULT -> SUPABASE_VAULT.
  * -----------------------------------------------------------------------------
  */
@@ -76,28 +76,37 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
   try {
-    // Pedido 8: Suporte a prefixos variados de variáveis de ambiente do Supabase
-    const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL') ?? Deno.env.get('SB_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? Deno.env.get('SB_SERVICE_ROLE_KEY') ?? ''
-    )
+    const url = Deno.env.get('SUPABASE_URL') ?? Deno.env.get('SB_URL')
+    const key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? Deno.env.get('SB_SERVICE_ROLE_KEY')
 
+    if (!url || !key) {
+      throw new Error('As variáveis de ambiente de ADMIN (Service Role) não estão configuradas na Edge Function.')
+    }
+
+    const supabaseAdmin = createClient(url, key)
     const { action, targetUserId, newPassword } = await req.json()
 
+    console.log(\`Executando ação \${action} para o utilizador \${targetUserId}\`)
+
     if (action === 'update_password') {
+      if (!targetUserId || !newPassword) throw new Error('targetUserId e newPassword são obrigatórios.')
+
       const { data, error } = await supabaseAdmin.auth.admin.updateUserById(
         targetUserId,
         { password: newPassword }
       )
+      
       if (error) throw error
-      return new Response(JSON.stringify({ success: true, data }), { 
+      
+      return new Response(JSON.stringify({ success: true, user: data.user }), { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200 
       })
     }
 
-    throw new Error('Ação inválida')
+    throw new Error('Ação inválida ou não suportada.')
   } catch (error) {
+    console.error('Erro na Edge Function:', error.message)
     return new Response(JSON.stringify({ error: error.message }), { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 400 
@@ -105,7 +114,7 @@ serve(async (req) => {
   }
 })`;
 
-    const patchScript = `-- ⚡ PATCH / INFRAESTRUTURA v7.4 (Add-ons e Correção Vault)
+    const patchScript = `-- ⚡ PATCH / INFRAESTRUTURA v7.5 (Add-ons e Correção Vault)
 
 -- 1. ATIVAR EXTENSÕES ESSENCIAIS (Pedido 8: Corrigido supabase_vault)
 -- Nota: Se o comando abaixo falhar, ative "Vault" no menu 'Database -> Extensions' do Dashboard do Supabase.
@@ -186,6 +195,9 @@ CREATE TRIGGER on_auth_user_created
                                 <div className="mt-2 flex gap-2">
                                     <code className="text-[10px] text-blue-400 bg-black p-1 rounded">supabase functions deploy admin-auth-helper</code>
                                 </div>
+                                <p className="mt-2 text-[11px] text-orange-300">
+                                    <FaExclamationTriangle className="inline mr-1" /> Certifique-se de que definiu o segredo <strong>SUPABASE_SERVICE_ROLE_KEY</strong> no Dashboard das Edge Functions.
+                                </p>
                             </div>
                             <div className="flex-grow flex flex-col overflow-hidden border border-gray-700 rounded-lg">
                                 <div className="bg-gray-800 px-4 py-2 border-b border-gray-700 flex justify-between items-center">

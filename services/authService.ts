@@ -4,33 +4,46 @@ const sb = () => getSupabase();
 
 export const adminResetPassword = async (userId: string, newPassword: string) => {
     // Pedido 8: Garantir que o payload segue rigorosamente a expectativa da Edge Function
-    console.log(`[AuthService] A solicitar reset de password para user ${userId}...`);
+    console.log(`[AuthService] A iniciar pedido de reset administrativo para: ${userId}`);
     
-    const { data, error } = await sb().functions.invoke('admin-auth-helper', {
-        body: { 
-            action: 'update_password', 
-            targetUserId: userId, 
-            newPassword: newPassword 
+    try {
+        const { data, error } = await sb().functions.invoke('admin-auth-helper', {
+            body: { 
+                action: 'update_password', 
+                targetUserId: userId, 
+                newPassword: newPassword 
+            }
+        });
+        
+        if (error) {
+            console.error("[AuthService] Erro retornado pela Edge Function:", error);
+            
+            // Tratamento de erro detalhado para o utilizador
+            let errorMessage = "Erro ao atualizar password.";
+            
+            if (error.message?.includes('404')) {
+                errorMessage = "A Função de Autenticação (admin-auth-helper) não foi encontrada no projeto. Por favor, publique-a via CLI conforme o guia no menu de Base de Dados.";
+            } else if (error.message?.includes('failed to fetch')) {
+                errorMessage = "Não foi possível contactar a Edge Function. Verifique a sua ligação ou se a função está ativa.";
+            } else {
+                errorMessage = `Erro técnico: ${error.message || "Código de estado não-2xx"}`;
+            }
+            
+            throw new Error(errorMessage);
         }
-    });
-    
-    if (error) {
-        console.error("Auth Helper Error:", error);
-        // Erro detalhado para o utilizador final
-        throw new Error(
-            error.message?.includes('Failed to send a request') 
-            ? "A Função de Autenticação (admin-auth-helper) não foi detetada. Por favor, publique a função via CLI ou verifique os logs no dashboard do Supabase."
-            : error.message || "Falha na comunicação com a Edge Function de Autenticação."
-        );
+        
+        console.log(`[AuthService] Password atualizada com sucesso para ${userId}`);
+        
+        // Atualiza o timestamp local para controlo de expiração futuro
+        await sb().from('collaborators').update({ 
+            password_updated_at: new Date().toISOString() 
+        }).eq('id', userId);
+        
+        return { success: true, data };
+    } catch (e: any) {
+        console.error("[AuthService] Exceção crítica:", e);
+        throw e;
     }
-    
-    // Atualiza o timestamp local para controlo de expiração futuro
-    await sb().from('collaborators').update({ 
-        password_updated_at: new Date().toISOString() 
-    }).eq('id', userId);
-    
-    console.log(`[AuthService] Password atualizada com sucesso para ${userId}`);
-    return { success: true, data };
 };
 
 export const updateMyPhoto = async (userId: string, photoUrl: string) => {
