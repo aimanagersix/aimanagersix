@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
 import Modal from './common/Modal';
-import { FaDatabase, FaCheck, FaCopy, FaExclamationTriangle, FaCode, FaBolt, FaShieldAlt, FaSync, FaSearch, FaTools, FaInfoCircle, FaRobot, FaTerminal, FaKey, FaEnvelope, FaExternalLinkAlt, FaListOl, FaPlay, FaFolderOpen, FaTrash } from 'react-icons/fa';
+import { FaDatabase, FaCheck, FaCopy, FaExclamationTriangle, FaCode, FaBolt, FaShieldAlt, FaSync, FaSearch, FaTools, FaInfoCircle, FaRobot, FaTerminal, FaKey, FaEnvelope, FaExternalLinkAlt, FaListOl, FaPlay, FaFolderOpen, FaTrash, FaLock } from 'react-icons/fa';
 
 /**
- * DB Manager UI - v18.0 (Identity Recovery v6.8)
+ * DB Manager UI - v19.0 (Privilege Rescue Guide v6.9)
  * -----------------------------------------------------------------------------
  * STATUS DE BLOQUEIO RIGOROSO (Freeze UI):
  * - PEDIDO 9: GUIA DE IMPLEMENTAÇÃO DA EDGE FUNCTION AI-PROXY.
- * - PEDIDO 8: GUIA DE IMPLEMENTAÇÃO DA EDGE FUNCTION ADMIN-AUTH-HELPER (V6.8).
- * - PEDIDO 4: REPARAÇÃO DO ERRO 'USER NOT FOUND' VIA PROVISIONAMENTO.
+ * - PEDIDO 8: GUIA DE IMPLEMENTAÇÃO DA EDGE FUNCTION ADMIN-AUTH-HELPER (V6.9).
+ * - PEDIDO 4: RESOLUÇÃO DE ERRO 403 (PRIVILEGIOS) NO TERMINAL.
  * -----------------------------------------------------------------------------
  */
 
@@ -83,49 +83,25 @@ serve(async (req) => {
     const newPassword = body.newPassword;
     const email = body.email;
 
-    console.log(\`[AuthHelper v6.8] Action: \${action} | Target: \${targetUserId || email}\`);
+    console.log(\`[AuthHelper v6.9] Action: \${action} | Target: \${targetUserId || email}\`);
 
-    // AÇÃO 1: Atualizar Password
     if (action === 'update_password') {
       if (!targetUserId || !newPassword) throw new Error('Parâmetros em falta no payload.');
-      
       const { data, error } = await supabaseAdmin.auth.admin.updateUserById(targetUserId, { password: newPassword })
-      
-      if (error) {
-          console.error(\`[AuthHelper] Falha no Supabase: \`, error.message);
-          throw error;
-      }
-
-      return new Response(JSON.stringify({ success: true, user_id: data.user.id }), { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }, 
-        status: 200 
-      })
+      if (error) throw error;
+      return new Response(JSON.stringify({ success: true, user_id: data.user.id }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
     }
 
-    // AÇÃO 2: Criar Utilizador (Provisionamento Manual)
     if (action === 'create_user') {
-      if (!email || !newPassword) throw new Error('Email e Password são obrigatórios para provisionamento.');
-      
-      const { data, error } = await supabaseAdmin.auth.admin.createUser({
-          email: email,
-          password: newPassword,
-          email_confirm: true
-      })
-      
+      if (!email || !newPassword) throw new Error('Email e Password obrigatórios.');
+      const { data, error } = await supabaseAdmin.auth.admin.createUser({ email, password, email_confirm: true })
       if (error) throw error;
-
-      return new Response(JSON.stringify({ success: true, user: data.user }), { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }, 
-        status: 200 
-      })
+      return new Response(JSON.stringify({ success: true, user: data.user }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
     }
     
     throw new Error(\`Ação "\${action}" não suportada.\`)
   } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), { 
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }, 
-      status: 400 
-    })
+    return new Response(JSON.stringify({ error: error.message }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 })
   }
 })`;
 
@@ -135,33 +111,42 @@ serve(async (req) => {
                 <div className="flex-shrink-0 flex border-b border-gray-700 bg-gray-900/50 rounded-t-lg overflow-x-auto custom-scrollbar whitespace-nowrap">
                     <button onClick={() => setActiveTab('full')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'full' ? 'border-brand-primary text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaCode /> Inicialização Universal</button>
                     <button onClick={() => setActiveTab('ai_bridge')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'ai_bridge' ? 'border-purple-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaRobot /> Ponte de IA (Deno)</button>
-                    <button onClick={() => setActiveTab('auth_helper')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'auth_helper' ? 'border-orange-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaKey /> Gestão Auth (v6.8)</button>
+                    <button onClick={() => setActiveTab('auth_helper')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'auth_helper' ? 'border-orange-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaKey /> Gestão Auth (v6.9)</button>
                 </div>
 
                 <div className="flex-grow overflow-hidden flex flex-col gap-4">
                     
                     {activeTab === 'auth_helper' && (
                         <>
+                        {/* Guia de Privilégios (Erro 403) */}
+                        <div className="bg-red-900/20 border border-red-500/30 p-4 rounded-lg animate-pulse mb-2">
+                            <h4 className="text-red-400 font-bold flex items-center gap-2 text-sm uppercase mb-2"><FaLock /> RESOLVER ERRO 403 (Privilégios Insuficientes)</h4>
+                            <p className="text-[11px] text-gray-300">Se o terminal der erro 403 ao tentar o <strong>link</strong> ou <strong>deploy</strong>, siga estes passos:</p>
+                            <ol className="text-[11px] text-gray-400 list-decimal ml-4 mt-2 space-y-1">
+                                <li>Aceda a <a href="https://supabase.com/dashboard/account/tokens" target="_blank" className="text-blue-400 underline">Personal Access Tokens</a> e gere um novo token.</li>
+                                <li>No terminal: <code className="text-white">npx supabase logout</code></li>
+                                <li>No terminal: <code className="text-white">npx supabase login</code> (cole o token que gerou).</li>
+                                <li>Tente novamente o <code className="text-white">npx supabase link --project-ref yyiwkrkuhlkqibhowdmq</code></li>
+                            </ol>
+                        </div>
+
                         <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 flex-shrink-0">
                             <div className="bg-red-900/20 border border-red-500/30 p-3 rounded-lg flex flex-col gap-1">
-                                <h4 className="text-red-300 font-bold flex items-center gap-2 text-xs uppercase"><FaTrash /> 0. Limpar Antigo</h4>
-                                <p className="text-[10px] text-gray-400">Apague a pasta local <strong>.supabase</strong> se mudar de projeto.</p>
+                                <h4 className="text-red-300 font-bold flex items-center gap-2 text-xs uppercase"><FaTrash /> 0. Limpar Cache</h4>
+                                <p className="text-[10px] text-gray-400">Apague a pasta <strong>.supabase</strong> local antes do novo login.</p>
                             </div>
                             <div className="bg-blue-900/20 border border-blue-500/30 p-3 rounded-lg flex flex-col gap-1">
                                 <h4 className="text-blue-300 font-bold flex items-center gap-2 text-xs uppercase"><FaSync /> 1. Religar</h4>
                                 <p className="text-[10px] text-gray-400"><code>npx supabase link --project-ref yyiwkrkuhlkqibhowdmq</code></p>
                             </div>
                             <div className="bg-purple-900/20 border border-purple-500/30 p-3 rounded-lg flex flex-col gap-1">
-                                <h4 className="text-purple-300 font-bold flex items-center gap-2 text-xs uppercase"><FaCopy /> 2. Copiar</h4>
-                                <p className="text-[10px] text-gray-400">Copie o código abaixo para o ficheiro <strong>index.ts</strong>.</p>
+                                <h4 className="text-purple-300 font-bold flex items-center gap-2 text-xs uppercase"><FaCopy /> 2. Código</h4>
+                                <p className="text-[10px] text-gray-400">Ficheiro <strong>index.ts</strong> na pasta da função.</p>
                             </div>
                             <div className="bg-green-900/20 border border-green-500/30 p-3 rounded-lg flex flex-col gap-1">
                                 <h4 className="text-green-300 font-bold flex items-center gap-2 text-xs uppercase"><FaTerminal /> 3. Deploy</h4>
                                 <p className="text-[10px] text-gray-400"><code>npx supabase functions deploy admin-auth-helper</code></p>
                             </div>
-                        </div>
-                        <div className="bg-yellow-900/10 border border-yellow-500/30 p-3 rounded text-[10px] text-yellow-300 flex items-center gap-2">
-                            <FaExclamationTriangle /> <strong>Novo Recurso:</strong> A v6.8 permite provisionar utilizadores em falta através da ficha do colaborador.
                         </div>
                         </>
                     )}
