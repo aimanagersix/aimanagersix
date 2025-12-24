@@ -6,11 +6,12 @@ import { FaCamera, FaKey, FaUserShield, FaUserTie, FaBuilding, FaMapMarkerAlt, F
 import * as dataService from '../services/dataService';
 
 /**
- * ADD COLLABORATOR MODAL - V5.2 (Fixed Roles & Edit Access)
+ * ADD COLLABORATOR MODAL - V5.5 (Photo Logic Stabilized)
  * -----------------------------------------------------------------------------
  * STATUS DE BLOQUEIO RIGOROSO (Freeze UI):
  * - PEDIDO 8: RESTAURADO COM TODOS OS CAMPOS.
  * - PEDIDO 10: FIX PERFIS DUPLICADOS E EDIÇÃO DE ACESSO.
+ * - PEDIDO 4: CORREÇÃO NO CICLO DE VIDA DA FOTO (upload antes do refresh).
  * -----------------------------------------------------------------------------
  */
 
@@ -38,7 +39,7 @@ const compressProfileImage = (file: File): Promise<File> => {
 
 interface AddCollaboratorModalProps {
     onClose: () => void;
-    onSave: (collaborator: Omit<Collaborator, 'id'> | Collaborator, password?: string) => Promise<any>;
+    onSave: (collaborator: Omit<Collaborator, 'id'> | Collaborator, photoFile?: File | null, password?: string) => Promise<any>;
     collaboratorToEdit?: Collaborator | null;
     escolasDepartamentos: Entidade[];
     instituicoes: Instituicao[];
@@ -111,8 +112,8 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
             if (!payload.entidade_id) delete payload.entidade_id;
             if (!payload.job_title_id) delete payload.job_title_id;
 
-            const saved = await onSave(payload as any, password ? password : undefined);
-            if (photoFile && saved?.id) await dataService.uploadCollaboratorPhoto(saved.id, photoFile);
+            // Pedido 4: Passamos o photoFile para o pai para que o upload seja síncrono com a gravação
+            await onSave(payload as any, photoFile, password ? password : undefined);
             onClose();
         } catch (err: any) { 
             alert("Erro ao gravar: " + err.message); 
@@ -128,7 +129,6 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
         setPassword(newPass);
     };
 
-    // Pedido 10: Filtrar perfis dinâmicos para evitar duplicados com os perfis padrão
     const filteredRoles = useMemo(() => {
         const standardNames = ['Utilizador', 'Técnico', 'Admin', 'SuperAdmin'];
         return availableRoles.filter(role => !standardNames.includes(role.name));

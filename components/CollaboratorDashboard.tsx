@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { Collaborator, Entidade, Equipment, Assignment, CollaboratorStatus, Ticket, TicketActivity, TeamMember, CollaboratorHistory, Message, TooltipConfig, defaultTooltipConfig, UserRole, Instituicao, ConfigItem } from '../types';
 import { EditIcon, FaTrash as DeleteIcon, CheckIcon, XIcon, ReportIcon, FaComment, SearchIcon, PlusIcon } from './common/Icons';
@@ -413,7 +412,7 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
                              {onDelete && !isSuperAdmin && (
                                 <button 
                                     onClick={() => { if (!isDeleteDisabled) onDelete(col.id); }} 
-                                    className={`flex flex-col items-center justify-center p-2 rounded hover:bg-gray-700 bg-gray-700/30 ${isDeleteDisabled ? "text-gray-600 opacity-50" : "text-red-400"}`}
+                                    className={`flex flex-col items-center justify-center p-2 rounded hover:bg-gray-700 bg-gray-700/30 ${isDeleteDisabled ? "text-gray-600 opacity-50 cursor-not-allowed" : "text-red-400 hover:text-red-300"}`}
                                     disabled={isDeleteDisabled}
                                 >
                                     <DeleteIcon className="h-4 w-4 mb-1"/> <span className="text-[9px]">Del</span>

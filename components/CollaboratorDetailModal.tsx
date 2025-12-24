@@ -6,11 +6,11 @@ import { FaLaptop, FaTicketAlt, FaHistory, FaComment, FaEnvelope, FaPhone, FaMob
 import * as dataService from '../services/dataService';
 
 /**
- * COLLABORATOR DETAIL MODAL - V5.1 (Rescue Mode)
+ * COLLABORATOR DETAIL MODAL - V5.2 (Print Ready)
  * -----------------------------------------------------------------------------
  * STATUS DE BLOQUEIO RIGOROSO (Freeze UI):
  * - PEDIDO 8: RESTAURADO HISTÓRICO DE TICKETS, HARDWARE E SOFTWARE.
- * - PEDIDO 4: ADICIONADO BOTÃO DE REPARAÇÃO DE IDENTIDADE (PROVISIONAMENTO).
+ * - PEDIDO 4: ADICIONADO BOTÃO DE IMPRESSÃO COM BRANDING.
  * -----------------------------------------------------------------------------
  */
 
@@ -80,6 +80,72 @@ export const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = (
         }
     };
 
+    const handlePrint = async () => {
+        const printWindow = window.open('', '_blank');
+        if (!printWindow) return;
+
+        const [logoBase64, sizeStr, footerId] = await Promise.all([
+            dataService.getGlobalSetting('app_logo_base64'),
+            dataService.getGlobalSetting('app_logo_size'),
+            dataService.getGlobalSetting('report_footer_institution_id')
+        ]);
+
+        let footerHtml = '';
+        if (footerId) {
+            const allData = await dataService.fetchAllData();
+            const inst = allData.instituicoes.find((i: any) => i.id === footerId);
+            if (inst) {
+                footerHtml = `<div class="footer"><p><strong>${inst.name}</strong> | NIF: ${inst.nif} | ${inst.email}</p></div>`;
+            }
+        }
+
+        const equipmentRows = assignedEquipment.map(eq => `<tr><td>${eq.description}</td><td>${eq.serial_number}</td><td>${eq.status}</td></tr>`).join('');
+
+        printWindow.document.write(`
+            <html>
+            <head>
+                <title>Ficha do Colaborador - ${collaborator.full_name}</title>
+                <style>
+                    body { font-family: sans-serif; padding: 40px; color: #333; }
+                    .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #0D47A1; padding-bottom: 20px; margin-bottom: 30px; }
+                    .logo { max-height: ${sizeStr || '80'}px; }
+                    .user-info { display: flex; gap: 20px; margin-bottom: 30px; }
+                    .user-photo { width: 120px; height: 120px; border-radius: 50%; object-cover; border: 2px solid #eee; }
+                    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 12px; }
+                    th { background-color: #f2f2f2; }
+                    .footer { position: fixed; bottom: 20px; width: 100%; text-align: center; font-size: 10px; color: #777; border-top: 1px solid #eee; padding-top: 10px; }
+                </style>
+            </head>
+            <body>
+                <div class="header">
+                    ${logoBase64 ? `<img src="${logoBase64}" class="logo" />` : '<h1>AIManager</h1>'}
+                    <div style="text-align: right">
+                        <h2 style="margin:0">${collaborator.full_name}</h2>
+                        <p style="margin:5px 0">${collaborator.role}</p>
+                    </div>
+                </div>
+                <div class="user-info">
+                    ${collaborator.photo_url ? `<img src="${collaborator.photo_url}" class="user-photo" />` : ''}
+                    <div>
+                        <p><strong>Email:</strong> ${collaborator.email}</p>
+                        <p><strong>Nº Mecanográfico:</strong> ${collaborator.numero_mecanografico || 'N/A'}</p>
+                        <p><strong>Admissão:</strong> ${collaborator.admission_date || 'N/A'}</p>
+                    </div>
+                </div>
+                <h3>Equipamentos Atribuídos</h3>
+                <table>
+                    <thead><tr><th>Descrição</th><th>Nº Série</th><th>Estado</th></tr></thead>
+                    <tbody>${equipmentRows || '<tr><td colspan="3">Nenhum ativo registado.</td></tr>'}</tbody>
+                </table>
+                ${footerHtml}
+                <script>window.onload = function() { window.print(); }</script>
+            </body>
+            </html>
+        `);
+        printWindow.document.close();
+    };
+
     return (
         <Modal title={`Ficha de Colaborador: ${collaborator.full_name}`} onClose={onClose} maxWidth="max-w-5xl">
             <div className="flex flex-col h-[75vh]">
@@ -105,6 +171,7 @@ export const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = (
                     </div>
                     <div className="flex flex-col items-end gap-3">
                         <div className="flex gap-2">
+                            <button onClick={handlePrint} className="px-4 py-2 text-sm bg-gray-700 hover:bg-gray-600 text-white rounded-md flex items-center gap-2 shadow-lg transition-all"><FaPrint/> Imprimir</button>
                             {collaborator.can_login && (
                                 <button 
                                     onClick={handleRepairLogin} 

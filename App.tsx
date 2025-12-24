@@ -45,7 +45,8 @@ export const App: React.FC = () => {
 
     const [isConfigured, setIsConfigured] = useState<boolean>(() => {
         if (dataService.isUsingMock()) return true;
-        return !!(process.env.SUPABASE_URL || localStorage.getItem('SUPABASE_URL'));
+        // Pedido 4: Verifica SB_URL (prefixo padronizado) ou SUPABASE_URL
+        return !!(process.env.SB_URL || process.env.SUPABASE_URL || localStorage.getItem('SB_URL') || localStorage.getItem('SUPABASE_URL'));
     });
     
     const [currentUser, setCurrentUser] = useState<Collaborator | null>(null);
