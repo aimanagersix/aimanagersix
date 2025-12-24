@@ -6,11 +6,10 @@ import { FaCamera, FaKey, FaUserShield, FaUserTie, FaBuilding, FaMapMarkerAlt, F
 import * as dataService from '../services/dataService';
 
 /**
- * ADD COLLABORATOR MODAL - V5.7 (Enhanced CP Mapping)
+ * ADD COLLABORATOR MODAL - V5.8 (Admin Role Edit Enable)
  * -----------------------------------------------------------------------------
  * STATUS DE BLOQUEIO RIGOROSO (Freeze UI):
- * - PEDIDO 4: VALIDAÇÃO DE NIF, EMAIL E DUPLICADOS.
- * - PEDIDO 4: PREENCHIMENTO AUTO VIA CÓDIGO POSTAL (Rua, Freguesia e Concelho).
+ * - PEDIDO 4: PERMITIR GESTÃO DO PERFIL ADMIN.
  * -----------------------------------------------------------------------------
  */
 
@@ -122,7 +121,6 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
         }
     }, [collaboratorToEdit]);
 
-    // Pedido 4: Autocomplete Código Postal Avançado
     useEffect(() => {
         const cp = formData.postal_code || '';
         if (/^\d{4}-\d{3}$/.test(cp)) {
@@ -136,7 +134,6 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
                             ...prev,
                             city: data.Concelho || prev.city,
                             locality: data.Freguesia || prev.locality,
-                            // Pedido 4: Mapear 'Designacao' para Rua se estiver vazio
                             address_line: !prev.address_line?.trim() ? (data.Designacao || prev.address_line) : prev.address_line
                         }));
                     }
@@ -164,7 +161,6 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
             newErrors.nif = 'NIF inválido (PT)';
         }
 
-        // Pedido 4: Verificação de duplicados
         const normalizedEmail = formData.email?.toLowerCase().trim();
         const normalizedNif = formData.nif?.trim();
         const normalizedMec = formData.numero_mecanografico?.trim();
@@ -215,7 +211,8 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
     };
 
     const filteredRoles = useMemo(() => {
-        const standardNames = ['Utilizador', 'Técnico', 'Admin', 'SuperAdmin'];
+        // PEDIDO 4: Permite que Admin apareça nos perfis selecionáveis dinamicamente
+        const standardNames = ['Utilizador', 'Técnico', 'SuperAdmin'];
         return availableRoles.filter(role => !standardNames.includes(role.name));
     }, [availableRoles]);
 
@@ -223,7 +220,6 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
         <Modal title={collaboratorToEdit ? "Editar Colaborador" : "Adicionar Colaborador"} onClose={onClose} maxWidth="max-w-4xl">
             <form onSubmit={handleSave} className="space-y-6 overflow-y-auto max-h-[80vh] p-1 pr-2 custom-scrollbar">
                 
-                {/* Cabeçalho: Foto e Nome */}
                 <div className="flex flex-col md:flex-row gap-6 items-center md:items-start bg-gray-900/30 p-6 rounded-xl border border-gray-700">
                     <div className="relative group">
                         <div className="w-32 h-32 rounded-full bg-gray-700 border-4 border-gray-600 flex items-center justify-center overflow-hidden shadow-2xl">
@@ -257,7 +253,6 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
                     </div>
                 </div>
 
-                {/* Estrutura Organizacional */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 bg-gray-800/20 p-6 rounded-xl border border-gray-700">
                     <div>
                         <label className="block text-xs font-bold text-gray-500 uppercase mb-1 flex items-center gap-2"><FaBuilding/> Instituição</label>
@@ -282,7 +277,6 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
                     </div>
                 </div>
 
-                {/* Contactos e Morada */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div className="space-y-4">
                         <h4 className="text-xs font-black text-brand-secondary uppercase tracking-widest border-b border-gray-700 pb-2">Informação de Contacto</h4>
@@ -333,7 +327,6 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
                     </div>
                 </div>
 
-                {/* Configuração de Acesso (Login e Perfil) */}
                 <div className="bg-blue-900/10 p-6 rounded-xl border border-blue-900/30">
                     <h4 className="text-sm font-bold text-white mb-4 flex items-center gap-2"><FaUserShield className="text-brand-secondary"/> Configuração de Acesso</h4>
                     <div className="space-y-4">

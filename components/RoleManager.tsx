@@ -4,11 +4,10 @@ import * as dataService from '../services/dataService';
 import { FaShieldAlt, FaSave, FaPlus, FaTrash, FaCheck, FaTimes, FaLock, FaUserShield, FaCheckDouble, FaSpinner, FaUserCheck, FaUserTie, FaComments, FaBullhorn, FaBell, FaExclamationTriangle, FaCode } from 'react-icons/fa';
 
 /**
- * RoleManager V2.2 (Permission Mirror)
+ * RoleManager V2.3 (Admin Edit Access)
  * -----------------------------------------------------------------------------
  * NOTA: Este componente gere os perfis personalizados na tabela config_custom_roles.
- * A estrutura de permissões segue a "Árvore Enterprise" com controlo granular.
- * PEDIDO 4: ADICIONADO MODO ESPELHO JSON.
+ * PEDIDO 4: LIBERADA EDIÇÃO DO PERFIL ADMIN. APENAS SUPERADMIN BLOQUEADO.
  * -----------------------------------------------------------------------------
  */
 
@@ -93,7 +92,7 @@ const PERMISSION_GROUPS: PermissionGroup[] = [
             { key: 'compliance_backups', label: 'NIS2: Registo de Backups' },
             { key: 'compliance_resilience', label: 'NIS2: Testes de Resiliência', supportsOwn: true },
             { key: 'compliance_training', label: 'NIS2: Formação e Consciencialização', supportsOwn: true },
-            { key: 'compliance_training', label: 'NIS2: Políticas e Governança', supportsOwn: true },
+            { key: 'compliance_policies', label: 'NIS2: Políticas e Governança', supportsOwn: true },
         ]
     },
     {
@@ -123,11 +122,12 @@ const RoleManager: React.FC<RoleManagerProps> = ({ roles, onRefresh }) => {
     const [editingPermissions, setEditingPermissions] = useState<Record<string, any>>({});
     const [isSaving, setIsSaving] = useState(false);
     const [showNewRoleInput, setShowNewRoleInput] = useState(false);
-    const [showMirrorMode, setShowMirrorMode] = useState(false); // Pedido 4
+    const [showMirrorMode, setShowMirrorMode] = useState(false);
     const [newRoleName, setNewRoleName] = useState('');
     const [error, setError] = useState<string | null>(null);
 
     const selectedRole = roles.find(r => r.id === selectedRoleId);
+    // PEDIDO 4: Apenas SuperAdmin é imutável via UI para segurança da consola DB
     const isSuperAdminRole = selectedRole?.name === 'SuperAdmin';
 
     useEffect(() => {
@@ -172,10 +172,10 @@ const RoleManager: React.FC<RoleManagerProps> = ({ roles, onRefresh }) => {
                 permissions: editingPermissions 
             });
             onRefresh();
-            alert("Permissões gravadas na base de dados com sucesso.");
+            alert("Permissões do perfil atualizadas na base de dados.");
         } catch (e: any) {
             console.error(e);
-            setError("Erro ao gravar no Supabase: Verifique se a tabela 'config_custom_roles' existe e tem políticas RLS.");
+            setError("Erro ao gravar permissões. Verifique as políticas RLS.");
         } finally {
             setIsSaving(false);
         }
@@ -193,7 +193,7 @@ const RoleManager: React.FC<RoleManagerProps> = ({ roles, onRefresh }) => {
             setShowNewRoleInput(false);
             onRefresh();
         } catch (e: any) {
-            alert("Erro ao criar perfil. Verifique se o nome já existe.");
+            alert("Erro ao criar perfil.");
         } finally {
             setIsSaving(false);
         }
@@ -201,30 +201,15 @@ const RoleManager: React.FC<RoleManagerProps> = ({ roles, onRefresh }) => {
 
     return (
         <div className="flex flex-col md:flex-row h-[75vh] gap-6 p-6">
-            {/* Sidebar de Perfis */}
             <div className="w-full md:w-64 bg-gray-900/50 rounded-lg border border-gray-700 flex flex-col overflow-hidden">
                 <div className="p-4 border-b border-gray-700 flex justify-between items-center bg-gray-800">
                     <h3 className="font-bold text-white text-[10px] uppercase tracking-widest">Perfis (Roles)</h3>
-                    <button 
-                        onClick={() => setShowNewRoleInput(true)}
-                        className="p-1.5 bg-brand-primary text-white rounded hover:bg-brand-secondary transition-colors"
-                        title="Criar Novo Perfil"
-                    >
-                        <FaPlus size={10} />
-                    </button>
+                    <button onClick={() => setShowNewRoleInput(true)} className="p-1.5 bg-brand-primary text-white rounded hover:bg-brand-secondary transition-colors" title="Criar Novo Perfil"><FaPlus size={10} /></button>
                 </div>
                 <div className="flex-grow overflow-y-auto p-2 space-y-1 custom-scrollbar">
                     {showNewRoleInput && (
                         <div className="p-3 bg-gray-950 rounded mb-2 space-y-2 border border-brand-primary/50 animate-fade-in">
-                            <input 
-                                type="text" 
-                                value={newRoleName}
-                                onChange={e => setNewRoleName(e.target.value)}
-                                className="w-full bg-gray-800 border border-gray-700 rounded p-2 text-xs text-white outline-none focus:border-brand-primary"
-                                placeholder="Nome do Perfil..."
-                                autoFocus
-                                onKeyDown={e => e.key === 'Enter' && handleAddRole()}
-                            />
+                            <input type="text" value={newRoleName} onChange={e => setNewRoleName(e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded p-2 text-xs text-white outline-none focus:border-brand-primary" placeholder="Nome do Perfil..." autoFocus onKeyDown={e => e.key === 'Enter' && handleAddRole()}/>
                             <div className="flex justify-end gap-2">
                                 <button onClick={() => setShowNewRoleInput(false)} className="text-[10px] text-gray-500 hover:text-white uppercase font-bold">Cancelar</button>
                                 <button onClick={handleAddRole} className="px-2 py-1 text-[10px] bg-brand-primary text-white rounded font-bold">Criar</button>
@@ -232,11 +217,7 @@ const RoleManager: React.FC<RoleManagerProps> = ({ roles, onRefresh }) => {
                         </div>
                     )}
                     {roles.length > 0 ? roles.map(role => (
-                        <button 
-                            key={role.id} 
-                            onClick={() => setSelectedRoleId(role.id)} 
-                            className={`w-full text-left px-4 py-2.5 rounded-md text-sm transition-all flex items-center justify-between group ${selectedRoleId === role.id ? 'bg-brand-primary text-white shadow-lg' : 'text-gray-400 hover:bg-gray-800 hover:text-white'}`}
-                        >
+                        <button key={role.id} onClick={() => setSelectedRoleId(role.id)} className={`w-full text-left px-4 py-2.5 rounded-md text-sm transition-all flex items-center justify-between group ${selectedRoleId === role.id ? 'bg-brand-primary text-white shadow-lg' : 'text-gray-400 hover:bg-gray-800 hover:text-white'}`}>
                             <span className="truncate">{role.name}</span>
                             {role.name === 'SuperAdmin' && <FaLock className="text-[10px] opacity-50"/>}
                         </button>
@@ -244,7 +225,6 @@ const RoleManager: React.FC<RoleManagerProps> = ({ roles, onRefresh }) => {
                 </div>
             </div>
 
-            {/* Painel de Permissões */}
             <div className="flex-1 bg-gray-900/50 rounded-lg border border-gray-700 flex flex-col overflow-hidden">
                 {!selectedRoleId ? (
                     <div className="flex-grow flex flex-col items-center justify-center text-gray-600 text-center p-10">
@@ -255,49 +235,27 @@ const RoleManager: React.FC<RoleManagerProps> = ({ roles, onRefresh }) => {
                     <>
                         <div className="p-4 border-b border-gray-700 flex justify-between items-center bg-gray-800">
                             <div className="flex items-center gap-3">
-                                <div className="p-2 bg-brand-primary/20 rounded text-brand-secondary">
-                                    <FaUserShield size={16} />
-                                </div>
+                                <div className="p-2 bg-brand-primary/20 rounded text-brand-secondary"><FaUserShield size={16} /></div>
                                 <div>
                                     <h3 className="font-bold text-white text-base">{selectedRole?.name}</h3>
                                     <p className="text-[10px] text-gray-500 uppercase font-black">Editor de Privilégios</p>
                                 </div>
                             </div>
-                            
                             <div className="flex gap-2">
-                                <button 
-                                    onClick={() => setShowMirrorMode(!showMirrorMode)}
-                                    className={`px-3 py-2 rounded text-xs font-bold transition-all flex items-center gap-2 ${showMirrorMode ? 'bg-purple-600 text-white' : 'bg-gray-700 text-gray-400 hover:text-white'}`}
-                                    title="Espelho JSON da BD"
-                                >
-                                    <FaCode /> {showMirrorMode ? 'Ocultar JSON' : 'Ver DB JSON'}
-                                </button>
-                                
+                                <button onClick={() => setShowMirrorMode(!showMirrorMode)} className={`px-3 py-2 rounded text-xs font-bold transition-all flex items-center gap-2 ${showMirrorMode ? 'bg-purple-600 text-white' : 'bg-gray-700 text-gray-400 hover:text-white'}`} title="Espelho JSON da BD"><FaCode /> {showMirrorMode ? 'Ocultar JSON' : 'Ver DB JSON'}</button>
                                 {!isSuperAdminRole && (
-                                    <button 
-                                        onClick={handleSavePermissions} 
-                                        disabled={isSaving} 
-                                        className="bg-brand-primary text-white px-6 py-2 rounded-md text-xs flex items-center gap-2 hover:bg-brand-secondary transition-all shadow-xl font-black uppercase tracking-widest disabled:opacity-50"
-                                    >
-                                        {isSaving ? <FaSpinner className="animate-spin" /> : <FaSave />} Gravar Permissões
-                                    </button>
+                                    <button onClick={handleSavePermissions} disabled={isSaving} className="bg-brand-primary text-white px-6 py-2 rounded-md text-xs flex items-center gap-2 hover:bg-brand-secondary transition-all shadow-xl font-black uppercase tracking-widest disabled:opacity-50">{isSaving ? <FaSpinner className="animate-spin" /> : <FaSave />} Gravar Permissões</button>
                                 )}
                             </div>
                         </div>
 
-                        {error && (
-                            <div className="p-3 bg-red-900/20 border-b border-red-500/30 text-red-300 text-xs flex items-center gap-2">
-                                <FaExclamationTriangle className="animate-pulse" /> {error}
-                            </div>
-                        )}
+                        {error && <div className="p-3 bg-red-900/20 border-b border-red-500/30 text-red-300 text-xs flex items-center gap-2"><FaExclamationTriangle className="animate-pulse" /> {error}</div>}
 
                         <div className="flex-grow overflow-y-auto p-6 custom-scrollbar bg-gray-950/20">
                             {showMirrorMode ? (
                                 <div className="animate-fade-in h-full flex flex-col">
                                     <p className="text-[10px] text-purple-400 font-bold uppercase mb-2">Estrutura JSON Real na Base de Dados:</p>
-                                    <pre className="flex-grow bg-black p-4 rounded border border-purple-500/30 font-mono text-[11px] text-green-400 overflow-auto custom-scrollbar">
-                                        {JSON.stringify(selectedRole?.permissions || {}, null, 2)}
-                                    </pre>
+                                    <pre className="flex-grow bg-black p-4 rounded border border-purple-500/30 font-mono text-[11px] text-green-400 overflow-auto custom-scrollbar">{JSON.stringify(selectedRole?.permissions || {}, null, 2)}</pre>
                                 </div>
                             ) : (
                                 <div className={isSuperAdminRole ? 'opacity-30 pointer-events-none grayscale' : 'animate-fade-in'}>
@@ -305,40 +263,27 @@ const RoleManager: React.FC<RoleManagerProps> = ({ roles, onRefresh }) => {
                                         <div key={gIdx} className="mb-10 last:mb-0">
                                             <div className="flex justify-between items-center border-b border-gray-800 mb-5 pb-2">
                                                 <h4 className="text-[11px] font-black text-brand-secondary uppercase tracking-[0.2em]">{group.label}</h4>
-                                                <button 
-                                                    onClick={() => handleSelectAllGroup(group.items)}
-                                                    className="text-[9px] text-gray-600 hover:text-white uppercase font-black flex items-center gap-1.5 transition-colors"
-                                                >
-                                                    <FaCheckDouble /> Selecionar Tudo
-                                                </button>
+                                                <button onClick={() => handleSelectAllGroup(group.items)} className="text-[9px] text-gray-600 hover:text-white uppercase font-black flex items-center gap-1.5 transition-colors"><FaCheckDouble /> Selecionar Tudo</button>
                                             </div>
-                                            
                                             <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
                                                 {group.items.map(item => {
                                                     const perms = editingPermissions[item.key] || {};
                                                     return (
                                                         <div key={item.key} className={`p-4 rounded-lg border transition-all duration-300 ${perms.view ? 'bg-gray-800/40 border-brand-primary/30 shadow-inner' : 'bg-gray-900/20 border-gray-800 hover:border-gray-700'}`}>
                                                             <p className={`text-xs font-bold mb-3 transition-colors ${perms.view ? 'text-white' : 'text-gray-500'}`}>{item.label}</p>
-                                                            
                                                             <div className="flex flex-col gap-2.5">
                                                                 <label className="flex items-center gap-3 cursor-pointer group">
-                                                                    <div className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${perms.view ? 'bg-brand-primary border-brand-primary' : 'bg-gray-950 border-gray-700 group-hover:border-gray-500'}`}>
-                                                                        {perms.view && <FaCheck className="text-[8px] text-white" />}
-                                                                    </div>
+                                                                    <div className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${perms.view ? 'bg-brand-primary border-brand-primary' : 'bg-gray-950 border-gray-700 group-hover:border-gray-500'}`}>{perms.view && <FaCheck className="text-[8px] text-white" />}</div>
                                                                     <input type="checkbox" checked={!!perms.view} onChange={() => handleTogglePermission(item.key, 'view')} className="hidden" />
                                                                     <span className={`text-[10px] uppercase font-black tracking-wider ${perms.view ? 'text-white' : 'text-gray-600'}`}>Acesso Visualização</span>
                                                                 </label>
-
                                                                 {item.supportsOwn && (
                                                                     <label className="flex items-center gap-3 cursor-pointer group pl-7 border-l border-gray-800 ml-2">
-                                                                        <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center transition-all ${perms.view_own ? 'bg-blue-600 border-blue-600' : 'bg-gray-950 border-gray-700'}`}>
-                                                                            {perms.view_own && <FaCheck className="text-[7px] text-white" />}
-                                                                        </div>
+                                                                        <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center transition-all ${perms.view_own ? 'bg-blue-600 border-blue-600' : 'bg-gray-950 border-gray-700'}`}>{perms.view_own && <FaCheck className="text-[7px] text-white" />}</div>
                                                                         <input type="checkbox" checked={!!perms.view_own} onChange={() => handleTogglePermission(item.key, 'view_own')} className="hidden" />
                                                                         <span className={`text-[9px] uppercase font-bold tracking-wider ${perms.view_own ? 'text-blue-400' : 'text-gray-600'}`}>Apenas Dados Próprios</span>
                                                                     </label>
                                                                 )}
-
                                                                 {!item.isSimpleAccess && (
                                                                     <div className="flex flex-wrap gap-2 pt-3 border-t border-gray-800/50 mt-1">
                                                                         {(['create', 'edit', 'delete'] as PermissionAction[]).map(act => (
