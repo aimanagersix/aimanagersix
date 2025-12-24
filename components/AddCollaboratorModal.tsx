@@ -6,11 +6,11 @@ import { FaCamera, FaKey, FaUserShield, FaUserTie, FaBuilding, FaMapMarkerAlt, F
 import * as dataService from '../services/dataService';
 
 /**
- * ADD COLLABORATOR MODAL - V5.6 (Validation & Automation)
+ * ADD COLLABORATOR MODAL - V5.7 (Enhanced CP Mapping)
  * -----------------------------------------------------------------------------
  * STATUS DE BLOQUEIO RIGOROSO (Freeze UI):
  * - PEDIDO 4: VALIDAÇÃO DE NIF, EMAIL E DUPLICADOS.
- * - PEDIDO 4: PREENCHIMENTO AUTO VIA CÓDIGO POSTAL.
+ * - PEDIDO 4: PREENCHIMENTO AUTO VIA CÓDIGO POSTAL (Rua, Freguesia e Concelho).
  * -----------------------------------------------------------------------------
  */
 
@@ -122,7 +122,7 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
         }
     }, [collaboratorToEdit]);
 
-    // Pedido 4: Autocomplete Código Postal
+    // Pedido 4: Autocomplete Código Postal Avançado
     useEffect(() => {
         const cp = formData.postal_code || '';
         if (/^\d{4}-\d{3}$/.test(cp)) {
@@ -135,7 +135,9 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
                         setFormData(prev => ({
                             ...prev,
                             city: data.Concelho || prev.city,
-                            locality: data.Freguesia || (data.part && data.part.length > 0 ? data.part[0] : prev.locality)
+                            locality: data.Freguesia || prev.locality,
+                            // Pedido 4: Mapear 'Designacao' para Rua se estiver vazio
+                            address_line: !prev.address_line?.trim() ? (data.Designacao || prev.address_line) : prev.address_line
                         }));
                     }
                 } catch (e) {

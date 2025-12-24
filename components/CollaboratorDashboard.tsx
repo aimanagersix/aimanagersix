@@ -268,7 +268,7 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
         <div className="space-y-4 mb-6 bg-gray-900/50 p-4 rounded-lg border border-gray-700">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div>
-                    <label className="block text-xs font-medium text-gray-400 mb-1">Pesquisar</label>
+                    <label className="block text-xs text-gray-400 mb-1">Pesquisar</label>
                     <div className="relative">
                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                           <SearchIcon className="h-4 w-4 text-gray-500" />
@@ -284,7 +284,7 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
                     </div>
                 </div>
                 <div>
-                    <label className="block text-xs font-medium text-gray-400 mb-1">Entidade</label>
+                    <label className="block text-xs text-gray-400 mb-1">Entidade</label>
                     <select
                         name="entidadeId"
                         value={filters.entidadeId}
@@ -297,7 +297,7 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                     <div>
-                        <label className="block text-xs font-medium text-gray-400 mb-1">Perfil</label>
+                        <label className="block text-xs text-gray-400 mb-1">Perfil</label>
                         <select
                             name="role"
                             value={filters.role}
@@ -309,7 +309,7 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
                         </select>
                     </div>
                      <div>
-                        <label className="block text-xs font-medium text-gray-400 mb-1">Status</label>
+                        <label className="block text-xs text-gray-400 mb-1">Status</label>
                          <select
                             name="status"
                             value={filters.status}
@@ -345,6 +345,8 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
                 const isSuperAdmin = col.role === UserRole.SuperAdmin;
                 const isProtectedUser = col.email === PROTECTED_EMAIL;
                 const isDeleteDisabled = dependencies.length > 0 || isSuperAdmin || currentUser?.id === col.id || isProtectedUser;
+                
+                // Pedido 4: Correção na resolução do cargo para listagem mobile
                 const resolvedJobTitle = col.job_title_name || (col.job_title_id ? jobTitleMap.get(col.job_title_id) : null);
 
                 return (
@@ -437,7 +439,7 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
               <SortableHeader label="Contactos" sortKey="email" currentSort={sortConfig} onSort={handleSort} />
               <SortableHeader label="Cargo / Perfil" sortKey="role" currentSort={sortConfig} onSort={handleSort} />
               <SortableHeader label="Associação" sortKey="association" currentSort={sortConfig} onSort={handleSort} />
-              <SortableHeader label="Status" sortKey="status" currentSort={sortConfig} onSort={handleSort} />
+              <SortableHeader label="Status" sortKey="status" currentSort={sortConfig} onSort={handleSort} className="text-center" />
               <th scope="col" className="px-6 py-3 text-center">Acesso</th>
               <th scope="col" className="px-6 py-3 text-center">Ações</th>
             </tr>
@@ -461,6 +463,7 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
                  else if (isCurrentUser) deleteTooltip = "Não pode apagar o seu próprio utilizador";
                  else if (dependencies.length > 0) deleteTooltip = `Impossível excluir: Associado a registos (Tickets, Atribuições)`;
                  
+                 // Pedido 4: Correção na resolução do cargo para listagem desktop
                  const resolvedJobTitle = col.job_title_name || (col.job_title_id ? jobTitleMap.get(col.job_title_id) : null);
 
                 return (
