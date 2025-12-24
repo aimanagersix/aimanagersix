@@ -14,7 +14,7 @@ serve(async (req) => {
     const key = Deno.env.get('SB_SERVICE_ROLE_KEY') || Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
 
     if (!url || !key) {
-      throw new Error('Chaves de ambiente (URL/SERVICE_KEY) ausentes no servidor Deno.');
+      throw new Error('Chaves de ambiente (SB_URL ou SB_SERVICE_ROLE_KEY) ausentes nos Secrets do Supabase.');
     }
 
     const supabaseAdmin = createClient(url, key)
@@ -24,31 +24,38 @@ serve(async (req) => {
     
     const action = String(body.action || '').trim().toLowerCase();
     const targetUserId = String(body.targetUserId || '').trim();
-    const newPassword = body.newPassword || body.password; // Suporte para ambos os nomes
+    const newPassword = body.newPassword || body.password;
     const email = body.email;
 
-    console.log(`[AuthHelper v6.10] Action: ${action} | Target: ${targetUserId || email}`);
+    console.log(`[AuthHelper v6.11] Ação: ${action} | Alvo: ${targetUserId || email}`);
 
-    // AÇÃO 1: Atualizar Password
     if (action === 'update_password') {
-      if (!targetUserId || !newPassword) throw new Error('Parâmetros em falta no payload.');
+      if (!targetUserId || !newPassword) throw new Error('targetUserId ou newPassword em falta.');
       const { data, error } = await supabaseAdmin.auth.admin.updateUserById(targetUserId, { password: newPassword })
-      if (error) throw error;
+      if (error) {
+          console.error(`[AuthHelper] Erro no Reset: ${error.message}`);
+          throw error;
+      }
       return new Response(JSON.stringify({ success: true, user_id: data.user.id }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
     }
 
-    // AÇÃO 2: Criar Utilizador (Provisionamento Manual)
     if (action === 'create_user') {
-      if (!email || !newPassword) throw new Error('Email e Password são obrigatórios para provisionamento.');
+      if (!email || !newPassword) throw new Error('Email e Password obrigatórios.');
+      
+      console.log(`[AuthHelper] Tentando criar conta para: ${email}`);
       
       const { data, error } = await supabaseAdmin.auth.admin.createUser({
           email: email,
-          password: newPassword, // FIX: Corrigido de "password: password" (que estava indefinido) para newPassword
+          password: newPassword,
           email_confirm: true
       })
       
-      if (error) throw error;
+      if (error) {
+          console.error(`[AuthHelper] Falha ao criar no Auth: ${error.message}`);
+          throw error;
+      }
 
+      console.log(`[AuthHelper] Sucesso! Conta criada ID: ${data.user.id}`);
       return new Response(JSON.stringify({ success: true, user: data.user }), { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }, 
         status: 200 
@@ -57,7 +64,7 @@ serve(async (req) => {
     
     throw new Error(`Ação "${action}" não suportada.`)
   } catch (error) {
-    console.error("[AuthHelper] Erro capturado:", error.message);
+    console.error("[AuthHelper] ERRO:", error.message);
     return new Response(JSON.stringify({ error: error.message }), { 
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }, 
       status: 400 
