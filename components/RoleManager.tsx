@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { CustomRole, ModuleKey, PermissionAction } from '../types';
 import * as dataService from '../services/dataService';
-import { FaShieldAlt, FaSave, FaPlus, FaTrash, FaCheck, FaTimes, FaLock, FaUserShield, FaCheckDouble, FaSpinner, FaUserCheck, FaUserTie, FaComments, FaBullhorn, FaBell, FaExclamationTriangle } from 'react-icons/fa';
+import { FaShieldAlt, FaSave, FaPlus, FaTrash, FaCheck, FaTimes, FaLock, FaUserShield, FaCheckDouble, FaSpinner, FaUserCheck, FaUserTie, FaComments, FaBullhorn, FaBell, FaExclamationTriangle, FaCode } from 'react-icons/fa';
 
 /**
- * RoleManager V2.0 (Full Permission Tree & SB Sync)
+ * RoleManager V2.2 (Permission Mirror)
  * -----------------------------------------------------------------------------
  * NOTA: Este componente gere os perfis personalizados na tabela config_custom_roles.
  * A estrutura de permissões segue a "Árvore Enterprise" com controlo granular.
+ * PEDIDO 4: ADICIONADO MODO ESPELHO JSON.
  * -----------------------------------------------------------------------------
  */
 
@@ -92,7 +93,7 @@ const PERMISSION_GROUPS: PermissionGroup[] = [
             { key: 'compliance_backups', label: 'NIS2: Registo de Backups' },
             { key: 'compliance_resilience', label: 'NIS2: Testes de Resiliência', supportsOwn: true },
             { key: 'compliance_training', label: 'NIS2: Formação e Consciencialização', supportsOwn: true },
-            { key: 'compliance_policies', label: 'NIS2: Políticas e Governança', supportsOwn: true },
+            { key: 'compliance_training', label: 'NIS2: Políticas e Governança', supportsOwn: true },
         ]
     },
     {
@@ -122,6 +123,7 @@ const RoleManager: React.FC<RoleManagerProps> = ({ roles, onRefresh }) => {
     const [editingPermissions, setEditingPermissions] = useState<Record<string, any>>({});
     const [isSaving, setIsSaving] = useState(false);
     const [showNewRoleInput, setShowNewRoleInput] = useState(false);
+    const [showMirrorMode, setShowMirrorMode] = useState(false); // Pedido 4
     const [newRoleName, setNewRoleName] = useState('');
     const [error, setError] = useState<string | null>(null);
 
@@ -262,19 +264,25 @@ const RoleManager: React.FC<RoleManagerProps> = ({ roles, onRefresh }) => {
                                 </div>
                             </div>
                             
-                            {!isSuperAdminRole ? (
+                            <div className="flex gap-2">
                                 <button 
-                                    onClick={handleSavePermissions} 
-                                    disabled={isSaving} 
-                                    className="bg-brand-primary text-white px-6 py-2 rounded-md text-xs flex items-center gap-2 hover:bg-brand-secondary transition-all shadow-xl font-black uppercase tracking-widest disabled:opacity-50"
+                                    onClick={() => setShowMirrorMode(!showMirrorMode)}
+                                    className={`px-3 py-2 rounded text-xs font-bold transition-all flex items-center gap-2 ${showMirrorMode ? 'bg-purple-600 text-white' : 'bg-gray-700 text-gray-400 hover:text-white'}`}
+                                    title="Espelho JSON da BD"
                                 >
-                                    {isSaving ? <FaSpinner className="animate-spin" /> : <FaSave />} Gravar Permissões
+                                    <FaCode /> {showMirrorMode ? 'Ocultar JSON' : 'Ver DB JSON'}
                                 </button>
-                            ) : (
-                                <span className="text-[10px] bg-red-900/30 text-red-400 px-3 py-1 rounded-full border border-red-500/30 font-black flex items-center gap-2">
-                                    <FaLock /> PERFIL PROTEGIDO (HARD-CODED)
-                                </span>
-                            )}
+                                
+                                {!isSuperAdminRole && (
+                                    <button 
+                                        onClick={handleSavePermissions} 
+                                        disabled={isSaving} 
+                                        className="bg-brand-primary text-white px-6 py-2 rounded-md text-xs flex items-center gap-2 hover:bg-brand-secondary transition-all shadow-xl font-black uppercase tracking-widest disabled:opacity-50"
+                                    >
+                                        {isSaving ? <FaSpinner className="animate-spin" /> : <FaSave />} Gravar Permissões
+                                    </button>
+                                )}
+                            </div>
                         </div>
 
                         {error && (
@@ -284,63 +292,72 @@ const RoleManager: React.FC<RoleManagerProps> = ({ roles, onRefresh }) => {
                         )}
 
                         <div className="flex-grow overflow-y-auto p-6 custom-scrollbar bg-gray-950/20">
-                            <div className={isSuperAdminRole ? 'opacity-30 pointer-events-none grayscale' : 'animate-fade-in'}>
-                                {PERMISSION_GROUPS.map((group, gIdx) => (
-                                    <div key={gIdx} className="mb-10 last:mb-0">
-                                        <div className="flex justify-between items-center border-b border-gray-800 mb-5 pb-2">
-                                            <h4 className="text-[11px] font-black text-brand-secondary uppercase tracking-[0.2em]">{group.label}</h4>
-                                            <button 
-                                                onClick={() => handleSelectAllGroup(group.items)}
-                                                className="text-[9px] text-gray-600 hover:text-white uppercase font-black flex items-center gap-1.5 transition-colors"
-                                            >
-                                                <FaCheckDouble /> Selecionar Tudo
-                                            </button>
-                                        </div>
-                                        
-                                        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
-                                            {group.items.map(item => {
-                                                const perms = editingPermissions[item.key] || {};
-                                                return (
-                                                    <div key={item.key} className={`p-4 rounded-lg border transition-all duration-300 ${perms.view ? 'bg-gray-800/40 border-brand-primary/30 shadow-inner' : 'bg-gray-900/20 border-gray-800 hover:border-gray-700'}`}>
-                                                        <p className={`text-xs font-bold mb-3 transition-colors ${perms.view ? 'text-white' : 'text-gray-500'}`}>{item.label}</p>
-                                                        
-                                                        <div className="flex flex-col gap-2.5">
-                                                            <label className="flex items-center gap-3 cursor-pointer group">
-                                                                <div className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${perms.view ? 'bg-brand-primary border-brand-primary' : 'bg-gray-950 border-gray-700 group-hover:border-gray-500'}`}>
-                                                                    {perms.view && <FaCheck className="text-[8px] text-white" />}
-                                                                </div>
-                                                                <input type="checkbox" checked={!!perms.view} onChange={() => handleTogglePermission(item.key, 'view')} className="hidden" />
-                                                                <span className={`text-[10px] uppercase font-black tracking-wider ${perms.view ? 'text-white' : 'text-gray-600'}`}>Acesso Visualização</span>
-                                                            </label>
-
-                                                            {item.supportsOwn && (
-                                                                <label className="flex items-center gap-3 cursor-pointer group pl-7 border-l border-gray-800 ml-2">
-                                                                    <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center transition-all ${perms.view_own ? 'bg-blue-600 border-blue-600' : 'bg-gray-950 border-gray-700'}`}>
-                                                                        {perms.view_own && <FaCheck className="text-[7px] text-white" />}
+                            {showMirrorMode ? (
+                                <div className="animate-fade-in h-full flex flex-col">
+                                    <p className="text-[10px] text-purple-400 font-bold uppercase mb-2">Estrutura JSON Real na Base de Dados:</p>
+                                    <pre className="flex-grow bg-black p-4 rounded border border-purple-500/30 font-mono text-[11px] text-green-400 overflow-auto custom-scrollbar">
+                                        {JSON.stringify(selectedRole?.permissions || {}, null, 2)}
+                                    </pre>
+                                </div>
+                            ) : (
+                                <div className={isSuperAdminRole ? 'opacity-30 pointer-events-none grayscale' : 'animate-fade-in'}>
+                                    {PERMISSION_GROUPS.map((group, gIdx) => (
+                                        <div key={gIdx} className="mb-10 last:mb-0">
+                                            <div className="flex justify-between items-center border-b border-gray-800 mb-5 pb-2">
+                                                <h4 className="text-[11px] font-black text-brand-secondary uppercase tracking-[0.2em]">{group.label}</h4>
+                                                <button 
+                                                    onClick={() => handleSelectAllGroup(group.items)}
+                                                    className="text-[9px] text-gray-600 hover:text-white uppercase font-black flex items-center gap-1.5 transition-colors"
+                                                >
+                                                    <FaCheckDouble /> Selecionar Tudo
+                                                </button>
+                                            </div>
+                                            
+                                            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+                                                {group.items.map(item => {
+                                                    const perms = editingPermissions[item.key] || {};
+                                                    return (
+                                                        <div key={item.key} className={`p-4 rounded-lg border transition-all duration-300 ${perms.view ? 'bg-gray-800/40 border-brand-primary/30 shadow-inner' : 'bg-gray-900/20 border-gray-800 hover:border-gray-700'}`}>
+                                                            <p className={`text-xs font-bold mb-3 transition-colors ${perms.view ? 'text-white' : 'text-gray-500'}`}>{item.label}</p>
+                                                            
+                                                            <div className="flex flex-col gap-2.5">
+                                                                <label className="flex items-center gap-3 cursor-pointer group">
+                                                                    <div className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${perms.view ? 'bg-brand-primary border-brand-primary' : 'bg-gray-950 border-gray-700 group-hover:border-gray-500'}`}>
+                                                                        {perms.view && <FaCheck className="text-[8px] text-white" />}
                                                                     </div>
-                                                                    <input type="checkbox" checked={!!perms.view_own} onChange={() => handleTogglePermission(item.key, 'view_own')} className="hidden" />
-                                                                    <span className={`text-[9px] uppercase font-bold tracking-wider ${perms.view_own ? 'text-blue-400' : 'text-gray-600'}`}>Apenas Dados Próprios</span>
+                                                                    <input type="checkbox" checked={!!perms.view} onChange={() => handleTogglePermission(item.key, 'view')} className="hidden" />
+                                                                    <span className={`text-[10px] uppercase font-black tracking-wider ${perms.view ? 'text-white' : 'text-gray-600'}`}>Acesso Visualização</span>
                                                                 </label>
-                                                            )}
 
-                                                            {!item.isSimpleAccess && (
-                                                                <div className="flex flex-wrap gap-2 pt-3 border-t border-gray-800/50 mt-1">
-                                                                    {(['create', 'edit', 'delete'] as PermissionAction[]).map(act => (
-                                                                        <label key={act} className={`flex items-center gap-1.5 px-2 py-1 rounded cursor-pointer transition-colors ${perms[act] ? 'bg-gray-700 text-white' : 'bg-gray-900/50 text-gray-700 hover:bg-gray-800'}`}>
-                                                                            <input type="checkbox" checked={!!perms[act]} onChange={() => handleTogglePermission(item.key, act)} className="w-2.5 h-2.5 rounded border-gray-600 bg-gray-950 text-brand-primary" />
-                                                                            <span className="text-[8px] uppercase font-black">{act}</span>
-                                                                        </label>
-                                                                    ))}
-                                                                </div>
-                                                            )}
+                                                                {item.supportsOwn && (
+                                                                    <label className="flex items-center gap-3 cursor-pointer group pl-7 border-l border-gray-800 ml-2">
+                                                                        <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center transition-all ${perms.view_own ? 'bg-blue-600 border-blue-600' : 'bg-gray-950 border-gray-700'}`}>
+                                                                            {perms.view_own && <FaCheck className="text-[7px] text-white" />}
+                                                                        </div>
+                                                                        <input type="checkbox" checked={!!perms.view_own} onChange={() => handleTogglePermission(item.key, 'view_own')} className="hidden" />
+                                                                        <span className={`text-[9px] uppercase font-bold tracking-wider ${perms.view_own ? 'text-blue-400' : 'text-gray-600'}`}>Apenas Dados Próprios</span>
+                                                                    </label>
+                                                                )}
+
+                                                                {!item.isSimpleAccess && (
+                                                                    <div className="flex flex-wrap gap-2 pt-3 border-t border-gray-800/50 mt-1">
+                                                                        {(['create', 'edit', 'delete'] as PermissionAction[]).map(act => (
+                                                                            <label key={act} className={`flex items-center gap-1.5 px-2 py-1 rounded cursor-pointer transition-colors ${perms[act] ? 'bg-gray-700 text-white' : 'bg-gray-900/50 text-gray-700 hover:bg-gray-800'}`}>
+                                                                                <input type="checkbox" checked={!!perms[act]} onChange={() => handleTogglePermission(item.key, act)} className="w-2.5 h-2.5 rounded border-gray-600 bg-gray-950 text-brand-primary" />
+                                                                                <span className="text-[8px] uppercase font-black">{act}</span>
+                                                                            </label>
+                                                                        ))}
+                                                                    </div>
+                                                                )}
+                                                            </div>
                                                         </div>
-                                                    </div>
-                                                );
-                                            })}
+                                                    );
+                                                })}
+                                            </div>
                                         </div>
-                                    </div>
-                                ))}
-                            </div>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     </>
                 )}

@@ -2,16 +2,15 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import Modal from './common/Modal';
 import { Collaborator, Entidade, CollaboratorStatus, CustomRole, Instituicao, JobTitle } from '../types';
 import { SpinnerIcon, FaSave } from './common/Icons';
-import { FaCamera, FaKey, FaUserShield, FaUserTie, FaBuilding, FaMapMarkerAlt, FaCalendarAlt, FaBriefcase, FaIdCard, FaMagic } from 'react-icons/fa';
+import { FaCamera, FaKey, FaUserShield, FaUserTie, FaBuilding, FaMapMarkerAlt, FaCalendarAlt, FaBriefcase, FaIdCard, FaMagic, FaExclamationTriangle, FaSearchLocation } from 'react-icons/fa';
 import * as dataService from '../services/dataService';
 
 /**
- * ADD COLLABORATOR MODAL - V5.5 (Photo Logic Stabilized)
+ * ADD COLLABORATOR MODAL - V5.6 (Validation & Automation)
  * -----------------------------------------------------------------------------
  * STATUS DE BLOQUEIO RIGOROSO (Freeze UI):
- * - PEDIDO 8: RESTAURADO COM TODOS OS CAMPOS.
- * - PEDIDO 10: FIX PERFIS DUPLICADOS E EDIÇÃO DE ACESSO.
- * - PEDIDO 4: CORREÇÃO NO CICLO DE VIDA DA FOTO (upload antes do refresh).
+ * - PEDIDO 4: VALIDAÇÃO DE NIF, EMAIL E DUPLICADOS.
+ * - PEDIDO 4: PREENCHIMENTO AUTO VIA CÓDIGO POSTAL.
  * -----------------------------------------------------------------------------
  */
 
@@ -35,6 +34,24 @@ const compressProfileImage = (file: File): Promise<File> => {
             };
         };
     });
+};
+
+const validateNIF = (nif: string): boolean => {
+    if (!nif || nif.length !== 9 || isNaN(parseInt(nif))) return false;
+    const firstDigit = parseInt(nif[0]);
+    if (![1, 2, 3, 5, 6, 8, 9].includes(firstDigit)) return false;
+    
+    let sum = 0;
+    for (let i = 0; i < 8; i++) {
+        sum += parseInt(nif[i]) * (9 - i);
+    }
+    const checkDigit = 11 - (sum % 11);
+    const finalDigit = checkDigit >= 10 ? 0 : checkDigit;
+    return parseInt(nif[8]) === finalDigit;
+};
+
+const validateEmail = (email: string): boolean => {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 };
 
 interface AddCollaboratorModalProps {
@@ -73,18 +90,24 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
     const [password, setPassword] = useState('');
     const [isSaving, setIsSaving] = useState(false);
     const [isCompressing, setIsCompressing] = useState(false);
+    const [isFetchingCP, setIsFetchingCP] = useState(false);
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [availableRoles, setAvailableRoles] = useState<CustomRole[]>([]);
     const [jobTitles, setJobTitles] = useState<JobTitle[]>([]);
+    const [existingCollaborators, setExistingCollaborators] = useState<Collaborator[]>([]);
     const [photoFile, setPhotoFile] = useState<File | null>(null);
     const [photoPreview, setPhotoPreview] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         const loadConfig = async () => {
-            const [roles, data] = await Promise.all([dataService.getCustomRoles(), dataService.fetchAllData()]);
+            const [roles, data] = await Promise.all([
+                dataService.getCustomRoles(), 
+                dataService.fetchAllData()
+            ]);
             setAvailableRoles(roles);
             setJobTitles(data.configJobTitles || []);
+            setExistingCollaborators(data.collaborators || []);
         };
         loadConfig();
     }, []);
@@ -99,12 +122,73 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
         }
     }, [collaboratorToEdit]);
 
+    // Pedido 4: Autocomplete Código Postal
+    useEffect(() => {
+        const cp = formData.postal_code || '';
+        if (/^\d{4}-\d{3}$/.test(cp)) {
+            const fetchCP = async () => {
+                setIsFetchingCP(true);
+                try {
+                    const response = await fetch(`https://json.geoapi.pt/cp/${cp}`);
+                    if (response.ok) {
+                        const data = await response.json();
+                        setFormData(prev => ({
+                            ...prev,
+                            city: data.Concelho || prev.city,
+                            locality: data.Freguesia || (data.part && data.part.length > 0 ? data.part[0] : prev.locality)
+                        }));
+                    }
+                } catch (e) {
+                    console.error("Erro ao consultar CP:", e);
+                } finally {
+                    setIsFetchingCP(false);
+                }
+            };
+            fetchCP();
+        }
+    }, [formData.postal_code]);
+
+    const validateForm = () => {
+        const newErrors: Record<string, string> = {};
+        
+        if (!formData.full_name?.trim()) newErrors.full_name = 'Obrigatório';
+        if (!formData.email?.trim()) {
+            newErrors.email = 'Obrigatório';
+        } else if (!validateEmail(formData.email)) {
+            newErrors.email = 'Email inválido';
+        }
+
+        if (formData.nif && !validateNIF(formData.nif)) {
+            newErrors.nif = 'NIF inválido (PT)';
+        }
+
+        // Pedido 4: Verificação de duplicados
+        const normalizedEmail = formData.email?.toLowerCase().trim();
+        const normalizedNif = formData.nif?.trim();
+        const normalizedMec = formData.numero_mecanografico?.trim();
+
+        existingCollaborators.forEach(c => {
+            if (c.id === collaboratorToEdit?.id) return;
+            
+            if (normalizedEmail && c.email?.toLowerCase().trim() === normalizedEmail) {
+                newErrors.email = 'Email já registado no sistema';
+            }
+            if (normalizedNif && c.nif?.trim() === normalizedNif) {
+                newErrors.nif = 'NIF já atribuído a outro colaborador';
+            }
+            if (normalizedMec && normalizedMec !== 'N/A' && c.numero_mecanografico?.trim() === normalizedMec) {
+                newErrors.numero_mecanografico = 'Nº Mecanográfico duplicado';
+            }
+        });
+
+        setErrors(newErrors);
+        return Object.keys(newErrors).length === 0;
+    };
+
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!formData.full_name?.trim() || !formData.email?.trim()) {
-            setErrors({ full_name: 'Obrigatório', email: 'Obrigatório' });
-            return;
-        }
+        if (!validateForm()) return;
+        
         setIsSaving(true);
         try {
             const payload = { ...formData };
@@ -112,7 +196,6 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
             if (!payload.entidade_id) delete payload.entidade_id;
             if (!payload.job_title_id) delete payload.job_title_id;
 
-            // Pedido 4: Passamos o photoFile para o pai para que o upload seja síncrono com a gravação
             await onSave(payload as any, photoFile, password ? password : undefined);
             onClose();
         } catch (err: any) { 
@@ -153,19 +236,21 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
                             <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Nome Completo</label>
                             <div className="relative">
                                 <FaUserTie className="absolute left-3 top-3 text-gray-500" />
-                                <input type="text" value={formData.full_name} onChange={e => setFormData({...formData, full_name: e.target.value})} className="w-full bg-gray-800 border border-gray-700 text-white rounded p-2 pl-10 text-sm focus:border-brand-primary outline-none" placeholder="Nome Completo..." required />
+                                <input type="text" value={formData.full_name} onChange={e => setFormData({...formData, full_name: e.target.value})} className={`w-full bg-gray-800 border ${errors.full_name ? 'border-red-500' : 'border-gray-700'} text-white rounded p-2 pl-10 text-sm focus:border-brand-primary outline-none`} placeholder="Nome Completo..." required />
                             </div>
                         </div>
                         <div>
                             <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Email Corporativo</label>
-                            <input type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full bg-gray-800 border border-gray-700 text-white rounded p-2 text-sm focus:border-brand-primary outline-none" placeholder="email@empresa.pt" required />
+                            <input type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className={`w-full bg-gray-800 border ${errors.email ? 'border-red-500' : 'border-gray-700'} text-white rounded p-2 text-sm focus:border-brand-primary outline-none`} placeholder="email@empresa.pt" required />
+                            {errors.email && <p className="text-red-400 text-[10px] mt-1 font-bold">{errors.email}</p>}
                         </div>
                         <div>
                             <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Nº Mecanográfico</label>
                             <div className="relative">
                                 <FaIdCard className="absolute left-3 top-3 text-gray-500" />
-                                <input type="text" value={formData.numero_mecanografico} onChange={e => setFormData({...formData, numero_mecanografico: e.target.value})} className="w-full bg-gray-800 border border-gray-700 text-white rounded p-2 pl-10 text-sm focus:border-brand-primary outline-none" placeholder="Ex: RH001" />
+                                <input type="text" value={formData.numero_mecanografico} onChange={e => setFormData({...formData, numero_mecanografico: e.target.value})} className={`w-full bg-gray-800 border ${errors.numero_mecanografico ? 'border-red-500' : 'border-gray-700'} text-white rounded p-2 pl-10 text-sm focus:border-brand-primary outline-none`} placeholder="Ex: RH001" />
                             </div>
+                            {errors.numero_mecanografico && <p className="text-red-400 text-[10px] mt-1 font-bold">{errors.numero_mecanografico}</p>}
                         </div>
                     </div>
                 </div>
@@ -210,12 +295,19 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
                             </div>
                         </div>
                         <div>
-                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Morada Completa</label>
+                            <div className="flex justify-between items-center mb-1">
+                                <label className="block text-xs font-bold text-gray-500 uppercase">Morada Completa</label>
+                                {isFetchingCP && <SpinnerIcon className="h-3 w-3 text-brand-secondary" />}
+                            </div>
                             <input type="text" value={formData.address_line} onChange={e => setFormData({...formData, address_line: e.target.value})} className="w-full bg-gray-800 border border-gray-600 text-white rounded p-2 text-sm mb-2" placeholder="Rua, Número..." />
                             <div className="grid grid-cols-2 gap-2">
-                                <input type="text" value={formData.postal_code} onChange={e => setFormData({...formData, postal_code: e.target.value})} className="w-full bg-gray-800 border border-gray-600 text-white rounded p-2 text-sm" placeholder="CP 0000-000" />
+                                <div className="relative">
+                                    <input type="text" value={formData.postal_code} onChange={e => setFormData({...formData, postal_code: e.target.value})} className="w-full bg-gray-800 border border-gray-600 text-white rounded p-2 text-sm" placeholder="CP 0000-000" maxLength={8} />
+                                    <FaSearchLocation className="absolute right-3 top-2.5 text-gray-600" />
+                                </div>
                                 <input type="text" value={formData.city} onChange={e => setFormData({...formData, city: e.target.value})} className="w-full bg-gray-800 border border-gray-600 text-white rounded p-2 text-sm" placeholder="Cidade" />
                             </div>
+                            <input type="text" value={formData.locality} onChange={e => setFormData({...formData, locality: e.target.value})} className="w-full bg-gray-800 border border-gray-600 text-white rounded p-2 text-sm mt-2" placeholder="Localidade / Freguesia" />
                         </div>
                     </div>
 
@@ -233,7 +325,8 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
                         </div>
                         <div>
                             <label className="block text-xs font-bold text-gray-500 uppercase mb-1">NIF</label>
-                            <input type="text" value={formData.nif} onChange={e => setFormData({...formData, nif: e.target.value})} className="w-full bg-gray-800 border border-gray-600 text-white rounded p-2 text-sm" placeholder="Contribuinte (9 dígitos)" maxLength={9} />
+                            <input type="text" value={formData.nif} onChange={e => setFormData({...formData, nif: e.target.value})} className={`w-full bg-gray-800 border ${errors.nif ? 'border-red-500' : 'border-gray-600'} text-white rounded p-2 text-sm`} placeholder="Contribuinte (9 dígitos)" maxLength={9} />
+                            {errors.nif && <p className="text-red-400 text-[10px] mt-1 font-bold">{errors.nif}</p>}
                         </div>
                     </div>
                 </div>
