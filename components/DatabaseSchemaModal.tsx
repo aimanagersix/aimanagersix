@@ -3,12 +3,12 @@ import Modal from './common/Modal';
 import { FaDatabase, FaCheck, FaCopy, FaExclamationTriangle, FaCode, FaBolt, FaShieldAlt, FaSync, FaSearch, FaTools, FaInfoCircle, FaRobot, FaTerminal, FaKey, FaEnvelope, FaExternalLinkAlt, FaListOl, FaPlay, FaFolderOpen, FaTrash, FaLock, FaExclamationCircle } from 'react-icons/fa';
 
 /**
- * DB Manager UI - v21.0 (Auth Logic Fix v6.10)
+ * DB Manager UI - v22.0 (Auth Verbose Logs v6.11)
  * -----------------------------------------------------------------------------
  * STATUS DE BLOQUEIO RIGOROSO (Freeze UI):
  * - PEDIDO 9: GUIA DE IMPLEMENTAÇÃO DA EDGE FUNCTION AI-PROXY.
- * - PEDIDO 8: GUIA DE IMPLEMENTAÇÃO DA EDGE FUNCTION ADMIN-AUTH-HELPER (V6.10).
- * - PEDIDO 4: CORREÇÃO DE ERRO 400 (Variáveis indefinidas no createUser).
+ * - PEDIDO 8: GUIA DE IMPLEMENTAÇÃO DA EDGE FUNCTION ADMIN-AUTH-HELPER (V6.11).
+ * - PEDIDO 4: RESOLUÇÃO DE ERRO NON-2XX COM LOGS DE DEBUG.
  * -----------------------------------------------------------------------------
  */
 
@@ -70,7 +70,7 @@ serve(async (req) => {
     const key = Deno.env.get('SB_SERVICE_ROLE_KEY') || Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
 
     if (!url || !key) {
-      throw new Error('Chaves de ambiente (URL/SERVICE_KEY) ausentes no servidor Deno.');
+      throw new Error('Chaves de ambiente (SB_URL ou SB_SERVICE_ROLE_KEY) ausentes nos Secrets do Supabase.');
     }
 
     const supabaseAdmin = createClient(url, key)
@@ -80,31 +80,38 @@ serve(async (req) => {
     
     const action = String(body.action || '').trim().toLowerCase();
     const targetUserId = String(body.targetUserId || '').trim();
-    const newPassword = body.newPassword || body.password; // Suporte para ambos os nomes
+    const newPassword = body.newPassword || body.password;
     const email = body.email;
 
-    console.log(\`[AuthHelper v6.10] Action: \${action} | Target: \${targetUserId || email}\`);
+    console.log(\`[AuthHelper v6.11] Ação: \${action} | Alvo: \${targetUserId || email}\`);
 
-    // AÇÃO 1: Atualizar Password
     if (action === 'update_password') {
-      if (!targetUserId || !newPassword) throw new Error('Parâmetros em falta no payload.');
+      if (!targetUserId || !newPassword) throw new Error('targetUserId ou newPassword em falta.');
       const { data, error } = await supabaseAdmin.auth.admin.updateUserById(targetUserId, { password: newPassword })
-      if (error) throw error;
+      if (error) {
+          console.error(\`[AuthHelper] Erro no Reset: \${error.message}\`);
+          throw error;
+      }
       return new Response(JSON.stringify({ success: true, user_id: data.user.id }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
     }
 
-    // AÇÃO 2: Criar Utilizador (Provisionamento Manual)
     if (action === 'create_user') {
-      if (!email || !newPassword) throw new Error('Email e Password são obrigatórios para provisionamento.');
+      if (!email || !newPassword) throw new Error('Email e Password obrigatórios.');
+      
+      console.log(\`[AuthHelper] Tentando criar conta para: \${email}\`);
       
       const { data, error } = await supabaseAdmin.auth.admin.createUser({
           email: email,
-          password: newPassword, // FIX: Corrigido de "password: password" (que estava indefinido) para newPassword
+          password: newPassword,
           email_confirm: true
       })
       
-      if (error) throw error;
+      if (error) {
+          console.error(\`[AuthHelper] Falha ao criar no Auth: \${error.message}\`);
+          throw error;
+      }
 
+      console.log(\`[AuthHelper] Sucesso! Conta criada ID: \${data.user.id}\`);
       return new Response(JSON.stringify({ success: true, user: data.user }), { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }, 
         status: 200 
@@ -113,7 +120,7 @@ serve(async (req) => {
     
     throw new Error(\`Ação "\${action}" não suportada.\`)
   } catch (error) {
-    console.error("[AuthHelper] Erro capturado:", error.message);
+    console.error("[AuthHelper] ERRO:", error.message);
     return new Response(JSON.stringify({ error: error.message }), { 
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }, 
       status: 400 
@@ -127,28 +134,29 @@ serve(async (req) => {
                 <div className="flex-shrink-0 flex border-b border-gray-700 bg-gray-900/50 rounded-t-lg overflow-x-auto custom-scrollbar whitespace-nowrap">
                     <button onClick={() => setActiveTab('full')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'full' ? 'border-brand-primary text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaCode /> Inicialização Universal</button>
                     <button onClick={() => setActiveTab('ai_bridge')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'ai_bridge' ? 'border-purple-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaRobot /> Ponte de IA (Deno)</button>
-                    <button onClick={() => setActiveTab('auth_helper')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'auth_helper' ? 'border-orange-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaKey /> Gestão Auth (v6.10)</button>
+                    <button onClick={() => setActiveTab('auth_helper')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'auth_helper' ? 'border-orange-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaKey /> Gestão Auth (v6.11)</button>
                 </div>
 
                 <div className="flex-grow overflow-hidden flex flex-col gap-4">
                     
                     {activeTab === 'auth_helper' && (
                         <>
-                        {/* Guia de Ficheiro Não Encontrado */}
-                        <div className="bg-red-900/20 border border-red-500/30 p-4 rounded-lg animate-pulse mb-2">
-                            <h4 className="text-red-400 font-bold flex items-center gap-2 text-sm uppercase mb-2"><FaExclamationCircle /> RESOLVER ERRO 400 (Non-2xx Status Code)</h4>
-                            <p className="text-[11px] text-gray-300">Este erro ocorria devido a uma variável incorreta na função. Siga estes passos para atualizar o seu servidor:</p>
+                        {/* Diagnóstico Non-2xx */}
+                        <div className="bg-orange-900/20 border border-orange-500/30 p-4 rounded-lg mb-2">
+                            <h4 className="text-orange-400 font-bold flex items-center gap-2 text-sm uppercase mb-2"><FaExclamationCircle /> RESOLVER ERRO "NON-2XX" (Falha no Servidor)</h4>
+                            <p className="text-[11px] text-gray-300">Este erro ocorre quando as credenciais da função não estão configuradas no dashboard do Supabase.</p>
                             <ol className="text-[11px] text-gray-400 list-decimal ml-4 mt-2 space-y-2">
-                                <li>No seu PC, abra o ficheiro <code className="text-white">supabase/functions/admin-auth-helper/index.ts</code>.</li>
-                                <li>Clique no botão <strong>"Copiar Código"</strong> abaixo e substitua o conteúdo do ficheiro.</li>
-                                <li>Execute no terminal: <br/><code className="text-white bg-black p-1 rounded select-all">npx supabase functions deploy admin-auth-helper --project-ref yyiwkrkuhlkqibhowdmq</code></li>
+                                <li>Vá a <a href="https://supabase.com/dashboard/project/yyiwkrkuhlkqibhowdmq/settings/functions" target="_blank" className="text-blue-400 underline">Secrets das Functions</a>.</li>
+                                <li>Verifique se existem as chaves <code className="text-white">SB_URL</code> e <code className="text-white">SB_SERVICE_ROLE_KEY</code>.</li>
+                                <li>Se o erro for "User already registered", o colaborador já tem conta mas não está vinculada à ficha.</li>
+                                <li>Atualize o código abaixo e faça novo deploy: <br/><code className="text-white bg-black p-1 rounded select-all">npx supabase functions deploy admin-auth-helper --project-ref yyiwkrkuhlkqibhowdmq</code></li>
                             </ol>
                         </div>
 
                         <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 flex-shrink-0">
                             <div className="bg-red-900/20 border border-red-500/30 p-3 rounded-lg flex flex-col gap-1">
                                 <h4 className="text-red-300 font-bold flex items-center gap-2 text-xs uppercase"><FaTrash /> 0. Limpar Cache</h4>
-                                <p className="text-[10px] text-gray-400">Apague a pasta <strong>.supabase</strong> se mudar de projeto.</p>
+                                <p className="text-[10px] text-gray-400">Apague a pasta <strong>.supabase</strong> local se mudar de projeto.</p>
                             </div>
                             <div className="bg-blue-900/20 border border-blue-500/30 p-3 rounded-lg flex flex-col gap-1">
                                 <h4 className="text-blue-300 font-bold flex items-center gap-2 text-xs uppercase"><FaSync /> 1. Religar</h4>

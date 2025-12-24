@@ -3,8 +3,8 @@ import { getSupabase } from './supabaseClient';
 const sb = () => getSupabase();
 
 /**
- * Serviço de Autenticação v1.15 (Runtime Rescue)
- * Focado em distinguir erros de servidor de erros de privilégios de conta local.
+ * Serviço de Autenticação v1.16 (Error Extraction Engine)
+ * Focado em expor o erro real vindo do Supabase Auth para o utilizador.
  */
 export const adminResetPassword = async (userId: string, newPassword: string) => {
     const cleanUserId = String(userId || '').trim();
@@ -14,7 +14,7 @@ export const adminResetPassword = async (userId: string, newPassword: string) =>
         throw new Error("ID de utilizador ou nova password inválidos.");
     }
 
-    console.log(`[AuthService] Reset v1.15 -> Target: ${cleanUserId}`);
+    console.log(`[AuthService] Reset v1.16 -> Target: ${cleanUserId}`);
     
     const payload = { 
         action: 'update_password', 
@@ -33,19 +33,25 @@ export const adminResetPassword = async (userId: string, newPassword: string) =>
         if (error) {
             console.error("[AuthService] Erro na Edge Function:", error);
             
-            // Tentativa de obter erro detalhado do corpo da resposta (Pedido 4)
+            // Tentativa de obter erro detalhado da resposta HTTP (Pedido 4)
+            // O invoke do Supabase às vezes coloca o erro do body em context.json
             let detailedMsg = error.message;
-            if (error.context?.json?.error) detailedMsg = error.context.json.error;
+            try {
+                const responseData = await error.context?.json();
+                if (responseData?.error) detailedMsg = responseData.error;
+            } catch (e) {
+                // Silencioso se não conseguir fazer parse do erro
+            }
 
             if (error.status === 403 || detailedMsg?.includes('privileges')) {
-                throw new Error("ERRO_PRIVILEGIOS: A conta ligada ao terminal não tem permissão. Siga o Guia de Resgate no painel BD.");
+                throw new Error("ERRO_PRIVILEGIOS: Chave Service Role incorreta ou em falta nos Secrets do projeto.");
             }
             
-            if (detailedMsg?.includes('User not found')) {
-                throw new Error("USER_NOT_FOUND");
+            if (detailedMsg?.includes('User not found') || error.status === 404) {
+                throw new Error("USER_NOT_FOUND: O utilizador não tem conta Auth no Supabase.");
             }
             
-            throw new Error(`Erro Técnico (${error.status}): ${detailedMsg}`);
+            throw new Error(`Erro na Função (${error.status || '400'}): ${detailedMsg}`);
         }
         
         await sb().from('collaborators').update({ 
@@ -63,7 +69,7 @@ export const adminResetPassword = async (userId: string, newPassword: string) =>
  * Provisionamento forçado de utilizador.
  */
 export const adminProvisionUser = async (userId: string, email: string, initialPassword: string) => {
-    console.log(`[AuthService] Provisioning v1.15 -> ${email}`);
+    console.log(`[AuthService] Provisioning v1.16 -> ${email}`);
     
     const payload = { 
         action: 'create_user', 
@@ -83,9 +89,11 @@ export const adminProvisionUser = async (userId: string, email: string, initialP
         if (error) {
             console.error("[AuthService] Erro no provisionamento:", error);
             
-            // Pedido 4: Captura de erro 400 (ex: User already exists)
             let detailedMsg = error.message;
-            if (error.context?.json?.error) detailedMsg = error.context.json.error;
+            try {
+                const responseData = await error.context?.json();
+                if (responseData?.error) detailedMsg = responseData.error;
+            } catch (e) {}
 
             if (error.status === 403) throw new Error("A chave de serviço não tem permissão. Verifique o SB_SERVICE_ROLE_KEY.");
             throw new Error(`Erro ao provisionar conta: ${detailedMsg}`);
