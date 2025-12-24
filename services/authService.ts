@@ -3,8 +3,8 @@ import { getSupabase } from './supabaseClient';
 const sb = () => getSupabase();
 
 /**
- * Serviço de Autenticação v1.18 (Stream Integrity)
- * Focado em garantir que o payload JSON é interpretado corretamente pelo Deno.
+ * Serviço de Autenticação v1.20 (Clean RPC)
+ * Otimizado para o fluxo de "Auth-First" sincronizado com orgService.
  */
 export const adminResetPassword = async (userId: string, newPassword: string) => {
     const cleanUserId = String(userId || '').trim();
@@ -14,8 +14,7 @@ export const adminResetPassword = async (userId: string, newPassword: string) =>
         throw new Error("ID de utilizador ou nova password inválidos.");
     }
 
-    console.log(`[AuthService] Reset v1.18 -> Target: ${cleanUserId}`);
-    
+    // Payload limpo para o SDK
     const payload = { 
         action: 'update_password', 
         targetUserId: cleanUserId, 
@@ -24,32 +23,12 @@ export const adminResetPassword = async (userId: string, newPassword: string) =>
 
     try {
         const { data, error } = await sb().functions.invoke('admin-auth-helper', {
-            body: payload,
-            headers: {
-                'Content-Type': 'application/json',
-                'X-Client-Info': 'aimanager-web'
-            }
+            body: payload
         });
         
         if (error) {
-            console.error("[AuthService] Erro na Edge Function:", error);
-            
-            let detailedMsg = error.message;
-            try {
-                // Tentativa de obter JSON de erro estruturado
-                const responseData = await error.context?.json();
-                if (responseData?.error) detailedMsg = responseData.error;
-            } catch (e) {}
-
-            if (error.status === 403 || detailedMsg?.includes('privileges')) {
-                throw new Error("ERRO_PRIVILEGIOS: Verifique o SB_SERVICE_ROLE_KEY nos Secrets do projeto.");
-            }
-            
-            if (detailedMsg?.includes('User not found') || error.status === 404) {
-                throw new Error("USER_NOT_FOUND: O utilizador não tem conta Auth no Supabase.");
-            }
-            
-            throw new Error(`Erro na Função (${error.status || '400'}): ${detailedMsg}`);
+            console.error("[AuthService] Erro Edge Function:", error);
+            throw new Error(`Falha no servidor de autenticação: ${error.message}`);
         }
         
         await sb().from('collaborators').update({ 
@@ -58,17 +37,14 @@ export const adminResetPassword = async (userId: string, newPassword: string) =>
         
         return { success: true, data };
     } catch (e: any) {
-        console.error("[AuthService] Exceção crítica:", e);
         throw e;
     }
 };
 
 /**
- * Provisionamento forçado de utilizador.
+ * Provisionamento forçado ou inicial de utilizador.
  */
 export const adminProvisionUser = async (userId: string, email: string, initialPassword: string) => {
-    console.log(`[AuthService] Provisioning v1.18 -> ${email}`);
-    
     const payload = { 
         action: 'create_user', 
         email: email.trim(), 
@@ -78,27 +54,12 @@ export const adminProvisionUser = async (userId: string, email: string, initialP
 
     try {
         const { data, error } = await sb().functions.invoke('admin-auth-helper', {
-            body: payload,
-            headers: {
-                'Content-Type': 'application/json',
-                'X-Client-Info': 'aimanager-web'
-            }
+            body: payload
         });
 
         if (error) {
             console.error("[AuthService] Erro no provisionamento:", error);
-            
-            let detailedMsg = error.message;
-            try {
-                const responseData = await error.context?.json();
-                if (responseData?.error) detailedMsg = responseData.error;
-            } catch (e) {}
-
-            throw new Error(`Erro ao provisionar conta: ${detailedMsg}`);
-        }
-
-        if (data.user?.id && data.user.id !== userId) {
-            await sb().from('collaborators').update({ id: data.user.id }).eq('id', userId);
+            throw new Error(`Erro ao provisionar conta Auth: ${error.message}`);
         }
 
         return { success: true, user: data.user };

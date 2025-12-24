@@ -1,12 +1,6 @@
 import { getSupabase } from './supabaseClient';
 import { ResourceContact } from '../types';
-
-/**
- * Organization Service - V2.6
- * Pedido 7: Limpeza de payload rigorosa e propagação de erros.
- * Pedido 9: Ajuste de busca para garantir visibilidade total dos registos (3 colaboradores).
- * Pedido 4: Adição de rastro de provisionamento.
- */
+import { adminProvisionUser } from './authService';
 
 const sb = () => getSupabase();
 
@@ -24,7 +18,6 @@ const cleanPayload = (data: any) => {
 };
 
 export const fetchOrganizationData = async () => {
-    // Pedido 9: Usar ordenação explícita para garantir consistência no carregamento inicial
     const results = await Promise.all([
         sb().from('institutions').select('*').order('name'),
         sb().from('entities').select('*').order('name'),
@@ -77,10 +70,38 @@ export const deleteEntidade = async (id: string) => {
     if (error) throw error;
 };
 
+/**
+ * addCollaborator v2.8 - Auth-First Flow
+ * Todo o colaborador criado gera obrigatoriamente um utilizador no Supabase Auth.
+ * O ID público na BD será igual ao ID privado no Auth.
+ */
 export const addCollaborator = async (col: any, password?: string) => { 
-    const { data, error } = await sb().from('collaborators').insert(cleanPayload(col)).select().single(); 
-    if (error) throw error;
-    return data; 
+    // 1. Gerar password temporária se não existir (necessária para criar conta no Auth)
+    const tempPass = password || "AIManager" + Math.floor(1000 + Math.random() * 9000) + "!";
+    
+    console.log(`[OrgService v2.8] Provisionando identidade Auth para: ${col.email}`);
+    
+    // 2. Provisionar no Supabase Auth primeiro (via Edge Function)
+    // Passamos um UUID aleatório como placeholder que será substituído pelo ID real do Auth
+    const authResult = await adminProvisionUser(crypto.randomUUID(), col.email, tempPass);
+    
+    if (!authResult.success || !authResult.user?.id) {
+        throw new Error("Não foi possível criar a identidade digital (Auth) no servidor.");
+    }
+
+    // 3. Inserir na tabela pública usando o ID retornado pelo Auth
+    const payload = { 
+        ...cleanPayload(col),
+        id: authResult.user.id 
+    };
+
+    const { data, error } = await sb().from('collaborators').insert(payload).select().single(); 
+    if (error) {
+        console.error("[OrgService] Erro ao inserir colaborador público:", error);
+        throw error;
+    }
+    
+    return { ...data, temporaryPassword: tempPass }; 
 };
 
 export const updateCollaborator = async (id: string, updates: any) => { 
@@ -104,7 +125,6 @@ export const uploadCollaboratorPhoto = async (id: string, file: File) => {
 };
 
 export const fetchCollaboratorsPaginated = async (params: { page: number, pageSize: number, filters?: any, sort?: { key: string, direction: 'ascending' | 'descending' } }) => {
-    // Pedido 9: Garantir que o count abrange todos os registos sem filtros implícitos
     let query = sb().from('collaborators').select('*', { count: 'exact' });
     if (params.filters) {
         if (params.filters.query) query = query.or(`full_name.ilike.%${params.filters.query}%,email.ilike.%${params.filters.query}%,numero_mecanografico.ilike.%${params.filters.query}%`);
