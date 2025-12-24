@@ -3,12 +3,12 @@ import Modal from './common/Modal';
 import { FaDatabase, FaCheck, FaCopy, FaExclamationTriangle, FaCode, FaBolt, FaShieldAlt, FaSync, FaSearch, FaTools, FaInfoCircle, FaRobot, FaTerminal, FaKey, FaEnvelope, FaExternalLinkAlt, FaListOl, FaPlay, FaFolderOpen, FaTrash, FaLock, FaExclamationCircle } from 'react-icons/fa';
 
 /**
- * DB Manager UI - v22.0 (Auth Verbose Logs v6.11)
+ * DB Manager UI - v23.0 (Edge Runtime Patch v6.12)
  * -----------------------------------------------------------------------------
  * STATUS DE BLOQUEIO RIGOROSO (Freeze UI):
  * - PEDIDO 9: GUIA DE IMPLEMENTAÇÃO DA EDGE FUNCTION AI-PROXY.
- * - PEDIDO 8: GUIA DE IMPLEMENTAÇÃO DA EDGE FUNCTION ADMIN-AUTH-HELPER (V6.11).
- * - PEDIDO 4: RESOLUÇÃO DE ERRO NON-2XX COM LOGS DE DEBUG.
+ * - PEDIDO 8: GUIA DE IMPLEMENTAÇÃO DA EDGE FUNCTION ADMIN-AUTH-HELPER (V6.12).
+ * - PEDIDO 4: RESOLUÇÃO DE ERRO "Body JSON inválido" NO SERVIDOR.
  * -----------------------------------------------------------------------------
  */
 
@@ -74,16 +74,20 @@ serve(async (req) => {
     }
 
     const supabaseAdmin = createClient(url, key)
-    const rawBody = await req.text();
-    let body = {};
-    try { body = JSON.parse(rawBody); } catch (e) { throw new Error("Body JSON inválido."); }
+    
+    // FIX v6.12: Leitura direta do JSON para evitar falhas de stream/parsing
+    const body = await req.json().catch(() => null);
+    
+    if (!body) {
+        throw new Error("O corpo do pedido está vazio ou não é um JSON válido.");
+    }
     
     const action = String(body.action || '').trim().toLowerCase();
     const targetUserId = String(body.targetUserId || '').trim();
     const newPassword = body.newPassword || body.password;
     const email = body.email;
 
-    console.log(\`[AuthHelper v6.11] Ação: \${action} | Alvo: \${targetUserId || email}\`);
+    console.log(\`[AuthHelper v6.12] Ação: \${action} | Alvo: \${targetUserId || email}\`);
 
     if (action === 'update_password') {
       if (!targetUserId || !newPassword) throw new Error('targetUserId ou newPassword em falta.');
@@ -96,7 +100,7 @@ serve(async (req) => {
     }
 
     if (action === 'create_user') {
-      if (!email || !newPassword) throw new Error('Email e Password obrigatórios.');
+      if (!email || !newPassword) throw new Error('Email e Password obrigatórios para provisionamento.');
       
       console.log(\`[AuthHelper] Tentando criar conta para: \${email}\`);
       
@@ -118,7 +122,7 @@ serve(async (req) => {
       })
     }
     
-    throw new Error(\`Ação "\${action}" não suportada.\`)
+    throw new Error(\`Ação "\${action}" não suportada por esta versão da função.\`)
   } catch (error) {
     console.error("[AuthHelper] ERRO:", error.message);
     return new Response(JSON.stringify({ error: error.message }), { 
@@ -134,7 +138,7 @@ serve(async (req) => {
                 <div className="flex-shrink-0 flex border-b border-gray-700 bg-gray-900/50 rounded-t-lg overflow-x-auto custom-scrollbar whitespace-nowrap">
                     <button onClick={() => setActiveTab('full')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'full' ? 'border-brand-primary text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaCode /> Inicialização Universal</button>
                     <button onClick={() => setActiveTab('ai_bridge')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'ai_bridge' ? 'border-purple-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaRobot /> Ponte de IA (Deno)</button>
-                    <button onClick={() => setActiveTab('auth_helper')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'auth_helper' ? 'border-orange-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaKey /> Gestão Auth (v6.11)</button>
+                    <button onClick={() => setActiveTab('auth_helper')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'auth_helper' ? 'border-orange-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaKey /> Gestão Auth (v6.12)</button>
                 </div>
 
                 <div className="flex-grow overflow-hidden flex flex-col gap-4">
@@ -142,14 +146,13 @@ serve(async (req) => {
                     {activeTab === 'auth_helper' && (
                         <>
                         {/* Diagnóstico Non-2xx */}
-                        <div className="bg-orange-900/20 border border-orange-500/30 p-4 rounded-lg mb-2">
-                            <h4 className="text-orange-400 font-bold flex items-center gap-2 text-sm uppercase mb-2"><FaExclamationCircle /> RESOLVER ERRO "NON-2XX" (Falha no Servidor)</h4>
-                            <p className="text-[11px] text-gray-300">Este erro ocorre quando as credenciais da função não estão configuradas no dashboard do Supabase.</p>
+                        <div className="bg-red-900/20 border border-red-500/30 p-4 rounded-lg mb-2 animate-pulse">
+                            <h4 className="text-red-400 font-bold flex items-center gap-2 text-sm uppercase mb-2"><FaExclamationCircle /> RESOLVER ERRO "Body JSON inválido"</h4>
+                            <p className="text-[11px] text-gray-300">Este erro ocorre quando o código do servidor não consegue ler o pedido enviado pela App. Siga estes passos para corrigir:</p>
                             <ol className="text-[11px] text-gray-400 list-decimal ml-4 mt-2 space-y-2">
-                                <li>Vá a <a href="https://supabase.com/dashboard/project/yyiwkrkuhlkqibhowdmq/settings/functions" target="_blank" className="text-blue-400 underline">Secrets das Functions</a>.</li>
-                                <li>Verifique se existem as chaves <code className="text-white">SB_URL</code> e <code className="text-white">SB_SERVICE_ROLE_KEY</code>.</li>
-                                <li>Se o erro for "User already registered", o colaborador já tem conta mas não está vinculada à ficha.</li>
-                                <li>Atualize o código abaixo e faça novo deploy: <br/><code className="text-white bg-black p-1 rounded select-all">npx supabase functions deploy admin-auth-helper --project-ref yyiwkrkuhlkqibhowdmq</code></li>
+                                <li>Abra o ficheiro <code className="text-white">supabase/functions/admin-auth-helper/index.ts</code> no seu PC.</li>
+                                <li>Clique no botão <strong>"Copiar Código"</strong> abaixo e substitua <strong>todo</strong> o conteúdo desse ficheiro.</li>
+                                <li>No terminal, execute: <br/><code className="text-white bg-black p-1 rounded select-all">npx supabase functions deploy admin-auth-helper --project-ref yyiwkrkuhlkqibhowdmq</code></li>
                             </ol>
                         </div>
 

@@ -10,7 +10,7 @@ build/
 .vscode/
 
 # --- AIManager Freeze UI & Backup Policy ---
-# Pasta de backups internos (Snapshot local integral)
+# Pasta de backups internos (Pedido 2)
 backup_files/
 
 # Prevenir subida de logs locais de debug

@@ -3,8 +3,8 @@ import { getSupabase } from './supabaseClient';
 const sb = () => getSupabase();
 
 /**
- * Serviço de Autenticação v1.16 (Error Extraction Engine)
- * Focado em expor o erro real vindo do Supabase Auth para o utilizador.
+ * Serviço de Autenticação v1.17 (Safe Invoke)
+ * Focado em garantir que o payload chega ao servidor de forma legível.
  */
 export const adminResetPassword = async (userId: string, newPassword: string) => {
     const cleanUserId = String(userId || '').trim();
@@ -14,7 +14,7 @@ export const adminResetPassword = async (userId: string, newPassword: string) =>
         throw new Error("ID de utilizador ou nova password inválidos.");
     }
 
-    console.log(`[AuthService] Reset v1.16 -> Target: ${cleanUserId}`);
+    console.log(`[AuthService] Reset v1.17 -> Target: ${cleanUserId}`);
     
     const payload = { 
         action: 'update_password', 
@@ -33,15 +33,11 @@ export const adminResetPassword = async (userId: string, newPassword: string) =>
         if (error) {
             console.error("[AuthService] Erro na Edge Function:", error);
             
-            // Tentativa de obter erro detalhado da resposta HTTP (Pedido 4)
-            // O invoke do Supabase às vezes coloca o erro do body em context.json
             let detailedMsg = error.message;
             try {
                 const responseData = await error.context?.json();
                 if (responseData?.error) detailedMsg = responseData.error;
-            } catch (e) {
-                // Silencioso se não conseguir fazer parse do erro
-            }
+            } catch (e) {}
 
             if (error.status === 403 || detailedMsg?.includes('privileges')) {
                 throw new Error("ERRO_PRIVILEGIOS: Chave Service Role incorreta ou em falta nos Secrets do projeto.");
@@ -69,7 +65,7 @@ export const adminResetPassword = async (userId: string, newPassword: string) =>
  * Provisionamento forçado de utilizador.
  */
 export const adminProvisionUser = async (userId: string, email: string, initialPassword: string) => {
-    console.log(`[AuthService] Provisioning v1.16 -> ${email}`);
+    console.log(`[AuthService] Provisioning v1.17 -> ${email}`);
     
     const payload = { 
         action: 'create_user', 
@@ -91,6 +87,7 @@ export const adminProvisionUser = async (userId: string, email: string, initialP
             
             let detailedMsg = error.message;
             try {
+                // Captura a mensagem JSON que enviamos do servidor em caso de erro 400
                 const responseData = await error.context?.json();
                 if (responseData?.error) detailedMsg = responseData.error;
             } catch (e) {}
