@@ -25,7 +25,7 @@ export type ModuleKey =
     | 'my_area' | 'tools_agenda' | 'tools_map' | 'tools_calendar' | 'tools_manual'
     | 'org_institutions' | 'org_entities' | 'org_collaborators' | 'org_suppliers'
     | 'notif_tickets' | 'notif_licenses' | 'notif_warranties'
-    | 'msg_tickets' | 'msg_licenses' | 'msg_warranties'; // Pedido 2: Controlo de recepção de mensagens
+    | 'msg_tickets' | 'msg_licenses' | 'msg_warranties'; 
 
 export type PermissionAction = 'view' | 'view_own' | 'create' | 'edit' | 'delete' | 'manage';
 
@@ -518,6 +518,7 @@ export type TicketCategoryItem = ConfigItem & {
     default_team_id?: string;
     sla_warning_hours?: number;
     sla_critical_hours?: number;
+    sla_working_days?: number; // Pedido 4: SLA em dias úteis
     is_security?: boolean;
 };
 

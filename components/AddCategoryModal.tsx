@@ -1,7 +1,8 @@
+
 import React, { useState, useEffect } from 'react';
 import Modal from './common/Modal';
 import { TicketCategoryItem, Team } from '../types';
-import { FaClock, FaExclamationTriangle, FaShieldAlt } from 'react-icons/fa';
+import { FaClock, FaExclamationTriangle, FaShieldAlt, FaCalendarAlt } from 'react-icons/fa';
 import { SpinnerIcon } from './common/Icons';
 
 interface AddCategoryModalProps {
@@ -18,6 +19,7 @@ const AddCategoryModal: React.FC<AddCategoryModalProps> = ({ onClose, onSave, ca
         default_team_id: '',
         sla_warning_hours: 0,
         sla_critical_hours: 0,
+        sla_working_days: 0,
         is_security: false
     });
     const [error, setError] = useState('');
@@ -31,6 +33,7 @@ const AddCategoryModal: React.FC<AddCategoryModalProps> = ({ onClose, onSave, ca
                 default_team_id: categoryToEdit.default_team_id || '',
                 sla_warning_hours: categoryToEdit.sla_warning_hours || 0,
                 sla_critical_hours: categoryToEdit.sla_critical_hours || 0,
+                sla_working_days: categoryToEdit.sla_working_days || 0,
                 is_security: categoryToEdit.is_security || false
             });
         }
@@ -59,6 +62,7 @@ const AddCategoryModal: React.FC<AddCategoryModalProps> = ({ onClose, onSave, ca
             default_team_id: formData.default_team_id || null,
             sla_warning_hours: formData.sla_warning_hours || 0,
             sla_critical_hours: formData.sla_critical_hours || 0,
+            sla_working_days: formData.sla_working_days || 0,
             is_security: formData.is_security || false
         };
 
@@ -71,7 +75,6 @@ const AddCategoryModal: React.FC<AddCategoryModalProps> = ({ onClose, onSave, ca
             onClose();
         } catch (err: any) {
             console.error("Erro ao salvar categoria:", err);
-            // Captura o erro do RLS ou outros do Postgres
             setError(err.message || "Falha na base de dados. Verifique permissões RLS.");
         } finally {
             setIsSaving(false);
@@ -133,14 +136,16 @@ const AddCategoryModal: React.FC<AddCategoryModalProps> = ({ onClose, onSave, ca
                         <FaClock className="text-brand-secondary"/>
                         Definição de SLA (Prazos)
                     </h4>
-                    <div className="grid grid-cols-2 gap-4">
-                         <div>
-                            <label htmlFor="sla_warning_hours" className="block text-xs font-medium text-on-surface-dark-secondary mb-1">Alerta (Horas)</label>
-                            <input type="number" name="sla_warning_hours" value={formData.sla_warning_hours} onChange={handleChange} min="0" className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm" />
-                        </div>
-                        <div>
-                            <label htmlFor="sla_critical_hours" className="block text-xs font-medium text-on-surface-dark-secondary mb-1">Crítico (Horas)</label>
-                            <input type="number" name="sla_critical_hours" value={formData.sla_critical_hours} onChange={handleChange} min="0" className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm" />
+                    <div className="grid grid-cols-1 gap-4">
+                         <div className="flex items-center gap-3">
+                            <div className="flex-1">
+                                <label className="block text-xs font-medium text-on-surface-dark-secondary mb-1 flex items-center gap-1"><FaCalendarAlt/> Previsão Resolução (Dias Úteis)</label>
+                                <input type="number" name="sla_working_days" value={formData.sla_working_days} onChange={handleChange} min="0" className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm" />
+                            </div>
+                            <div className="flex-1">
+                                <label className="block text-xs font-medium text-on-surface-dark-secondary mb-1">Alerta SLA (Horas)</label>
+                                <input type="number" name="sla_warning_hours" value={formData.sla_warning_hours} onChange={handleChange} min="0" className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm" />
+                            </div>
                         </div>
                     </div>
                 </div>

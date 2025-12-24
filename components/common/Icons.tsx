@@ -15,8 +15,9 @@ import {
     FaMapMarkedAlt, FaMousePointer, FaInfoCircle, FaBuilding, FaUnlink, FaChartLine, FaStopwatch, 
     FaEuroSign, FaChevronDown, FaListAlt, FaIdCard, FaUserSlash, FaBroom, FaPlay, FaSeedling, 
     FaSort, FaSortUp, FaSortDown, FaList, FaThLarge, FaToolbox, FaChevronRight, FaShoppingCart, 
+    // Fix: Added FaCamera to imported icons from react-icons/fa
     FaShieldVirus, FaAddressBook, FaBars, 
-    FaMicrochip, FaMemory, FaHdd, FaLeaf, FaBolt, FaHeartbeat, FaTags, FaShapes, FaCompactDisc
+    FaMicrochip, FaMemory, FaHdd, FaLeaf, FaBolt, FaHeartbeat, FaTags, FaShapes, FaCompactDisc, FaCamera
 } from 'react-icons/fa';
 
 export { 
@@ -34,8 +35,9 @@ export {
     FaMapMarkedAlt, FaMousePointer, FaInfoCircle, FaBuilding, FaUnlink, FaChartLine, FaStopwatch, 
     FaEuroSign, FaChevronDown, FaListAlt, FaIdCard, FaUserSlash, FaBroom, FaPlay, FaSeedling, 
     FaSort, FaSortUp, FaSortDown, FaList, FaThLarge, FaToolbox, FaChevronRight, FaShoppingCart, 
+    // Fix: Added FaCamera to exported icons
     FaShieldVirus, FaAddressBook, FaBars,
-    FaMicrochip, FaMemory, FaHdd, FaLeaf, FaBolt, FaHeartbeat, FaTags, FaShapes, FaCompactDisc
+    FaMicrochip, FaMemory, FaHdd, FaLeaf, FaBolt, FaHeartbeat, FaTags, FaShapes, FaCompactDisc, FaCamera
 };
 
 export const PlusIcon: React.FC<{ className?: string }> = ({ className = "h-6 w-6" }) => (
