@@ -3,12 +3,12 @@ import Modal from './common/Modal';
 import { FaDatabase, FaCheck, FaCopy, FaExclamationTriangle, FaCode, FaBolt, FaShieldAlt, FaSync, FaSearch, FaTools, FaInfoCircle, FaRobot, FaTerminal, FaKey, FaEnvelope, FaExternalLinkAlt, FaListOl, FaPlay, FaFolderOpen, FaTrash, FaLock, FaExclamationCircle } from 'react-icons/fa';
 
 /**
- * DB Manager UI - v23.0 (Edge Runtime Patch v6.12)
+ * DB Manager UI - v24.0 (Autonomous Deploy v6.13)
  * -----------------------------------------------------------------------------
  * STATUS DE BLOQUEIO RIGOROSO (Freeze UI):
  * - PEDIDO 9: GUIA DE IMPLEMENTAÇÃO DA EDGE FUNCTION AI-PROXY.
- * - PEDIDO 8: GUIA DE IMPLEMENTAÇÃO DA EDGE FUNCTION ADMIN-AUTH-HELPER (V6.12).
- * - PEDIDO 4: RESOLUÇÃO DE ERRO "Body JSON inválido" NO SERVIDOR.
+ * - PEDIDO 8: GUIA DE IMPLEMENTAÇÃO DA EDGE FUNCTION ADMIN-AUTH-HELPER (V6.13).
+ * - PEDIDO 4: DEPLOY AUTÓNOMO (A IA já criou as pastas e ficheiros).
  * -----------------------------------------------------------------------------
  */
 
@@ -70,16 +70,22 @@ serve(async (req) => {
     const key = Deno.env.get('SB_SERVICE_ROLE_KEY') || Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
 
     if (!url || !key) {
-      throw new Error('Chaves de ambiente (SB_URL ou SB_SERVICE_ROLE_KEY) ausentes nos Secrets do Supabase.');
+      throw new Error('Variáveis de ambiente (SB_URL ou SB_SERVICE_ROLE_KEY) ausentes nos Secrets do Supabase.');
     }
 
     const supabaseAdmin = createClient(url, key)
     
-    // FIX v6.12: Leitura direta do JSON para evitar falhas de stream/parsing
-    const body = await req.json().catch(() => null);
+    // FIX v6.13: Processamento robusto do stream para evitar erros de parsing em pedidos rápidos
+    const bodyText = await req.text();
+    if (!bodyText || bodyText.trim() === '') {
+        throw new Error("Corpo do pedido vazio.");
+    }
     
-    if (!body) {
-        throw new Error("O corpo do pedido está vazio ou não é um JSON válido.");
+    let body;
+    try {
+        body = JSON.parse(bodyText);
+    } catch (e) {
+        throw new Error("O servidor recebeu um conteúdo que não é um JSON válido: " + bodyText.substring(0, 50));
     }
     
     const action = String(body.action || '').trim().toLowerCase();
@@ -87,42 +93,23 @@ serve(async (req) => {
     const newPassword = body.newPassword || body.password;
     const email = body.email;
 
-    console.log(\`[AuthHelper v6.12] Ação: \${action} | Alvo: \${targetUserId || email}\`);
+    console.log(\`[AuthHelper v6.13] Executando: \${action} em \${targetUserId || email}\`);
 
     if (action === 'update_password') {
-      if (!targetUserId || !newPassword) throw new Error('targetUserId ou newPassword em falta.');
+      if (!targetUserId || !newPassword) throw new Error('Dados em falta no payload.');
       const { data, error } = await supabaseAdmin.auth.admin.updateUserById(targetUserId, { password: newPassword })
-      if (error) {
-          console.error(\`[AuthHelper] Erro no Reset: \${error.message}\`);
-          throw error;
-      }
+      if (error) throw error;
       return new Response(JSON.stringify({ success: true, user_id: data.user.id }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
     }
 
     if (action === 'create_user') {
-      if (!email || !newPassword) throw new Error('Email e Password obrigatórios para provisionamento.');
-      
-      console.log(\`[AuthHelper] Tentando criar conta para: \${email}\`);
-      
-      const { data, error } = await supabaseAdmin.auth.admin.createUser({
-          email: email,
-          password: newPassword,
-          email_confirm: true
-      })
-      
-      if (error) {
-          console.error(\`[AuthHelper] Falha ao criar no Auth: \${error.message}\`);
-          throw error;
-      }
-
-      console.log(\`[AuthHelper] Sucesso! Conta criada ID: \${data.user.id}\`);
-      return new Response(JSON.stringify({ success: true, user: data.user }), { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }, 
-        status: 200 
-      })
+      if (!email || !newPassword) throw new Error('Email e Password obrigatórios.');
+      const { data, error } = await supabaseAdmin.auth.admin.createUser({ email: email, password: newPassword, email_confirm: true })
+      if (error) throw error;
+      return new Response(JSON.stringify({ success: true, user: data.user }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
     }
     
-    throw new Error(\`Ação "\${action}" não suportada por esta versão da função.\`)
+    throw new Error(\`Ação "\${action}" desconhecida.\`)
   } catch (error) {
     console.error("[AuthHelper] ERRO:", error.message);
     return new Response(JSON.stringify({ error: error.message }), { 
@@ -133,48 +120,24 @@ serve(async (req) => {
 })`;
 
     return (
-        <Modal title="Gestão de Infraestrutura (Recovery Mode)" onClose={onClose} maxWidth="max-w-6xl">
+        <Modal title="Gestão de Infraestrutura (Modo Autónomo)" onClose={onClose} maxWidth="max-w-6xl">
             <div className="space-y-4 h-[85vh] flex flex-col">
                 <div className="flex-shrink-0 flex border-b border-gray-700 bg-gray-900/50 rounded-t-lg overflow-x-auto custom-scrollbar whitespace-nowrap">
                     <button onClick={() => setActiveTab('full')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'full' ? 'border-brand-primary text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaCode /> Inicialização Universal</button>
-                    <button onClick={() => setActiveTab('ai_bridge')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'ai_bridge' ? 'border-purple-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaRobot /> Ponte de IA (Deno)</button>
-                    <button onClick={() => setActiveTab('auth_helper')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'auth_helper' ? 'border-orange-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaKey /> Gestão Auth (v6.12)</button>
+                    <button onClick={() => setActiveTab('ai_bridge')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'ai_bridge' ? 'border-purple-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaRobot /> Ponte de IA</button>
+                    <button onClick={() => setActiveTab('auth_helper')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'auth_helper' ? 'border-orange-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaKey /> Gestão Auth (v6.13)</button>
                 </div>
 
                 <div className="flex-grow overflow-hidden flex flex-col gap-4">
                     
                     {activeTab === 'auth_helper' && (
-                        <>
-                        {/* Diagnóstico Non-2xx */}
-                        <div className="bg-red-900/20 border border-red-500/30 p-4 rounded-lg mb-2 animate-pulse">
-                            <h4 className="text-red-400 font-bold flex items-center gap-2 text-sm uppercase mb-2"><FaExclamationCircle /> RESOLVER ERRO "Body JSON inválido"</h4>
-                            <p className="text-[11px] text-gray-300">Este erro ocorre quando o código do servidor não consegue ler o pedido enviado pela App. Siga estes passos para corrigir:</p>
-                            <ol className="text-[11px] text-gray-400 list-decimal ml-4 mt-2 space-y-2">
-                                <li>Abra o ficheiro <code className="text-white">supabase/functions/admin-auth-helper/index.ts</code> no seu PC.</li>
-                                <li>Clique no botão <strong>"Copiar Código"</strong> abaixo e substitua <strong>todo</strong> o conteúdo desse ficheiro.</li>
-                                <li>No terminal, execute: <br/><code className="text-white bg-black p-1 rounded select-all">npx supabase functions deploy admin-auth-helper --project-ref yyiwkrkuhlkqibhowdmq</code></li>
-                            </ol>
-                        </div>
-
-                        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 flex-shrink-0">
-                            <div className="bg-red-900/20 border border-red-500/30 p-3 rounded-lg flex flex-col gap-1">
-                                <h4 className="text-red-300 font-bold flex items-center gap-2 text-xs uppercase"><FaTrash /> 0. Limpar Cache</h4>
-                                <p className="text-[10px] text-gray-400">Apague a pasta <strong>.supabase</strong> local se mudar de projeto.</p>
-                            </div>
-                            <div className="bg-blue-900/20 border border-blue-500/30 p-3 rounded-lg flex flex-col gap-1">
-                                <h4 className="text-blue-300 font-bold flex items-center gap-2 text-xs uppercase"><FaSync /> 1. Religar</h4>
-                                <p className="text-[10px] text-gray-400"><code>npx supabase link --project-ref yyiwkrkuhlkqibhowdmq</code></p>
-                            </div>
-                            <div className="bg-purple-900/20 border border-purple-500/30 p-3 rounded-lg flex flex-col gap-1">
-                                <h4 className="text-purple-300 font-bold flex items-center gap-2 text-xs uppercase"><FaCopy /> 2. Código</h4>
-                                <p className="text-[10px] text-gray-400">Ficheiro <strong>index.ts</strong> na pasta da função.</p>
-                            </div>
-                            <div className="bg-green-900/20 border border-green-500/30 p-3 rounded-lg flex flex-col gap-1">
-                                <h4 className="text-green-300 font-bold flex items-center gap-2 text-xs uppercase"><FaTerminal /> 3. Deploy</h4>
-                                <p className="text-[10px] text-gray-400"><code>npx supabase functions deploy admin-auth-helper</code></p>
+                        <div className="bg-green-900/20 border border-green-500/30 p-4 rounded-lg mb-2">
+                            <h4 className="text-green-400 font-bold flex items-center gap-2 text-sm uppercase mb-2"><FaCheck /> ESTRUTURA CRIADA PELA IA</h4>
+                            <p className="text-[11px] text-gray-300">Não precisas de criar pastas. O ficheiro <strong>index.ts</strong> já está no teu projeto. Executa apenas este comando:</p>
+                            <div className="mt-4 p-3 bg-black rounded font-mono text-xs text-blue-400 select-all">
+                                npx supabase functions deploy admin-auth-helper --project-ref yyiwkrkuhlkqibhowdmq
                             </div>
                         </div>
-                        </>
                     )}
 
                     <div className="relative flex-grow bg-black rounded-lg border border-gray-700 shadow-2xl overflow-hidden">

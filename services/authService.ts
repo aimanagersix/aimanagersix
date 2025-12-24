@@ -3,8 +3,8 @@ import { getSupabase } from './supabaseClient';
 const sb = () => getSupabase();
 
 /**
- * Serviço de Autenticação v1.17 (Safe Invoke)
- * Focado em garantir que o payload chega ao servidor de forma legível.
+ * Serviço de Autenticação v1.18 (Stream Integrity)
+ * Focado em garantir que o payload JSON é interpretado corretamente pelo Deno.
  */
 export const adminResetPassword = async (userId: string, newPassword: string) => {
     const cleanUserId = String(userId || '').trim();
@@ -14,7 +14,7 @@ export const adminResetPassword = async (userId: string, newPassword: string) =>
         throw new Error("ID de utilizador ou nova password inválidos.");
     }
 
-    console.log(`[AuthService] Reset v1.17 -> Target: ${cleanUserId}`);
+    console.log(`[AuthService] Reset v1.18 -> Target: ${cleanUserId}`);
     
     const payload = { 
         action: 'update_password', 
@@ -26,7 +26,8 @@ export const adminResetPassword = async (userId: string, newPassword: string) =>
         const { data, error } = await sb().functions.invoke('admin-auth-helper', {
             body: payload,
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'X-Client-Info': 'aimanager-web'
             }
         });
         
@@ -35,12 +36,13 @@ export const adminResetPassword = async (userId: string, newPassword: string) =>
             
             let detailedMsg = error.message;
             try {
+                // Tentativa de obter JSON de erro estruturado
                 const responseData = await error.context?.json();
                 if (responseData?.error) detailedMsg = responseData.error;
             } catch (e) {}
 
             if (error.status === 403 || detailedMsg?.includes('privileges')) {
-                throw new Error("ERRO_PRIVILEGIOS: Chave Service Role incorreta ou em falta nos Secrets do projeto.");
+                throw new Error("ERRO_PRIVILEGIOS: Verifique o SB_SERVICE_ROLE_KEY nos Secrets do projeto.");
             }
             
             if (detailedMsg?.includes('User not found') || error.status === 404) {
@@ -65,7 +67,7 @@ export const adminResetPassword = async (userId: string, newPassword: string) =>
  * Provisionamento forçado de utilizador.
  */
 export const adminProvisionUser = async (userId: string, email: string, initialPassword: string) => {
-    console.log(`[AuthService] Provisioning v1.17 -> ${email}`);
+    console.log(`[AuthService] Provisioning v1.18 -> ${email}`);
     
     const payload = { 
         action: 'create_user', 
@@ -78,7 +80,8 @@ export const adminProvisionUser = async (userId: string, email: string, initialP
         const { data, error } = await sb().functions.invoke('admin-auth-helper', {
             body: payload,
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'X-Client-Info': 'aimanager-web'
             }
         });
 
@@ -87,12 +90,10 @@ export const adminProvisionUser = async (userId: string, email: string, initialP
             
             let detailedMsg = error.message;
             try {
-                // Captura a mensagem JSON que enviamos do servidor em caso de erro 400
                 const responseData = await error.context?.json();
                 if (responseData?.error) detailedMsg = responseData.error;
             } catch (e) {}
 
-            if (error.status === 403) throw new Error("A chave de serviço não tem permissão. Verifique o SB_SERVICE_ROLE_KEY.");
             throw new Error(`Erro ao provisionar conta: ${detailedMsg}`);
         }
 
