@@ -6,10 +6,10 @@ import { FaCamera, FaKey, FaUserShield, FaUserTie, FaBuilding, FaMapMarkerAlt, F
 import * as dataService from '../services/dataService';
 
 /**
- * ADD COLLABORATOR MODAL - V5.8 (Admin Role Edit Enable)
+ * ADD COLLABORATOR MODAL - V5.9 (Postal Code Magnifier Fix)
  * -----------------------------------------------------------------------------
  * STATUS DE BLOQUEIO RIGOROSO (Freeze UI):
- * - PEDIDO 4: PERMITIR GESTÃO DO PERFIL ADMIN.
+ * - PEDIDO 4: LUPA DO CP AGORA DISPARA PESQUISA MANUAL.
  * -----------------------------------------------------------------------------
  */
 
@@ -121,31 +121,36 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
         }
     }, [collaboratorToEdit]);
 
-    useEffect(() => {
-        const cp = formData.postal_code || '';
-        if (/^\d{4}-\d{3}$/.test(cp)) {
-            const fetchCP = async () => {
-                setIsFetchingCP(true);
-                try {
-                    const response = await fetch(`https://json.geoapi.pt/cp/${cp}`);
-                    if (response.ok) {
-                        const data = await response.json();
-                        setFormData(prev => ({
-                            ...prev,
-                            city: data.Concelho || prev.city,
-                            locality: data.Freguesia || prev.locality,
-                            address_line: !prev.address_line?.trim() ? (data.Designacao || prev.address_line) : prev.address_line
-                        }));
-                    }
-                } catch (e) {
-                    console.error("Erro ao consultar CP:", e);
-                } finally {
-                    setIsFetchingCP(false);
-                }
-            };
-            fetchCP();
+    // Pedido 4: Pesquisa manual do Código Postal via ícone da lupa
+    const fetchCPData = async () => {
+        const cp = formData.postal_code?.trim() || '';
+        if (!/^\d{4}-\d{3}$/.test(cp)) {
+            alert("Introduza o Código Postal no formato 0000-000.");
+            return;
         }
-    }, [formData.postal_code]);
+
+        setIsFetchingCP(true);
+        try {
+            const response = await fetch(`https://json.geoapi.pt/cp/${cp}`);
+            if (response.ok) {
+                const data = await response.json();
+                setFormData(prev => ({
+                    ...prev,
+                    city: data.Concelho || prev.city,
+                    locality: data.Freguesia || prev.locality,
+                    // Se a morada estiver vazia, tenta preencher com a Designação da rua da API
+                    address_line: !prev.address_line?.trim() ? (data.Designacao || prev.address_line) : prev.address_line
+                }));
+            } else {
+                alert("Código Postal não encontrado.");
+            }
+        } catch (e) {
+            console.error("Erro ao consultar CP:", e);
+            alert("Falha na ligação ao serviço de moradas.");
+        } finally {
+            setIsFetchingCP(false);
+        }
+    };
 
     const validateForm = () => {
         const newErrors: Record<string, string> = {};
@@ -298,12 +303,19 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
                             <input type="text" value={formData.address_line} onChange={e => setFormData({...formData, address_line: e.target.value})} className="w-full bg-gray-800 border border-gray-600 text-white rounded p-2 text-sm mb-2" placeholder="Rua, Número..." />
                             <div className="grid grid-cols-2 gap-2">
                                 <div className="relative">
-                                    <input type="text" value={formData.postal_code} onChange={e => setFormData({...formData, postal_code: e.target.value})} className="w-full bg-gray-800 border border-gray-600 text-white rounded p-2 text-sm" placeholder="CP 0000-000" maxLength={8} />
-                                    <FaSearchLocation className="absolute right-3 top-2.5 text-gray-600" />
+                                    <input type="text" value={formData.postal_code} onChange={e => setFormData({...formData, postal_code: e.target.value})} className="w-full bg-gray-800 border border-gray-600 text-white rounded p-2 text-sm" placeholder="0000-000" maxLength={8} />
+                                    <button 
+                                        type="button" 
+                                        onClick={fetchCPData} 
+                                        className="absolute right-2 top-2 p-1 text-gray-500 hover:text-brand-secondary transition-colors"
+                                        title="Pesquisar Morada"
+                                    >
+                                        <FaSearchLocation />
+                                    </button>
                                 </div>
-                                <input type="text" value={formData.city} onChange={e => setFormData({...formData, city: e.target.value})} className="w-full bg-gray-800 border border-gray-600 text-white rounded p-2 text-sm" placeholder="Cidade" />
+                                <input type="text" value={formData.city} onChange={e => setFormData({...formData, city: e.target.value})} className="w-full bg-gray-800 border border-gray-600 text-white rounded-md p-2 text-sm" placeholder="Cidade" />
                             </div>
-                            <input type="text" value={formData.locality} onChange={e => setFormData({...formData, locality: e.target.value})} className="w-full bg-gray-800 border border-gray-600 text-white rounded p-2 text-sm mt-2" placeholder="Localidade / Freguesia" />
+                            <input type="text" value={formData.locality} onChange={e => setFormData({...formData, locality: e.target.value})} className="w-full bg-gray-800 border border-gray-600 text-white rounded-md p-2 text-sm mt-2" placeholder="Localidade / Freguesia" />
                         </div>
                     </div>
 
