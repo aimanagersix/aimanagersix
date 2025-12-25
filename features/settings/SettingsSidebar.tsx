@@ -45,6 +45,7 @@ const SettingsSidebar: React.FC<SettingsSidebarProps> = ({ selectedMenuId, onSel
                 { id: 'config_cpus', label: 'Tipos de CPU', icon: <FaMicrochip /> },
                 { id: 'config_ram_sizes', label: 'Tamanhos RAM', icon: <FaMemory /> },
                 { id: 'config_storage_types', label: 'Tipos de Disco', icon: <FaHdd /> },
+                { id: 'config_software_categories', label: 'Categorias de Software', icon: <FaTags /> },
                 { id: 'config_software_products', label: 'Catálogo Software', icon: <FaCompactDisc /> },
             ]
         },

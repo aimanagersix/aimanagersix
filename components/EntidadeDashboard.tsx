@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Entidade, Instituicao, Collaborator, EntidadeStatus, Assignment, Ticket, CollaboratorHistory, Equipment } from '../types';
-import { EditIcon, FaTrash as DeleteIcon, SearchIcon, PlusIcon } from './common/Icons';
+import { EditIcon, FaTrash as DeleteIcon, SearchIcon, PlusIcon, ReportIcon } from './common/Icons';
 import { FaToggleOn, FaToggleOff, FaBuilding } from 'react-icons/fa';
 import Pagination from './common/Pagination';
 
@@ -13,9 +13,10 @@ interface EntidadeDashboardProps {
   onDelete?: (id: string) => void;
   onToggleStatus?: (id: string) => void;
   onCreate?: () => void;
+  onViewDetails?: (entidade: Entidade) => void;
 }
 
-const EntidadeDashboard: React.FC<EntidadeDashboardProps> = ({ escolasDepartamentos: entidadesData, instituicoes, collaborators, onEdit, onDelete, onToggleStatus, onCreate }) => {
+const EntidadeDashboard: React.FC<EntidadeDashboardProps> = ({ escolasDepartamentos: entidadesData, instituicoes, collaborators, onEdit, onDelete, onToggleStatus, onCreate, onViewDetails }) => {
     const [searchQuery, setSearchQuery] = useState('');
     const instituicaoMap = useMemo(() => new Map(instituicoes.map(i => [i.id, i.name])), [instituicoes]);
     
@@ -33,7 +34,7 @@ const EntidadeDashboard: React.FC<EntidadeDashboardProps> = ({ escolasDepartamen
         <div className="bg-surface-dark p-6 rounded-lg shadow-xl">
             <div className="flex justify-between items-center mb-6">
                 <h2 className="text-xl font-semibold text-white">Gestão de Entidades</h2>
-                <button onClick={onCreate} className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-md font-bold transition-all"><PlusIcon /> Adicionar</button>
+                <button onClick={onCreate} className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-md font-bold transition-all shadow-lg hover:bg-brand-secondary"><PlusIcon /> Adicionar</button>
             </div>
 
             <div className="relative mb-6">
@@ -54,13 +55,23 @@ const EntidadeDashboard: React.FC<EntidadeDashboardProps> = ({ escolasDepartamen
                     </thead>
                     <tbody className="divide-y divide-gray-800">
                         {filtered.map((e) => (
-                            <tr key={e.id} className="hover:bg-gray-800/50 transition-colors">
-                                <td className="px-6 py-4 font-medium text-white"><div>{e.name}</div><div className="text-[10px] text-gray-500 uppercase">{e.codigo}</div></td>
+                            <tr 
+                                key={e.id} 
+                                className="hover:bg-gray-800/50 transition-colors cursor-pointer"
+                                onClick={() => onViewDetails && onViewDetails(e)}
+                            >
+                                <td className="px-6 py-4 font-medium text-white">
+                                    <div className="font-bold">{e.name}</div>
+                                    <div className="text-[10px] text-gray-500 uppercase font-mono tracking-widest">{e.codigo}</div>
+                                </td>
                                 <td className="px-6 py-4 text-gray-400">{instituicaoMap.get(e.instituicao_id) || 'N/A'}</td>
-                                <td className="px-6 py-4 text-center"><span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${e.status === 'Ativo' ? 'bg-green-900/30 text-green-400' : 'bg-red-900/30 text-red-400'}`}>{e.status}</span></td>
-                                <td className="px-6 py-4 text-center font-mono text-white">{collabCountMap[e.id] || 0}</td>
                                 <td className="px-6 py-4 text-center">
+                                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${e.status === 'Ativo' ? 'bg-green-900/30 text-green-400' : 'bg-red-900/30 text-red-400'}`}>{e.status}</span>
+                                </td>
+                                <td className="px-6 py-4 text-center font-mono text-white">{collabCountMap[e.id] || 0}</td>
+                                <td className="px-6 py-4 text-center" onClick={ev => ev.stopPropagation()}>
                                     <div className="flex justify-center gap-4">
+                                        <button onClick={() => onViewDetails && onViewDetails(e)} className="text-teal-400 hover:text-teal-300" title="Ver Detalhes"><ReportIcon className="w-5 h-5"/></button>
                                         {onToggleStatus && <button onClick={() => onToggleStatus(e.id)} className="text-xl">{e.status === 'Ativo' ? <FaToggleOn className="text-green-400" /> : <FaToggleOff className="text-gray-500" />}</button>}
                                         {onEdit && <button onClick={() => onEdit(e)} className="text-blue-400"><EditIcon /></button>}
                                         {onDelete && <button onClick={() => onDelete(e.id)} className="text-red-400"><DeleteIcon /></button>}

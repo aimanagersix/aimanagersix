@@ -9,21 +9,5 @@ build/
 .DS_Store
 .vscode/
 
-# --- AIManager Freeze UI & Backup Policy ---
-# Pasta de backups internos (Snapshot local integral)
+# Pasta de backups internos do AIManager
 backup_files/
-
-# Prevenir subida de logs locais de debug
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# Ficheiros de sistema e IDE
-.DS_Store
-.vscode/
-.idea/
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?

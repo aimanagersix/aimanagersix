@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { 
-    FaList, FaTicketAlt, FaKey, FaBroom, FaLandmark, FaLeaf, FaMicrochip, FaMemory, FaHdd, FaUserTie, FaUserTag, FaUserSlash 
+    FaList, FaTicketAlt, FaKey, FaBroom, FaLandmark, FaLeaf, FaMicrochip, FaMemory, FaHdd, FaUserTie, FaUserTag, FaUserSlash, FaTags 
 } from 'react-icons/fa';
 
 // Components
@@ -56,6 +56,7 @@ const SettingsRouter: React.FC<SettingsRouterProps> = ({
         'config_ram_sizes': { label: 'Tamanhos de Memória RAM', icon: <FaMemory/>, data: safeData(appData.configRamSizes) },
         'config_storage_types': { label: 'Tipos de Disco / Armazenamento', icon: <FaHdd/>, data: safeData(appData.configStorageTypes) },
         'config_job_titles': { label: 'Cargos / Funções Profissionais', icon: <FaUserTie/>, data: safeData(appData.configJobTitles) },
+        'config_software_categories': { label: 'Categorias de Software', icon: <FaTags/>, data: safeData(appData.softwareCategories) },
         'config_collaborator_deactivation_reasons': { label: 'Motivos de Saída (RH)', icon: <FaUserSlash/>, data: safeData(appData.configCollaboratorDeactivationReasons) },
         'contact_roles': { label: 'Papéis de Contacto Externo', icon: <FaUserTag/>, data: safeData(appData.contactRoles) },
         'contact_titles': { label: 'Tratos Honoríficos', icon: <FaUserTag/>, data: safeData(appData.contactTitles) },
