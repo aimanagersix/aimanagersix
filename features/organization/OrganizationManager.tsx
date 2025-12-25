@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { Collaborator, Instituicao, Entidade, Assignment, TicketStatus, ConfigItem, Supplier } from '../../types';
+import { Collaborator, Instituicao, Entidade, Assignment, TicketStatus, ConfigItem, Supplier, EquipmentStatus, CollaboratorStatus } from '../../types';
 import * as dataService from '../../services/dataService';
 import InstituicaoDashboard from '../../components/InstituicaoDashboard';
 import EntidadeDashboard from '../../components/EntidadeDashboard';
@@ -64,7 +64,6 @@ const OrganizationManager: React.FC<OrganizationManagerProps> = ({ activeTab, ap
 
     useEffect(() => { if (activeTab === 'collaborators') fetchCollaborators(); }, [activeTab, fetchCollaborators]);
 
-    // Pedido 4: handleRefresh agora é síncrono para garantir ordem de execução
     const handleRefresh = async () => { 
         dataService.invalidateLocalCache();
         await fetchCollaborators(); 
@@ -75,7 +74,6 @@ const OrganizationManager: React.FC<OrganizationManagerProps> = ({ activeTab, ap
         let resultCol;
         try {
             if (collaboratorToEdit) {
-                // 1. Gravar dados básicos
                 await dataService.updateCollaborator(collaboratorToEdit.id, col);
                 const email = col.email || collaboratorToEdit.email;
                 if (pass) { 
@@ -85,25 +83,66 @@ const OrganizationManager: React.FC<OrganizationManagerProps> = ({ activeTab, ap
                 }
                 resultCol = { ...collaboratorToEdit, ...col };
             } else {
-                // 1. Criar novo
                 resultCol = await dataService.addCollaborator(col, pass);
                 if (pass) { 
                     setNewCredentials({ email: resultCol.email, password: pass }); 
                     setShowCredentialsModal(true); 
                 }
             }
-
-            // 2. Upload de foto se existir (SÍNCRONO)
             if (photoFile && resultCol?.id) {
-                console.log("[OrgManager] Iniciando upload de foto pós-gravação...");
                 await dataService.uploadCollaboratorPhoto(resultCol.id, photoFile);
             }
-
-            // 3. Só agora refrescamos a UI global
             await handleRefresh(); 
             return resultCol;
         } catch (err) {
             console.error("[OrgManager] Falha na gravação composta:", err);
+            throw err;
+        }
+    };
+
+    const handleOffboardingConfirm = async (id: string, rid?: string) => {
+        try {
+            const col = collaboratorToOffboard;
+            if (!col) return;
+
+            // 1. Terminar atribuições de Hardware
+            const activeAssignments = appData.assignments.filter((a: any) => a.collaborator_id === id && !a.return_date);
+            const today = new Date().toISOString().split('T')[0];
+            
+            for (const a of activeAssignments) {
+                await dataService.updateEquipment(a.equipment_id, { status: EquipmentStatus.Stock });
+                await dataService.updateAssignment(a.id, { return_date: today });
+            }
+
+            // 2. Terminar atribuições de Software (Licenças associadas aos PCs do colaborador)
+            const activeLicenses = appData.licenseAssignments.filter((la: any) => 
+                activeAssignments.some((a: any) => a.equipment_id === la.equipment_id) && !la.return_date
+            );
+            for (const la of activeLicenses) {
+                await dataService.updateLicenseAssignment(la.id, { return_date: today });
+            }
+
+            // 3. Atualizar Colaborador
+            await dataService.updateCollaborator(id, { 
+                status: CollaboratorStatus.Inativo, 
+                deactivation_reason_id: rid || null 
+            });
+
+            // 4. Criar Ticket de Suporte Automático
+            const reasonName = rid ? appData.configCollaboratorDeactivationReasons.find((r: any) => r.id === rid)?.name : 'Não especificado';
+            await dataService.addTicket({
+                title: `Offboarding: ${col.full_name}`,
+                description: `Procedimento de saída concluído no sistema.\nColaborador: ${col.full_name}\nMotivo: ${reasonName}\nEquipamentos devolvidos: ${activeAssignments.length}.\n\nPor favor, revogar acessos de rede e arquivar conta.`,
+                status: 'Pedido',
+                category: 'Geral',
+                request_date: new Date().toISOString(),
+                collaborator_id: id,
+                impact_criticality: 'Média'
+            });
+
+            await handleRefresh();
+        } catch (err) {
+            console.error("[OrgManager] Erro no fluxo de Offboarding:", err);
             throw err;
         }
     };
@@ -138,7 +177,7 @@ const OrganizationManager: React.FC<OrganizationManagerProps> = ({ activeTab, ap
                     collaboratorHistory={appData.collaboratorHistory} 
                     messages={appData.messages} 
                     currentUser={currentUser} 
-                    jobTitles={appData.configJobTitles} // PEDIDO 4: Propagação de cargos para exibição na listagem
+                    jobTitles={appData.configJobTitles} 
                     onEdit={checkPermission('org_collaborators', 'edit') ? (c) => { setCollaboratorToEdit(c); setShowAddCollaboratorModal(true); } : undefined} 
                     onDelete={checkPermission('org_collaborators', 'delete') ? async (id) => { if(confirm("Deseja eliminar este colaborador?")) { await dataService.deleteCollaborator(id); await handleRefresh(); } } : undefined} 
                     onCreate={checkPermission('org_collaborators', 'create') ? () => { setCollaboratorToEdit(null); setShowAddCollaboratorModal(true); } : undefined} 
@@ -160,7 +199,7 @@ const OrganizationManager: React.FC<OrganizationManagerProps> = ({ activeTab, ap
             {showCollaboratorHistoryModal && historyCollaborator && <CollaboratorHistoryModal collaborator={historyCollaborator} history={appData.collaboratorHistory} escolasDepartamentos={appData.entidades} onClose={() => setShowCollaboratorHistoryModal(false)} />}
             {showCollaboratorDetailModal && detailCollaborator && <CollaboratorDetailModal collaborator={detailCollaborator} assignments={appData.assignments} equipment={appData.equipment} tickets={appData.tickets} brandMap={new Map(appData.brands.map((b:any)=>[b.id,b.name]))} equipmentTypeMap={new Map(appData.equipmentTypes.map((t:any)=>[t.id,t.name]))} licenseAssignments={appData.licenseAssignments} softwareLicenses={appData.softwareLicenses} onClose={() => setShowCollaboratorDetailModal(false)} onShowHistory={()=>{}} onStartChat={onStartChat} onEdit={(c)=>{setCollaboratorToEdit(c);setShowAddCollaboratorModal(true);}} onViewTicket={(t) => { setDetailCollaborator(null); setShowCollaboratorDetailModal(false); setActiveTab('tickets.list'); }} onViewEquipment={(eq) => { setDetailCollaborator(null); setShowCollaboratorDetailModal(false); setActiveTab('equipment.inventory'); }} />}
             {showCredentialsModal && newCredentials && <CredentialsModal onClose={() => setShowCredentialsModal(false)} email={newCredentials.email} password={newCredentials.password} />}
-            {showOffboardingModal && collaboratorToOffboard && <OffboardingModal onClose={() => setShowOffboardingModal(false)} onConfirm={async (id, rid) => { await dataService.updateCollaborator(id, { status: 'Inativo', deactivation_reason_id: rid }); await handleRefresh(); }} collaborator={collaboratorToOffboard} assignments={appData.assignments} licenseAssignments={appData.licenseAssignments} equipment={appData.equipment} softwareLicenses={appData.softwareLicenses} brandMap={new Map()} equipmentTypeMap={new Map()} deactivationReasons={appData.configCollaboratorDeactivationReasons} />}
+            {showOffboardingModal && collaboratorToOffboard && <OffboardingModal onClose={() => setShowOffboardingModal(false)} onConfirm={handleOffboardingConfirm} collaborator={collaboratorToOffboard} assignments={appData.assignments} licenseAssignments={appData.licenseAssignments} equipment={appData.equipment} softwareLicenses={appData.softwareLicenses} brandMap={new Map()} equipmentTypeMap={new Map()} deactivationReasons={appData.configCollaboratorDeactivationReasons} />}
             {showOnboardingModal && <OnboardingModal onClose={() => setShowOnboardingModal(false)} onSave={handleRefresh} equipmentTypes={appData.equipmentTypes} softwareCategories={appData.softwareCategories} entidades={appData.entidades} instituicoes={appData.instituicoes} currentUser={currentUser} />}
         </>
     );

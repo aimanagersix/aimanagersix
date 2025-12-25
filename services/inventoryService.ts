@@ -99,16 +99,16 @@ export const fetchInventoryData = async () => {
         softwareProducts: results[8].data || [],
         suppliers: results[9].data || [], 
         configEquipmentStatuses: results[10].data || [],
-        // Fix mismatched key name to match useInventory state and the config_license_statuses source
-        configLicenseStatuses: results[11].data || [],
-        configCpus: results[12].data || [], 
-        configRamSizes: results[13].data || [], 
-        configStorageTypes: results[14].data || [],
-        configAccountingCategories: results[15].data || [], 
-        configConservationStates: results[16].data || [],
-        configDecommissionReasons: results[17].data || [],
-        configJobTitles: results[18].data || [],
-        configCollaboratorDeactivationReasons: results[19].data || []
+        configTicketStatuses: results[11].data || [],
+        configLicenseStatuses: results[12].data || [],
+        configCpus: results[13].data || [], 
+        configRamSizes: results[14].data || [], 
+        configStorageTypes: results[15].data || [],
+        configAccountingCategories: results[16].data || [], 
+        configConservationStates: results[17].data || [],
+        configDecommissionReasons: results[18].data || [],
+        configJobTitles: results[19].data || [],
+        configCollaboratorDeactivationReasons: results[20].data || []
     };
 };
 
@@ -156,6 +156,18 @@ export const updateEquipment = async (id: string, updates: any) => {
 
 export const addAssignment = async (assignment: any) => {
     const { data, error } = await sb().from('assignments').insert(cleanPayload(assignment)).select().single();
+    if (error) throw error;
+    return data;
+};
+
+export const updateAssignment = async (id: string, updates: any) => {
+    const { data, error } = await sb().from('assignments').update(cleanPayload(updates)).eq('id', id).select().single();
+    if (error) throw error;
+    return data;
+};
+
+export const updateLicenseAssignment = async (id: string, updates: any) => {
+    const { data, error } = await sb().from('license_assignments').update(cleanPayload(updates)).eq('id', id).select().single();
     if (error) throw error;
     return data;
 };
@@ -213,6 +225,7 @@ export const updateLicense = async (id: string, updates: any) => {
     const { error } = await sb().from('software_licenses').update(cleanPayload(updates)).eq('id', id); 
     if (error) throw error;
 };
+// Fix: Added deleteLicense to resolve missing property error in InventoryManager
 export const deleteLicense = async (id: string) => { 
     const { error } = await sb().from('software_licenses').delete().eq('id', id); 
     if (error) throw error;

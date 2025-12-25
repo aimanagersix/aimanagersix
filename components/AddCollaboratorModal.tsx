@@ -6,10 +6,10 @@ import { FaCamera, FaKey, FaUserShield, FaUserTie, FaBuilding, FaMapMarkerAlt, F
 import * as dataService from '../services/dataService';
 
 /**
- * ADD COLLABORATOR MODAL - V5.9 (Postal Code Magnifier Fix)
+ * ADD COLLABORATOR MODAL - V5.10 (Advanced CP Mapping Fix)
  * -----------------------------------------------------------------------------
  * STATUS DE BLOQUEIO RIGOROSO (Freeze UI):
- * - PEDIDO 4: LUPA DO CP AGORA DISPARA PESQUISA MANUAL.
+ * - PEDIDO 4: LUPA DO CP AGORA DISPARA PESQUISA MANUAL E PREENCHE TUDO.
  * -----------------------------------------------------------------------------
  */
 
@@ -121,7 +121,18 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
         }
     }, [collaboratorToEdit]);
 
-    // Pedido 4: Pesquisa manual do Código Postal via ícone da lupa
+    // Pedido 4: Autocomplete Código Postal Avançado (Mapeamento Robusto)
+    const mapCPData = (data: any) => {
+        setFormData(prev => ({
+            ...prev,
+            city: data.Concelho || data.concelho || prev.city,
+            // Mapeia Freguesia ou tenta a primeira parte da morada se for um CP genérico
+            locality: data.Freguesia || data.freguesia || (data.part && data.part[0] ? data.part[0] : prev.locality),
+            // Preenche a rua (Designação) se o campo estiver vazio
+            address_line: !prev.address_line?.trim() ? (data.Designacao || data.designacao || prev.address_line) : prev.address_line
+        }));
+    };
+
     const fetchCPData = async () => {
         const cp = formData.postal_code?.trim() || '';
         if (!/^\d{4}-\d{3}$/.test(cp)) {
@@ -134,13 +145,7 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
             const response = await fetch(`https://json.geoapi.pt/cp/${cp}`);
             if (response.ok) {
                 const data = await response.json();
-                setFormData(prev => ({
-                    ...prev,
-                    city: data.Concelho || prev.city,
-                    locality: data.Freguesia || prev.locality,
-                    // Se a morada estiver vazia, tenta preencher com a Designação da rua da API
-                    address_line: !prev.address_line?.trim() ? (data.Designacao || prev.address_line) : prev.address_line
-                }));
+                mapCPData(data);
             } else {
                 alert("Código Postal não encontrado.");
             }
@@ -151,6 +156,28 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
             setIsFetchingCP(false);
         }
     };
+
+    // Pedido 4: Disparo automático ao completar CP
+    useEffect(() => {
+        const cp = formData.postal_code || '';
+        if (/^\d{4}-\d{3}$/.test(cp)) {
+            const fetchAutoCP = async () => {
+                setIsFetchingCP(true);
+                try {
+                    const response = await fetch(`https://json.geoapi.pt/cp/${cp}`);
+                    if (response.ok) {
+                        const data = await response.json();
+                        mapCPData(data);
+                    }
+                } catch (e) {
+                    console.error("Erro ao consultar CP automático:", e);
+                } finally {
+                    setIsFetchingCP(false);
+                }
+            };
+            fetchAutoCP();
+        }
+    }, [formData.postal_code]);
 
     const validateForm = () => {
         const newErrors: Record<string, string> = {};
