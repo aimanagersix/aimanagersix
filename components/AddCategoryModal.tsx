@@ -87,26 +87,26 @@ const AddCategoryModal: React.FC<AddCategoryModalProps> = ({ onClose, onSave, ca
         <Modal title={modalTitle} onClose={onClose} maxWidth="max-w-lg">
             <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                    <label htmlFor="name" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Nome da Categoria</label>
+                    <label htmlFor="name" className="block text-sm font-black text-gray-400 mb-1 uppercase tracking-widest text-[10px]">Nome da Categoria</label>
                     <input 
                         type="text" 
                         name="name" 
                         id="name" 
                         value={formData.name} 
                         onChange={handleChange} 
-                        className={`w-full bg-gray-700 border text-white rounded-md p-2 ${error ? 'border-red-500' : 'border-gray-600'}`} 
+                        className={`w-full bg-gray-700 border text-white rounded p-2 text-sm focus:border-brand-primary outline-none ${error ? 'border-red-500' : 'border-gray-600'}`} 
                     />
                     {error && <p className="text-red-400 text-xs font-bold mt-1 bg-red-900/20 p-2 rounded flex items-center gap-2"><FaExclamationTriangle/> {error}</p>}
                 </div>
 
                 <div>
-                    <label htmlFor="default_team_id" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Equipa Padrão (Auto-atribuição)</label>
+                    <label htmlFor="default_team_id" className="block text-sm font-black text-gray-400 mb-1 uppercase tracking-widest text-[10px]">Equipa Padrão (Auto-atribuição)</label>
                     <select
                         name="default_team_id"
                         id="default_team_id"
                         value={formData.default_team_id}
                         onChange={handleChange}
-                        className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2"
+                        className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm focus:border-brand-primary outline-none"
                     >
                         <option value="">Nenhuma (Manual)</option>
                         {teams.map(team => (
@@ -125,26 +125,25 @@ const AddCategoryModal: React.FC<AddCategoryModalProps> = ({ onClose, onSave, ca
                             onChange={handleChange}
                             className="h-4 w-4 rounded border-gray-300 bg-gray-700 text-brand-primary focus:ring-brand-secondary"
                         />
-                        <span className="ml-2 block text-sm font-bold text-red-300 flex items-center gap-2">
+                        <span className="ml-2 block text-xs font-bold text-red-300 flex items-center gap-2 uppercase tracking-widest">
                             <FaShieldAlt /> É um Incidente de Segurança?
                         </span>
                     </label>
                 </div>
                 
                 <div className="bg-gray-900/50 p-3 rounded border border-gray-700">
-                    <h4 className="text-sm font-bold text-white mb-3 flex items-center gap-2">
-                        <FaClock className="text-brand-secondary"/>
-                        Definição de SLA (Prazos)
+                    <h4 className="text-[10px] font-black text-brand-secondary uppercase tracking-widest mb-3 flex items-center gap-2">
+                        <FaClock /> Definição de SLA (Prazos)
                     </h4>
                     <div className="grid grid-cols-1 gap-4">
-                         <div className="flex items-center gap-3">
-                            <div className="flex-1">
-                                <label className="block text-xs font-medium text-on-surface-dark-secondary mb-1 flex items-center gap-1"><FaCalendarAlt/> Previsão Resolução (Dias Úteis)</label>
-                                <input type="number" name="sla_working_days" value={formData.sla_working_days} onChange={handleChange} min="0" className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm" />
+                         <div className="flex flex-col sm:flex-row items-center gap-3">
+                            <div className="flex-1 w-full">
+                                <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1 flex items-center gap-1"><FaCalendarAlt/> Previsão Resolução (Dias Úteis)</label>
+                                <input type="number" name="sla_working_days" value={formData.sla_working_days} onChange={handleChange} min="0" className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm focus:border-brand-primary outline-none" />
                             </div>
-                            <div className="flex-1">
-                                <label className="block text-xs font-medium text-on-surface-dark-secondary mb-1">Alerta SLA (Horas)</label>
-                                <input type="number" name="sla_warning_hours" value={formData.sla_warning_hours} onChange={handleChange} min="0" className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm" />
+                            <div className="flex-1 w-full">
+                                <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Alerta SLA (Horas)</label>
+                                <input type="number" name="sla_warning_hours" value={formData.sla_warning_hours} onChange={handleChange} min="0" className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm focus:border-brand-primary outline-none" />
                             </div>
                         </div>
                     </div>
@@ -155,11 +154,11 @@ const AddCategoryModal: React.FC<AddCategoryModalProps> = ({ onClose, onSave, ca
                     <label htmlFor="is_active" className="ml-2 block text-sm text-on-surface-dark-secondary">Ativo</label>
                 </div>
 
-                <div className="flex justify-end gap-4 pt-4">
-                    <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500">Cancelar</button>
-                    <button type="submit" disabled={isSaving} className="px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary flex items-center gap-2">
+                <div className="flex justify-end gap-4 pt-4 border-t border-gray-700">
+                    <button type="button" onClick={onClose} className="px-6 py-2 bg-gray-600 text-white rounded font-bold hover:bg-gray-500 transition-colors">Cancelar</button>
+                    <button type="submit" disabled={isSaving} className="px-8 py-2 bg-brand-primary text-white rounded font-black uppercase tracking-widest hover:bg-brand-secondary transition-all flex items-center gap-2 shadow-lg disabled:opacity-50">
                         {isSaving ? <SpinnerIcon className="h-4 w-4" /> : null}
-                        {isSaving ? 'A gravar...' : 'Salvar'}
+                        {isSaving ? 'A gravar...' : 'Salvar Categoria'}
                     </button>
                 </div>
             </form>

@@ -207,21 +207,21 @@ export const App: React.FC = () => {
             const { data: { session: curSess } } = await supabase.auth.getSession();
             setSession(curSess);
             if (curSess?.user) {
-                // Se temos sessão, mas os colaboradores ainda não carregaram, aguardamos no splash
-                if (org.data.collaborators.length === 0) {
-                   return; 
-                }
-                const user = org.data.collaborators.find(c => c.email === curSess.user.email);
-                if (user) { 
-                    setCurrentUser(user); 
-                    setIsAppLoading(false); 
-                } else {
-                    // Sessão válida mas utilizador não está na tabela public.collaborators
-                    // Pode ser erro de RLS ou Sync. Desbloqueamos para mostrar Erro ou Login.
-                    setIsAppLoading(false);
+                // Otimização: se os colaboradores ainda não carregaram, esperamos um pouco
+                // mas definimos um timeout para não prender o utilizador no splash para sempre
+                const timeout = setTimeout(() => {
+                   if (!currentUser) setIsAppLoading(false);
+                }, 5000);
+
+                if (org.data.collaborators.length > 0) {
+                    const user = org.data.collaborators.find(c => c.email === curSess.user.email);
+                    if (user) { 
+                        setCurrentUser(user); 
+                        clearTimeout(timeout);
+                        setIsAppLoading(false); 
+                    }
                 }
             } else {
-                // Sem sessão, vai para Login
                 setIsAppLoading(false);
             }
         };

@@ -249,6 +249,7 @@ export interface Ticket {
     impact_criticality?: string;
     resolution_summary?: string;
     requester_supplier_id?: string;
+    // Pedido 4: Suporte a anexos de imagem
     attachments?: { name: string; dataUrl: string }[];
 }
 
@@ -520,7 +521,8 @@ export type TicketCategoryItem = ConfigItem & {
     default_team_id?: string;
     sla_warning_hours?: number;
     sla_critical_hours?: number;
-    sla_working_days?: number; // Pedido 4: SLA em dias úteis
+    // Pedido 4: Dias úteis para SLA
+    sla_working_days?: number; 
     is_security?: boolean;
 };
 

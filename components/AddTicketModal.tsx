@@ -70,7 +70,7 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
         for (let i = 0; i < files.length; i++) {
             const file = files[i];
             if (!file.type.startsWith('image/')) {
-                alert('Apenas são permitidas imagens.');
+                alert('Apenas são permitidas imagens para evidência técnica.');
                 continue;
             }
             if (file.size > 2 * 1024 * 1024) {
@@ -151,11 +151,11 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
                 
                 <div className="bg-gray-800/40 p-4 rounded-lg border border-gray-700 grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1 flex items-center gap-2"><FaBuilding className="text-brand-secondary" /> Localização / Entidade</label>
+                        <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1 flex items-center gap-2"><FaBuilding className="text-brand-secondary" /> Localização / Entidade</label>
                         <div className="w-full bg-gray-900 border border-gray-600 text-gray-400 rounded p-2 text-sm font-semibold truncate">{resolvedLocationName}</div>
                     </div>
                     <div>
-                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1 flex items-center gap-2"><FaUserTie className="text-brand-secondary" /> Requerente</label>
+                        <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1 flex items-center gap-2"><FaUserTie className="text-brand-secondary" /> Requerente</label>
                         <div className="w-full bg-gray-900 border border-gray-600 text-gray-400 rounded p-2 text-sm font-semibold">{collaborators.find(c => c.id === formData.collaborator_id)?.full_name || "Utilizador Externo"}</div>
                     </div>
                 </div>
@@ -163,28 +163,31 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-4">
                         <div>
-                            <label className="block text-sm font-medium text-gray-400 mb-1">Assunto / Título</label>
-                            {isEditMode ? <div className="w-full bg-gray-900 border border-gray-700 text-gray-400 rounded p-2 text-sm italic">{formData.title}</div> : <input type="text" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm" placeholder="Ex: Problema no monitor" required />}
+                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Assunto / Título</label>
+                            {isEditMode ? <div className="w-full bg-gray-900 border border-gray-700 text-gray-400 rounded p-2 text-sm italic">{formData.title}</div> : <input type="text" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm focus:border-brand-primary outline-none" placeholder="Ex: Problema no monitor" required />}
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-400 mb-1">Descrição Detalhada</label>
-                            {isEditMode ? <div className="w-full bg-gray-900 border border-gray-700 text-gray-400 rounded p-2 text-sm italic whitespace-pre-wrap min-h-[100px]">{formData.description}</div> : <textarea value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} rows={4} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm" placeholder="Descreva o que aconteceu..." required />}
+                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Descrição Detalhada</label>
+                            {isEditMode ? <div className="w-full bg-gray-900 border border-gray-700 text-gray-400 rounded p-2 text-sm italic whitespace-pre-wrap min-h-[100px]">{formData.description}</div> : <textarea value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} rows={4} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm focus:border-brand-primary outline-none" placeholder="Descreva o que aconteceu..." required />}
                         </div>
                         
-                        {/* Imagens Anexadas */}
-                        <div>
+                        {/* Imagens Anexadas (Pedido 4) */}
+                        <div className="border-t border-gray-700 pt-3 mt-3">
                             <div className="flex justify-between items-center mb-2">
-                                <label className="block text-sm font-medium text-gray-400 flex items-center gap-2"><FaCamera className="text-brand-secondary"/> Anexos de Imagem</label>
-                                {!isEditMode && <button type="button" onClick={() => fileInputRef.current?.click()} className="text-xs bg-gray-700 hover:bg-gray-600 text-white px-2 py-1 rounded">Adicionar</button>}
+                                <label className="block text-[10px] font-black text-gray-400 uppercase flex items-center gap-2 tracking-widest"><FaCamera className="text-brand-secondary"/> Anexos (Imagens)</label>
+                                {!isEditMode && <button type="button" onClick={() => fileInputRef.current?.click()} className="text-[10px] bg-gray-700 hover:bg-gray-600 text-white px-2 py-1 rounded font-bold uppercase transition-colors">Adicionar Foto</button>}
                                 <input type="file" ref={fileInputRef} className="hidden" accept="image/*" multiple onChange={handleFileChange} />
                             </div>
                             <div className="grid grid-cols-3 gap-2">
                                 {formData.attachments?.map((file: any, idx: number) => (
-                                    <div key={idx} className="relative group aspect-square rounded-lg border border-gray-700 overflow-hidden bg-black">
-                                        <img src={file.dataUrl} className="w-full h-full object-cover" />
-                                        <button type="button" onClick={() => removeAttachment(idx)} className="absolute top-1 right-1 p-1 bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"><FaTrash size={10}/></button>
+                                    <div key={idx} className="relative group aspect-square rounded-lg border border-gray-700 overflow-hidden bg-black shadow-inner">
+                                        <img src={file.dataUrl} className="w-full h-full object-cover" alt="Anexo" />
+                                        <button type="button" onClick={() => removeAttachment(idx)} className="absolute top-1 right-1 p-1 bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"><FaTrash size={10}/></button>
                                     </div>
                                 ))}
+                                {(!formData.attachments || formData.attachments.length === 0) && (
+                                    <div className="col-span-3 py-4 text-center border border-dashed border-gray-700 rounded-lg text-xs text-gray-600">Sem imagens anexadas.</div>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -192,11 +195,11 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
                     <div className="space-y-4">
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-sm font-medium text-gray-400 mb-1">Categoria</label>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Categoria</label>
                                 {canEditAdvanced ? <select value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm">{categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}</select> : <div className="w-full bg-gray-900 border border-gray-700 text-gray-400 rounded p-2 text-sm">{formData.category || "Geral"}</div>}
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-400 mb-1 flex items-center gap-2"><FaHistory className="text-brand-secondary" /> Estado</label>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1 flex items-center gap-2"><FaHistory className="text-brand-secondary" /> Estado</label>
                                 {canEditAdvanced ? <select value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})} className="w-full bg-gray-800 border border-gray-600 text-white rounded p-2 text-sm font-bold text-brand-secondary outline-none"><option value="Pedido">Pedido</option><option value="Em progresso">Em progresso</option><option value="Finalizado">Finalizado</option><option value="Cancelado">Cancelado</option></select> : <div className="w-full bg-gray-900 border border-gray-700 text-brand-secondary rounded p-2 text-sm font-bold uppercase">{formData.status}</div>}
                             </div>
                         </div>
@@ -210,16 +213,16 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
 
                         {canEditAdvanced && (
                             <div className="space-y-4 pt-2 border-t border-gray-700">
-                                <div><label className="block text-sm font-medium text-gray-400 mb-1 flex items-center gap-2"><FaUsers className="text-blue-400" /> Equipa Técnica</label><select value={formData.team_id || ''} onChange={e => setFormData({...formData, team_id: e.target.value})} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm"><option value="">-- Selecione --</option>{teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}</select></div>
-                                <div><label className="block text-sm font-medium text-gray-400 mb-1 flex items-center gap-2"><FaUserTie className="text-green-400" /> Técnico Atribuído</label><select value={formData.technician_id || ''} onChange={e => setFormData({...formData, technician_id: e.target.value})} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm"><option value="">-- Não Atribuído --</option>{filteredTechnicians.map(c => <option key={c.id} value={c.id}>{c.full_name}</option>)}</select></div>
+                                <div><label className="block text-xs font-bold text-gray-400 uppercase mb-1 flex items-center gap-2"><FaUsers className="text-blue-400" /> Equipa Técnica</label><select value={formData.team_id || ''} onChange={e => setFormData({...formData, team_id: e.target.value})} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm focus:border-brand-primary outline-none"><option value="">-- Selecione --</option>{teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}</select></div>
+                                <div><label className="block text-xs font-bold text-gray-400 uppercase mb-1 flex items-center gap-2"><FaUserTie className="text-green-400" /> Técnico Atribuído</label><select value={formData.technician_id || ''} onChange={e => setFormData({...formData, technician_id: e.target.value})} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm focus:border-brand-primary outline-none"><option value="">-- Não Atribuído --</option>{filteredTechnicians.map(c => <option key={c.id} value={c.id}>{c.full_name}</option>)}</select></div>
                             </div>
                         )}
                     </div>
                 </div>
 
                 <div className="flex justify-end gap-3 pt-4 border-t border-gray-700">
-                    <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-600 text-white rounded text-sm hover:bg-gray-500">Cancelar</button>
-                    <button type="submit" disabled={isSaving} className="px-6 py-2 bg-brand-primary text-white rounded text-sm font-bold hover:bg-brand-secondary flex items-center gap-2 shadow-lg">{isSaving ? <FaSpinner className="animate-spin" /> : null} {isEditMode ? 'Guardar Alterações' : 'Submeter Pedido'}</button>
+                    <button type="button" onClick={onClose} className="px-6 py-2 bg-gray-600 text-white rounded font-bold text-sm hover:bg-gray-500 transition-colors">Cancelar</button>
+                    <button type="submit" disabled={isSaving} className="px-8 py-2 bg-brand-primary text-white rounded text-sm font-black uppercase tracking-widest hover:bg-brand-secondary flex items-center gap-2 shadow-lg transition-all">{isSaving ? <FaSpinner className="animate-spin" /> : null} {isEditMode ? 'Guardar Alterações' : 'Submeter Pedido'}</button>
                 </div>
             </form>
         </Modal>

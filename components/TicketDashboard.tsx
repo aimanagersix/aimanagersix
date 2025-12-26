@@ -42,6 +42,7 @@ const addBusinessDays = (startDate: Date, days: number) => {
     let count = 0;
     while (count < days) {
         result.setDate(result.getDate() + 1);
+        // 0 = Domingo, 6 = Sábado
         if (result.getDay() !== 0 && result.getDay() !== 6) count++;
     }
     return result;
@@ -69,7 +70,6 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({
     totalItems = 0, loading = false, page = 1, pageSize = 20, onPageChange, onPageSizeChange, onFilterChange,
     sort, onSortChange, checkPermission
 }) => {
-    // Fix: Defined canEdit variable using checkPermission prop
     const canEdit = checkPermission('tickets', 'edit');
     const [filters, setFilters] = useState({ status: '', team_id: '', category: '', title: '' });
     const sortConfig = sort || { key: 'request_date', direction: 'descending' };
@@ -180,12 +180,13 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({
                                 const locationName = resolvedEntidadeId ? (entidadeMap.get(resolvedEntidadeId) || '—') : '—';
                                 
                                 const categoryObj = ticket.category ? categoryMap.get(ticket.category) : undefined;
-                                const slaInfo = ticket.status !== 'Finalizado' && categoryObj?.sla_working_days 
+                                // Lógica de SLA
+                                const slaInfo = (ticket.status === 'Pedido' || ticket.status === 'Em progresso') && categoryObj?.sla_working_days 
                                     ? getBusinessDaysRemaining(ticket.request_date, categoryObj.sla_working_days) 
                                     : null;
 
                                 return (
-                                    <tr key={ticket.id} className={`hover:bg-gray-800/40 transition-colors cursor-pointer ${(slaInfo?.isOverdue) ? 'bg-red-900/10' : ''}`} onClick={() => onOpenActivities?.(ticket)}>
+                                    <tr key={ticket.id} className={`hover:bg-gray-800/40 transition-colors cursor-pointer ${slaInfo?.isOverdue ? 'bg-red-900/10' : ''}`} onClick={() => onOpenActivities?.(ticket)}>
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div className="font-mono text-xs text-white">{new Date(ticket.request_date).toLocaleDateString()}</div>
                                             <div className="text-[10px] text-gray-500">{new Date(ticket.request_date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
