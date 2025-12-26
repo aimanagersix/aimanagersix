@@ -46,6 +46,17 @@ export const getAutomationRules = async () => { const { data } = await sb().from
 export const addAutomationRule = async (rule: any) => { await sb().from('automation_rules').insert(cleanPayload(rule)); };
 export const updateAutomationRule = async (id: string, updates: any) => { await sb().from('automation_rules').update(cleanPayload(updates)).eq('id', id); };
 export const deleteAutomationRule = async (id: string) => { await sb().from('automation_rules').delete().eq('id', id); };
+
+/**
+ * Consulta a estrutura real das colunas no Supabase.
+ * Requer que a função RPC 'inspect_table_columns' exista.
+ */
+export const fetchTableSchema = async (tableName: string) => {
+    const { data, error } = await sb().rpc('inspect_table_columns', { t_name: tableName });
+    if (error) throw error;
+    return data as { column_name: string, data_type: string }[];
+};
+
 export const fetchDbPolicies = async (): Promise<DbPolicy[]> => { const { data } = await sb().rpc('get_db_policies'); return data || []; };
 export const fetchDbTriggers = async (): Promise<DbTrigger[]> => { const { data } = await sb().rpc('get_db_triggers'); return data || []; };
 export const fetchDbFunctions = async (): Promise<DbFunction[]> => { const { data } = await sb().rpc('get_db_functions'); return data || []; };

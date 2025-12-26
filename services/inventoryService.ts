@@ -56,16 +56,22 @@ const cleanPayload = (data: any) => {
         'diskInfo': 'disk_info',
         'cpuInfo': 'cpu_info',
         'monitorInfo': 'monitor_info',
-        'manufactureDate': 'manufacture_date'
+        'manufactureDate': 'manufacture_date',
+        'criticality': 'criticality',
+        'confidentiality': 'confidentiality',
+        'integrity': 'integrity',
+        'availability': 'availability'
     };
 
+    const blackList = ['contacts', 'contracts', 'attachments', 'preferences', 'simulatedTicket', 'isSimulating'];
     const numericFields = ['acquisition_cost', 'residual_value', 'unit_cost', 'total_seats', 'estimated_cost', 'quantity'];
 
     Object.keys(data).forEach(key => {
+        if (blackList.includes(key)) return;
+
         const targetKey = keyMap[key] || key;
         const val = data[key];
         
-        // Garantir que campos de texto vazios são null
         if (typeof val === 'string' && val.trim() === '') {
             cleaned[targetKey] = null;
         } else if (numericFields.includes(targetKey)) {
@@ -75,6 +81,7 @@ const cleanPayload = (data: any) => {
             cleaned[targetKey] = val === undefined ? null : val;
         }
     });
+
     return cleaned;
 };
 
@@ -100,7 +107,8 @@ export const fetchInventoryData = async () => {
         sb().from('config_conservation_states').select('*'),
         sb().from('config_decommission_reasons').select('*'),
         sb().from('config_job_titles').select('*'),
-        sb().from('config_collaborator_deactivation_reasons').select('*')
+        sb().from('config_collaborator_deactivation_reasons').select('*'),
+        sb().from('config_holiday_types').select('*')
     ]);
     
     return {
@@ -124,7 +132,8 @@ export const fetchInventoryData = async () => {
         configConservationStates: results[17].data || [],
         configDecommissionReasons: results[18].data || [],
         configJobTitles: results[19].data || [],
-        configCollaboratorDeactivationReasons: results[20].data || []
+        configCollaboratorDeactivationReasons: results[20].data || [],
+        configHolidayTypes: results[21].data || []
     };
 };
 
