@@ -1,3 +1,4 @@
+
 import { getSupabase } from './supabaseClient';
 import { Equipment } from '../types';
 
@@ -130,8 +131,8 @@ export const fetchEquipmentPaginated = async (params: {
         else return { data: [], total: 0 };
     }
     if (params.filters) {
-        if (params.filters.serial_number) query = query.ilike('serial_number', `%params.filters.serial_number%`);
-        if (params.filters.description) query = query.ilike('description', `%params.filters.description%`);
+        if (params.filters.serial_number) query = query.ilike('serial_number', `%${params.filters.serial_number}%`);
+        if (params.filters.description) query = query.ilike('description', `%${params.filters.description}%`);
         if (params.filters.brand_id) query = query.eq('brand_id', params.filters.brand_id);
         if (params.filters.type_id) query = query.eq('type_id', params.filters.type_id);
         if (params.filters.status) query = query.eq('status', params.filters.status);

@@ -1,5 +1,4 @@
 
-
 export enum UserRole {
     SuperAdmin = 'SuperAdmin',
     Admin = 'Admin',
@@ -97,7 +96,7 @@ export interface EquipmentType {
     requires_cpu_info: boolean;
     requires_manufacture_date: boolean;
     requires_ip: boolean;
-    // Fix: Added default_team_id to support team association
+    // Added default_team_id to fix EquipmentType usage in TeamDashboard
     default_team_id?: string;
 }
 
