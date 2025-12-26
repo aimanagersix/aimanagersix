@@ -44,10 +44,7 @@ const cleanPayload = (data: any) => {
         'categoryId': 'category_id',
         'supplier_id': 'supplier_id',
         'supplierId': 'supplier_id',
-        'externalProviderId': 'external_provider_id',
-        /* FIX: Added default_team_id to cleanPayload keyMap to ensure correct database column mapping */
-        'defaultTeamId': 'default_team_id',
-        'default_team_id': 'default_team_id'
+        'externalProviderId': 'external_provider_id'
     };
 
     const numericFields = ['acquisition_cost', 'residual_value', 'unit_cost', 'total_seats', 'estimated_cost', 'quantity'];
@@ -133,8 +130,8 @@ export const fetchEquipmentPaginated = async (params: {
         else return { data: [], total: 0 };
     }
     if (params.filters) {
-        if (params.filters.serial_number) query = query.ilike('serial_number', `%${params.filters.serial_number}%`);
-        if (params.filters.description) query = query.ilike('description', `%${params.filters.description}%`);
+        if (params.filters.serial_number) query = query.ilike('serial_number', `%params.filters.serial_number%`);
+        if (params.filters.description) query = query.ilike('description', `%params.filters.description%`);
         if (params.filters.brand_id) query = query.eq('brand_id', params.filters.brand_id);
         if (params.filters.type_id) query = query.eq('type_id', params.filters.type_id);
         if (params.filters.status) query = query.eq('status', params.filters.status);

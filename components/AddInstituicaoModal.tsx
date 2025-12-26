@@ -3,19 +3,12 @@ import React, { useState, useEffect } from 'react';
 import Modal from './common/Modal';
 import { Instituicao } from '../types';
 import { SpinnerIcon, SearchIcon, CheckIcon } from './common/Icons';
-import { FaGlobe, FaMagic } from 'react-icons/fa';
+import { FaGlobe, FaMagic, FaUserTie } from 'react-icons/fa';
 
 const NIF_API_KEY = '9393091ec69bd1564657157b9624809e';
 
 const isValidEmail = (email: string) => {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-};
-
-const isValidPhoneNumber = (phone: string): boolean => {
-    if (!phone || phone.trim() === '') return true; 
-    const cleaned = phone.replace(/[\s-()]/g, '').replace(/^\+351/, '');
-    // 2 digits landline, 9 digits mobile
-    return /^(2\d{8}|9[1236]\d{7})$/.test(cleaned);
 };
 
 // Extract domain from website URL
@@ -36,9 +29,10 @@ interface AddInstituicaoModalProps {
 }
 
 const AddInstituicaoModal: React.FC<AddInstituicaoModalProps> = ({ onClose, onSave, instituicaoToEdit }) => {
-    const [formData, setFormData] = useState<Partial<Instituicao>>({
+    const [formData, setFormData] = useState<any>({
         codigo: '',
         name: '',
+        responsavel: '',
         email: '',
         telefone: '',
         nif: '',
@@ -61,11 +55,12 @@ const AddInstituicaoModal: React.FC<AddInstituicaoModalProps> = ({ onClose, onSa
                 ...instituicaoToEdit, 
                 codigo: instituicaoToEdit.codigo,
                 name: instituicaoToEdit.name,
+                responsavel: (instituicaoToEdit as any).responsavel || '',
                 email: instituicaoToEdit.email,
                 telefone: instituicaoToEdit.telefone,
                 nif: instituicaoToEdit.nif || '',
                 website: instituicaoToEdit.website || '',
-                address_line: instituicaoToEdit.address_line || instituicaoToEdit.address || '',
+                address_line: instituicaoToEdit.address_line || (instituicaoToEdit as any).address || '',
                 postal_code: instituicaoToEdit.postal_code || '',
                 city: instituicaoToEdit.city || '',
                 locality: instituicaoToEdit.locality || '',
@@ -109,7 +104,7 @@ const AddInstituicaoModal: React.FC<AddInstituicaoModalProps> = ({ onClose, onSa
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value }));
+        setFormData((prev: any) => ({ ...prev, [name]: value }));
         
         // Smart Email Suggestion
         if (name === 'email') {
@@ -133,7 +128,7 @@ const AddInstituicaoModal: React.FC<AddInstituicaoModalProps> = ({ onClose, onSa
     
     const applyEmailSuggestion = () => {
         if (emailSuggestion) {
-            setFormData(prev => ({ ...prev, email: (prev.email || '') + emailSuggestion }));
+            setFormData((prev: any) => ({ ...prev, email: (prev.email || '') + emailSuggestion }));
             setEmailSuggestion('');
         }
     };
@@ -159,7 +154,6 @@ const AddInstituicaoModal: React.FC<AddInstituicaoModalProps> = ({ onClose, onSa
         });
 
         try {
-            // Use AllOrigins as a more stable proxy than corsproxy.io
             const targetUrl = `https://www.nif.pt/?json=1&q=${nif}&key=${NIF_API_KEY}`;
             const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
             
@@ -171,7 +165,7 @@ const AddInstituicaoModal: React.FC<AddInstituicaoModalProps> = ({ onClose, onSa
                 if (data.result === 'success' && data.records && data.records[nif]) {
                     const record = data.records[nif];
                     
-                    setFormData(prev => ({
+                    setFormData((prev: any) => ({
                         ...prev,
                         name: prev.name || record.title, 
                         nif: nif,
@@ -206,7 +200,7 @@ const AddInstituicaoModal: React.FC<AddInstituicaoModalProps> = ({ onClose, onSa
         }
         if (val.length > 8) val = val.slice(0, 8);
 
-        setFormData(prev => ({ ...prev, postal_code: val }));
+        setFormData((prev: any) => ({ ...prev, postal_code: val }));
 
         if (/^\d{4}-\d{3}$/.test(val)) {
             setIsFetchingCP(true);
@@ -219,7 +213,7 @@ const AddInstituicaoModal: React.FC<AddInstituicaoModalProps> = ({ onClose, onSa
                         if (data.Freguesia) loc = data.Freguesia;
                         else if (data.part && data.part.length > 0) loc = data.part[0];
 
-                        setFormData(prev => ({
+                        setFormData((prev: any) => ({
                             ...prev,
                             city: data.Concelho,
                             locality: loc
@@ -248,29 +242,7 @@ const AddInstituicaoModal: React.FC<AddInstituicaoModalProps> = ({ onClose, onSa
             onClose();
         } catch (error: any) {
             console.error("Failed to save institution", error);
-            
-            let msg = "Erro desconhecido ao gravar instituição.";
-            
-            // Check for Supabase/Postgres error codes
-            if (error.code) {
-                switch (error.code) {
-                    case '23505': // Unique violation
-                        msg = "Erro: Já existe uma instituição com este Código ou NIF.";
-                        break;
-                    case '42501': // RLS / Permission denied
-                        msg = "Permissão negada: O seu utilizador não tem permissão para criar/editar instituições. Contacte o SuperAdmin.";
-                        break;
-                    case '42P01': // Table not found
-                        msg = "Erro de Sistema: A tabela 'instituicoes' não existe. Por favor, execute o script de configuração em 'Configurações > Base de Dados'.";
-                        break;
-                    default:
-                        msg = `Erro de Base de Dados (${error.code}): ${error.message || 'Detalhes não disponíveis.'}`;
-                }
-            } else if (error.message) {
-                msg = `Erro: ${error.message}`;
-            }
-
-            alert(msg);
+            alert("Erro ao gravar instituição.");
         } finally {
             setIsSaving(false);
         }
@@ -293,7 +265,7 @@ const AddInstituicaoModal: React.FC<AddInstituicaoModalProps> = ({ onClose, onSa
                                 onChange={handleChange} 
                                 placeholder="NIF"
                                 maxLength={9}
-                                className={`flex-grow bg-gray-700 border text-white rounded-l-md p-2 ${errors.nif ? 'border-red-500' : 'border-gray-600'}`}
+                                className={`flex-grow bg-gray-700 border text-white rounded-l-md p-2 w-full ${errors.nif ? 'border-red-500' : 'border-gray-600'}`}
                             />
                             <button 
                                 type="button" 
@@ -314,10 +286,16 @@ const AddInstituicaoModal: React.FC<AddInstituicaoModalProps> = ({ onClose, onSa
                     </div>
                 </div>
                 
-                <div>
-                    <label htmlFor="codigo" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Código (Identificador único)</label>
-                    <input type="text" name="codigo" id="codigo" value={formData.codigo} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.codigo ? 'border-red-500' : 'border-gray-600'}`} />
-                        {errors.codigo && <p className="text-red-400 text-xs italic mt-1">{errors.codigo}</p>}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label htmlFor="codigo" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Código</label>
+                        <input type="text" name="codigo" id="codigo" value={formData.codigo} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.codigo ? 'border-red-500' : 'border-gray-600'}`} />
+                            {errors.codigo && <p className="text-red-400 text-xs italic mt-1">{errors.codigo}</p>}
+                    </div>
+                    <div>
+                        <label htmlFor="responsavel" className="block text-sm font-medium text-on-surface-dark-secondary mb-1 flex items-center gap-2"><FaUserTie/> Responsável</label>
+                        <input type="text" name="responsavel" id="responsavel" value={formData.responsavel} onChange={handleChange} className={`w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2`} placeholder="Nome do Gestor..." />
+                    </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

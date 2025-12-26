@@ -1,3 +1,5 @@
+
+
 import React, { useState, useEffect } from 'react';
 import Modal from './common/Modal';
 import { EquipmentType, Team } from '../types';
@@ -6,12 +8,12 @@ interface AddEquipmentTypeModalProps {
     onClose: () => void;
     onSave: (type: Omit<EquipmentType, 'id'> | EquipmentType) => Promise<any>;
     typeToEdit?: EquipmentType | null;
-    teams: Team[];
     existingTypes?: EquipmentType[];
+    // Fix: Added teams prop to support team association
+    teams?: Team[];
 }
 
-const AddEquipmentTypeModal: React.FC<AddEquipmentTypeModalProps> = ({ onClose, onSave, typeToEdit, teams, existingTypes = [] }) => {
-    /* FIX: Added default_team_id to form state to support maintenance team associations */
+const AddEquipmentTypeModal: React.FC<AddEquipmentTypeModalProps> = ({ onClose, onSave, typeToEdit, existingTypes = [], teams = [] }) => {
     const [formData, setFormData] = useState({
         name: '',
         requires_nome_na_rede: false,
@@ -29,13 +31,13 @@ const AddEquipmentTypeModal: React.FC<AddEquipmentTypeModalProps> = ({ onClose, 
         requires_cpu_info: false,
         requires_manufacture_date: false,
         requires_ip: false,
+        // Fix: Added default_team_id field
         default_team_id: ''
     });
     const [error, setError] = useState('');
 
     useEffect(() => {
         if (typeToEdit) {
-            /* FIX: Hydrate form state with existing default_team_id when editing */
             setFormData({
                 name: typeToEdit.name || '',
                 requires_nome_na_rede: !!typeToEdit.requires_nome_na_rede,
@@ -53,6 +55,7 @@ const AddEquipmentTypeModal: React.FC<AddEquipmentTypeModalProps> = ({ onClose, 
                 requires_cpu_info: !!typeToEdit.requires_cpu_info,
                 requires_manufacture_date: !!typeToEdit.requires_manufacture_date,
                 requires_ip: !!typeToEdit.requires_ip,
+                // Fix: Initialize default_team_id from typeToEdit
                 default_team_id: typeToEdit.default_team_id || ''
             });
         }
@@ -87,11 +90,11 @@ const AddEquipmentTypeModal: React.FC<AddEquipmentTypeModalProps> = ({ onClose, 
             return;
         }
         
-        /* FIX: Correctly map default_team_id to undefined if empty for database constraints */
         const dataToSave = {
             ...formData,
             name,
-            default_team_id: formData.default_team_id || undefined
+            // Fix: Include default_team_id in saved data
+            default_team_id: formData.default_team_id || null
         };
 
         try {
@@ -111,33 +114,35 @@ const AddEquipmentTypeModal: React.FC<AddEquipmentTypeModalProps> = ({ onClose, 
     return (
         <Modal title={modalTitle} onClose={onClose}>
             <form onSubmit={handleSubmit} className="space-y-4 max-h-[75vh] overflow-y-auto pr-2 custom-scrollbar">
-                <div>
-                    <label htmlFor="name" className="block text-sm font-bold text-gray-400 mb-1 uppercase tracking-widest text-[10px]">Nome do Tipo</label>
-                    <input 
-                        type="text" 
-                        name="name" 
-                        id="name" 
-                        value={formData.name} 
-                        onChange={handleChange} 
-                        className={`w-full bg-gray-700 border text-white rounded p-2 text-sm focus:border-brand-primary outline-none ${error ? 'border-red-500' : 'border-gray-600'}`} 
-                        placeholder="Ex: Portátil, Monitor, Servidor..."
-                    />
-                    {error && <p className="text-red-400 text-xs italic mt-1">{error}</p>}
-                </div>
-
-                {/* FIX: Render default_team_id dropdown in the EquipmentType modal */}
-                <div className="border-t border-gray-700 pt-4">
-                    <h3 className="text-[10px] font-black text-brand-secondary uppercase tracking-widest mb-4">Configurações de Suporte</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                        <label className="block text-xs text-gray-400 mb-1">Equipa de Suporte Padrão</label>
+                        <label htmlFor="name" className="block text-sm font-bold text-gray-400 mb-1 uppercase tracking-widest text-[10px]">Nome do Tipo</label>
+                        <input 
+                            type="text" 
+                            name="name" 
+                            id="name" 
+                            value={formData.name} 
+                            onChange={handleChange} 
+                            className={`w-full bg-gray-700 border text-white rounded p-2 text-sm focus:border-brand-primary outline-none ${error ? 'border-red-500' : 'border-gray-600'}`} 
+                            placeholder="Ex: Portátil, Monitor, Servidor..."
+                        />
+                        {error && <p className="text-red-400 text-xs italic mt-1">{error}</p>}
+                    </div>
+
+                    {/* Fix: Added Equipa Padrão select field */}
+                    <div>
+                        <label htmlFor="default_team_id" className="block text-sm font-bold text-gray-400 mb-1 uppercase tracking-widest text-[10px]">Equipa Padrão</label>
                         <select 
                             name="default_team_id" 
+                            id="default_team_id" 
                             value={formData.default_team_id} 
                             onChange={handleChange} 
                             className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm focus:border-brand-primary outline-none"
                         >
-                            <option value="">Nenhuma (Manual)</option>
-                            {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                            <option value="">Nenhuma</option>
+                            {teams.map(team => (
+                                <option key={team.id} value={team.id}>{team.name}</option>
+                            ))}
                         </select>
                     </div>
                 </div>
