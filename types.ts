@@ -25,7 +25,8 @@ export type ModuleKey =
     | 'my_area' | 'tools_agenda' | 'tools_map' | 'tools_calendar' | 'tools_manual'
     | 'org_institutions' | 'org_entities' | 'org_collaborators' | 'org_suppliers'
     | 'notif_tickets' | 'notif_licenses' | 'notif_warranties'
-    | 'msg_tickets' | 'msg_licenses' | 'msg_warranties'; 
+    | 'msg_tickets' | 'msg_licenses' | 'msg_warranties'
+    | 'holidays'; // Pedido 3
 
 export type PermissionAction = 'view' | 'view_own' | 'create' | 'edit' | 'delete' | 'manage';
 
@@ -129,7 +130,7 @@ export interface Collaborator {
         tooltip_config?: TooltipConfig;
     };
     deactivation_reason_id?: string;
-    deleted_at?: string; // Pedido 4: Soft Delete
+    deleted_at?: string;
 }
 
 export interface Equipment {
@@ -178,7 +179,7 @@ export interface Equipment {
     creation_date: string;
     modified_date: string;
     procurement_request_id?: string;
-    deleted_at?: string; // Pedido 4: Soft Delete
+    deleted_at?: string;
 }
 
 export interface Assignment {
@@ -249,8 +250,9 @@ export interface Ticket {
     impact_criticality?: string;
     resolution_summary?: string;
     requester_supplier_id?: string;
-    // Pedido 4: Suporte a anexos de imagem
     attachments?: { name: string; dataUrl: string }[];
+    // Pedido 4: Suporte a busca vetorial (Knowledge Base)
+    embedding?: number[];
 }
 
 export interface SoftwareLicense {
@@ -521,7 +523,6 @@ export type TicketCategoryItem = ConfigItem & {
     default_team_id?: string;
     sla_warning_hours?: number;
     sla_critical_hours?: number;
-    // Pedido 4: Dias úteis para SLA
     sla_working_days?: number; 
     is_security?: boolean;
 };
@@ -701,4 +702,15 @@ export interface AuditLogEntry {
     resource_id?: string;
     user_email: string;
     details?: string;
+}
+
+// Pedido 3: Feriados e Ausências
+export interface Holiday {
+    id: string;
+    name: string;
+    date: string; // YYYY-MM-DD
+    type: 'Holiday' | 'Vacation' | 'Bridge' | 'Other';
+    is_recurring: boolean;
+    collaborator_id?: string; // Se for férias de alguém específico
+    instituicao_id?: string; // Se for feriado local
 }

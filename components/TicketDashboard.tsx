@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Ticket, Entidade, Collaborator, TicketStatus, Team, Equipment, EquipmentType, TicketCategoryItem, SecurityIncidentTypeItem, Supplier, ModuleKey, PermissionAction, ConfigItem, Instituicao } from '../types';
+import { Ticket, Entidade, Collaborator, TicketStatus, Team, Equipment, EquipmentType, TicketCategoryItem, SecurityIncidentTypeItem, Supplier, ModuleKey, PermissionAction, ConfigItem, Instituicao, Holiday } from '../types';
 import { EditIcon, FaTasks, FaShieldAlt, FaClock, FaExclamationTriangle, FaSkull, FaUserSecret, FaBug, FaNetworkWired, FaLock, FaFileContract, PlusIcon, FaLandmark, FaTruck, FaUsers, FaUserTie, FaSync, FaCalendarAlt } from './common/Icons';
 import { FaPaperclip, FaChevronDown } from 'react-icons/fa';
 import Pagination from './common/Pagination';
@@ -16,6 +16,7 @@ interface TicketDashboardProps {
   suppliers?: Supplier[]; 
   equipment: Equipment[];
   categories: TicketCategoryItem[];
+  holidays?: Holiday[]; // Pedido 3
   configTicketStatuses?: ConfigItem[];
   onCreate?: () => void;
   onEdit?: (ticket: Ticket) => void;
@@ -26,7 +27,6 @@ interface TicketDashboardProps {
   onFilterChange?: (filter: any) => void;
   checkPermission: (module: ModuleKey, action: PermissionAction) => boolean;
   
-  // Server-Side Pagination & Sort Props
   totalItems?: number;
   loading?: boolean;
   page?: number;
@@ -37,23 +37,28 @@ interface TicketDashboardProps {
   onSortChange?: (sort: { key: string, direction: 'ascending' | 'descending' }) => void;
 }
 
-const addBusinessDays = (startDate: Date, days: number) => {
+const isHolidayOrWeekend = (date: Date, holidays: Holiday[] = []) => {
+    const day = date.getDay();
+    if (day === 0 || day === 6) return true; // Fim de semana
+    const dateStr = date.toISOString().split('T')[0];
+    return holidays.some(h => h.date === dateStr);
+};
+
+const addBusinessDays = (startDate: Date, days: number, holidays: Holiday[] = []) => {
     let result = new Date(startDate);
     let count = 0;
     while (count < days) {
         result.setDate(result.getDate() + 1);
-        // 0 = Domingo, 6 = Sábado
-        if (result.getDay() !== 0 && result.getDay() !== 6) count++;
+        if (!isHolidayOrWeekend(result, holidays)) count++;
     }
     return result;
 };
 
-const getBusinessDaysRemaining = (requestDateStr: string, slaDays: number) => {
+const getBusinessDaysRemaining = (requestDateStr: string, slaDays: number, holidays: Holiday[] = []) => {
     const requestDate = new Date(requestDateStr);
-    const targetDate = addBusinessDays(requestDate, slaDays);
+    const targetDate = addBusinessDays(requestDate, slaDays, holidays);
     const now = new Date();
     
-    // Simplificado para dias inteiros
     const diffTime = targetDate.getTime() - now.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     
@@ -65,7 +70,7 @@ const getBusinessDaysRemaining = (requestDateStr: string, slaDays: number) => {
 };
 
 const TicketDashboard: React.FC<TicketDashboardProps> = ({ 
-    tickets, escolasDepartamentos: entidades, instituicoes, collaborators, teams, suppliers = [], equipment, categories, configTicketStatuses = [],
+    tickets, escolasDepartamentos: entidades, instituicoes, collaborators, teams, suppliers = [], equipment, categories, holidays = [], configTicketStatuses = [],
     onCreate, onEdit, onUpdateTicket, onOpenActivities, onGenerateSecurityReport, onOpenCloseTicketModal,
     totalItems = 0, loading = false, page = 1, pageSize = 20, onPageChange, onPageSizeChange, onFilterChange,
     sort, onSortChange, checkPermission
@@ -180,9 +185,9 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({
                                 const locationName = resolvedEntidadeId ? (entidadeMap.get(resolvedEntidadeId) || '—') : '—';
                                 
                                 const categoryObj = ticket.category ? categoryMap.get(ticket.category) : undefined;
-                                // Lógica de SLA
+                                // Lógica de SLA cruzando com feriados
                                 const slaInfo = (ticket.status === 'Pedido' || ticket.status === 'Em progresso') && categoryObj?.sla_working_days 
-                                    ? getBusinessDaysRemaining(ticket.request_date, categoryObj.sla_working_days) 
+                                    ? getBusinessDaysRemaining(ticket.request_date, categoryObj.sla_working_days, holidays) 
                                     : null;
 
                                 return (
