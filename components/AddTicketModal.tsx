@@ -36,6 +36,9 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
     const isEditMode = !!ticketToEdit;
     const fileInputRef = useRef<HTMLInputElement>(null);
     
+    // VERIFICAÇÃO DE PERFIL STAFF (Pedido 3)
+    const isStaff = currentUser?.role === 'Admin' || currentUser?.role === 'SuperAdmin' || currentUser?.role === 'Técnico' || currentUser?.role === UserRole.Admin || currentUser?.role === UserRole.SuperAdmin || currentUser?.role === UserRole.Tecnico;
+
     const triagemTeam = useMemo(() => teams.find(t => t.name === 'Triagem'), [teams]);
 
     const [formData, setFormData] = useState<any>({
@@ -61,7 +64,6 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
     });
 
     const canEditAdvanced = checkPermission('tickets', 'edit');
-    const isSuperAdmin = currentUser?.role === UserRole.SuperAdmin;
 
     useEffect(() => {
         if (ticketToEdit) {
@@ -122,14 +124,20 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
         setIsSaving(true);
         try {
             const finalData = { ...formData };
-            if (!isEditMode && !canEditAdvanced) {
+            // Garantir regras de triagem se não for staff
+            if (!isEditMode && !isStaff) {
                 finalData.status = 'Pedido';
                 finalData.team_id = triagemTeam?.id || null;
+                finalData.impact_criticality = 'Baixa';
+                finalData.collaborator_id = currentUser?.id;
+                finalData.requester_supplier_id = null;
             }
             await onSave(finalData);
             onClose();
-        } catch (err: any) { alert("Erro ao gravar ticket: " + (err.message || "Erro de rede.")); }
-        finally { setIsSaving(false); }
+        } catch (err: any) { 
+            console.error(err);
+            alert("Erro ao gravar ticket: " + (err.message || "Erro de rede.")); 
+        } finally { setIsSaving(false); }
     };
 
     return (
@@ -143,20 +151,28 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
                             <div className="grid grid-cols-1 gap-3">
                                 <div>
                                     <label className="block text-[9px] text-gray-400 mb-1">Colaborador Interno</label>
-                                    <select value={formData.collaborator_id} onChange={e => setFormData({...formData, collaborator_id: e.target.value})} className="w-full bg-gray-900 border border-gray-700 rounded p-1.5 text-xs text-white">
+                                    <select 
+                                        value={formData.collaborator_id} 
+                                        onChange={e => setFormData({...formData, collaborator_id: e.target.value})} 
+                                        className="w-full bg-gray-900 border border-gray-700 rounded p-1.5 text-xs text-white disabled:opacity-70 disabled:cursor-not-allowed"
+                                        disabled={!isStaff && isEditMode}
+                                    >
                                         <option value="">-- Selecione Colaborador --</option>
                                         {collaborators.map(c => <option key={c.id} value={c.id}>{c.full_name}</option>)}
                                     </select>
                                 </div>
-                                {canEditAdvanced && (
-                                    <div>
-                                        <label className="block text-[9px] text-gray-400 mb-1">OU Fornecedor Externo (B2B)</label>
-                                        <select value={formData.requester_supplier_id || ''} onChange={e => setFormData({...formData, requester_supplier_id: e.target.value})} className="w-full bg-gray-900 border border-gray-700 rounded p-1.5 text-xs text-white">
-                                            <option value="">-- Selecione Fornecedor --</option>
-                                            {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                                        </select>
-                                    </div>
-                                )}
+                                <div>
+                                    <label className="block text-[9px] text-gray-400 mb-1">OU Fornecedor Externo (B2B)</label>
+                                    <select 
+                                        value={formData.requester_supplier_id || ''} 
+                                        onChange={e => setFormData({...formData, requester_supplier_id: e.target.value})} 
+                                        className="w-full bg-gray-900 border border-gray-700 rounded p-1.5 text-xs text-white disabled:opacity-70 disabled:cursor-not-allowed"
+                                        disabled={!isStaff}
+                                    >
+                                        <option value="">-- Selecione Fornecedor --</option>
+                                        {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                                    </select>
+                                </div>
                             </div>
                         </div>
 
@@ -188,22 +204,40 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
                         <div className="grid grid-cols-2 gap-3">
                             <div>
                                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Categoria</label>
-                                <select value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm">{categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}</select>
+                                <select 
+                                    value={formData.category} 
+                                    onChange={e => setFormData({...formData, category: e.target.value})} 
+                                    className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm disabled:opacity-70 disabled:bg-gray-800"
+                                    disabled={!isStaff}
+                                >
+                                    {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                                </select>
                             </div>
                             <div>
                                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Criticidade</label>
-                                <select value={formData.impact_criticality} onChange={e => setFormData({...formData, impact_criticality: e.target.value})} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm">{Object.values(CriticalityLevel).map(lvl => <option key={lvl} value={lvl}>{lvl}</option>)}</select>
+                                <select 
+                                    value={formData.impact_criticality} 
+                                    onChange={e => setFormData({...formData, impact_criticality: e.target.value})} 
+                                    className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm disabled:opacity-70 disabled:bg-gray-800"
+                                    disabled={!isStaff}
+                                >
+                                    {Object.values(CriticalityLevel).map(lvl => <option key={lvl} value={lvl}>{lvl}</option>)}
+                                </select>
                             </div>
                         </div>
 
-                        {/* SECÇÃO NIS2 COMPLIANCE (PEDIDO 3) */}
                         {isSecurityIncident && (
                             <div className="bg-red-900/10 border border-red-500/30 p-4 rounded-lg space-y-3 animate-fade-in">
                                 <h4 className="text-[10px] font-black text-red-400 uppercase tracking-widest flex items-center gap-2"><FaBalanceScale/> Controlo Regulatório NIS2</h4>
                                 
                                 <div>
                                     <label className="block text-[9px] text-gray-400 uppercase mb-1">Tipo de Incidente</label>
-                                    <select value={formData.security_incident_type || ''} onChange={e => setFormData({...formData, security_incident_type: e.target.value})} className="w-full bg-gray-900 border border-red-500/20 rounded p-1.5 text-xs text-white">
+                                    <select 
+                                        value={formData.security_incident_type || ''} 
+                                        onChange={e => setFormData({...formData, security_incident_type: e.target.value})} 
+                                        className="w-full bg-gray-900 border border-red-500/20 rounded p-1.5 text-xs text-white disabled:opacity-50"
+                                        disabled={!isStaff}
+                                    >
                                         <option value="">-- Não Definido --</option>
                                         {securityIncidentTypes?.map(t => <option key={t.id} value={t.name}>{t.name}</option>)}
                                     </select>
@@ -211,7 +245,12 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
 
                                 <div>
                                     <label className="block text-[9px] text-gray-400 uppercase mb-1">Estado de Notificação</label>
-                                    <select value={formData.regulatory_status} onChange={e => setFormData({...formData, regulatory_status: e.target.value})} className="w-full bg-gray-900 border border-red-500/20 rounded p-1.5 text-xs text-white font-bold">
+                                    <select 
+                                        value={formData.regulatory_status} 
+                                        onChange={e => setFormData({...formData, regulatory_status: e.target.value})} 
+                                        className="w-full bg-gray-900 border border-red-500/20 rounded p-1.5 text-xs text-white font-bold disabled:opacity-50"
+                                        disabled={!isStaff}
+                                    >
                                         <option value="NotRequired">Não Requer Notificação</option>
                                         <option value="Awaiting24h">Pendente Alerta Precoce (24h)</option>
                                         <option value="Submitted24h">Alerta 24h Enviado</option>
@@ -219,46 +258,61 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
                                         <option value="Submitted72h">Concluído / Notificado</option>
                                     </select>
                                 </div>
-
-                                <div className="grid grid-cols-2 gap-2">
-                                    <div>
-                                        <label className="block text-[9px] text-gray-400 uppercase mb-1">Prazo 24h</label>
-                                        <input type="datetime-local" value={formData.regulatory_24h_deadline ? new Date(formData.regulatory_24h_deadline).toISOString().slice(0,16) : ''} onChange={e => setFormData({...formData, regulatory_24h_deadline: e.target.value})} className="w-full bg-gray-900 border border-red-500/20 rounded p-1 text-[10px] text-white" />
-                                    </div>
-                                    <div>
-                                        <label className="block text-[9px] text-gray-400 uppercase mb-1">Prazo 72h</label>
-                                        <input type="datetime-local" value={formData.regulatory_72h_deadline ? new Date(formData.regulatory_72h_deadline).toISOString().slice(0,16) : ''} onChange={e => setFormData({...formData, regulatory_72h_deadline: e.target.value})} className="w-full bg-gray-900 border border-red-500/20 rounded p-1 text-[10px] text-white" />
-                                    </div>
-                                </div>
                             </div>
                         )}
 
-                        {canEditAdvanced && (
-                            <div className="space-y-4 pt-2 border-t border-gray-700">
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div>
-                                        <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Estado</label>
-                                        <select value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})} className="w-full bg-gray-800 border border-gray-600 text-white rounded p-2 text-sm font-bold text-brand-secondary"><option value="Pedido">Pedido</option><option value="Em progresso">Em progresso</option><option value="Finalizado">Finalizado</option><option value="Cancelado">Cancelado</option></select>
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Equipa</label>
-                                        <select value={formData.team_id || ''} onChange={e => setFormData({...formData, team_id: e.target.value})} className="w-full bg-gray-800 border border-gray-600 text-white rounded p-2 text-sm"><option value="">-- Selecione --</option>{teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}</select>
-                                    </div>
+                        <div className="space-y-4 pt-2 border-t border-gray-700">
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Estado</label>
+                                    <select 
+                                        value={formData.status} 
+                                        onChange={e => setFormData({...formData, status: e.target.value})} 
+                                        className="w-full bg-gray-800 border border-gray-600 text-white rounded p-2 text-sm font-bold text-brand-secondary disabled:opacity-70 disabled:bg-gray-900"
+                                        disabled={!isStaff}
+                                    >
+                                        <option value="Pedido">Pedido</option>
+                                        <option value="Em progresso">Em progresso</option>
+                                        <option value="Finalizado">Finalizado</option>
+                                        <option value="Cancelado">Cancelado</option>
+                                    </select>
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Técnico</label>
-                                    <select value={formData.technician_id || ''} onChange={e => setFormData({...formData, technician_id: e.target.value})} className={`w-full bg-gray-800 border ${technicianVacationAlert ? 'border-orange-500' : 'border-gray-600'} text-white rounded p-2 text-sm`}>
-                                        <option value="">-- Não Atribuído --</option>
-                                        {collaborators.filter(c => !formData.team_id || teamMembers.some(tm => tm.team_id === formData.team_id && tm.collaborator_id === c.id)).map(c => <option key={c.id} value={c.id}>{c.full_name}</option>)}
+                                    <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Equipa</label>
+                                    <select 
+                                        value={formData.team_id || ''} 
+                                        onChange={e => setFormData({...formData, team_id: e.target.value})} 
+                                        className="w-full bg-gray-800 border border-gray-600 text-white rounded p-2 text-sm disabled:opacity-70 disabled:bg-gray-900"
+                                        disabled={!isStaff}
+                                    >
+                                        <option value="">-- Selecione --</option>
+                                        {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                                     </select>
-                                    {technicianVacationAlert && <p className="text-[10px] text-orange-400 mt-1 font-bold italic">{technicianVacationAlert}</p>}
                                 </div>
                             </div>
-                        )}
+                            <div>
+                                <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Técnico</label>
+                                <select 
+                                    value={formData.technician_id || ''} 
+                                    onChange={e => setFormData({...formData, technician_id: e.target.value})} 
+                                    className={`w-full bg-gray-800 border ${technicianVacationAlert ? 'border-orange-500' : 'border-gray-600'} text-white rounded p-2 text-sm disabled:opacity-70 disabled:bg-gray-900`}
+                                    disabled={!isStaff}
+                                >
+                                    <option value="">-- Não Atribuído --</option>
+                                    {collaborators.filter(c => !formData.team_id || teamMembers.some(tm => tm.team_id === formData.team_id && tm.collaborator_id === c.id)).map(c => <option key={c.id} value={c.id}>{c.full_name}</option>)}
+                                </select>
+                                {technicianVacationAlert && <p className="text-[10px] text-orange-400 mt-1 font-bold italic">{technicianVacationAlert}</p>}
+                            </div>
+                        </div>
 
                         <div className="bg-blue-900/10 border border-blue-500/20 rounded-lg p-3">
                             <h4 className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-2">Vínculo a Ativo</h4>
-                            <select value={formData.equipment_id || ''} onChange={e => setFormData({...formData, equipment_id: e.target.value})} className="w-full bg-gray-900 border border-gray-700 rounded p-1.5 text-xs text-white">
+                            <select 
+                                value={formData.equipment_id || ''} 
+                                onChange={e => setFormData({...formData, equipment_id: e.target.value})} 
+                                className="w-full bg-gray-900 border border-gray-700 rounded p-1.5 text-xs text-white disabled:opacity-70"
+                                disabled={!isStaff}
+                            >
                                 <option value="">-- Nenhum Equipamento --</option>
                                 {requesterAssets.equipment.map(eq => <option key={eq.id} value={eq.id}>{eq.description} ({eq.serial_number})</option>)}
                             </select>

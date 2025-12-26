@@ -127,8 +127,18 @@ export const fetchInventoryData = async () => {
         sb().from('config_decommission_reasons').select('*'),
         sb().from('config_job_titles').select('*'),
         sb().from('config_collaborator_deactivation_reasons').select('*'),
-        sb().from('config_holiday_types').select('*')
+        sb().from('config_holiday_types').select('*'),
+        // Adição: Buscar contactos para fornecedores
+        sb().from('resource_contacts').select('*').eq('resource_type', 'supplier')
     ]);
+    
+    // Hidratação de fornecedores com os seus contactos
+    const rawSuppliers = results[9].data || [];
+    const supplierContacts = results[22].data || [];
+    const hydratedSuppliers = rawSuppliers.map((s: any) => ({
+        ...s,
+        contacts: supplierContacts.filter((c: any) => c.resource_id === s.id)
+    }));
     
     return {
         equipment: results[0].data || [], 
@@ -140,7 +150,7 @@ export const fetchInventoryData = async () => {
         procurementRequests: results[6].data || [],
         softwareCategories: results[7].data || [], 
         softwareProducts: results[8].data || [],
-        suppliers: results[9].data || [], 
+        suppliers: hydratedSuppliers, 
         configEquipmentStatuses: results[10].data || [],
         configTicketStatuses: results[11].data || [],
         configLicenseStatuses: results[12].data || [],

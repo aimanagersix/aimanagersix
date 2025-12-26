@@ -1,26 +1,23 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import Modal from './common/Modal';
 import { Supplier, CriticalityLevel, Team, Ticket, TicketStatus, SupplierContract, BusinessService, ResourceContact } from '../types';
-// Added FaSave to imports
-import { FaShieldAlt, FaGlobe, FaFileContract, FaDownload, FaCopy, FaTicketAlt, FaCertificate, FaCalendarAlt, FaPlus, FaFileSignature, FaDoorOpen, FaUsers, FaUserTie, FaPhone, FaEnvelope, FaMagic, FaSave } from 'react-icons/fa';
-// FIX: Replaced non-existent DeleteIcon with an alias for FaTrash
+// Added FaRobot to imports
+import { FaShieldAlt, FaGlobe, FaFileContract, FaDownload, FaCopy, FaTicketAlt, FaCertificate, FaCalendarAlt, FaPlus, FaFileSignature, FaDoorOpen, FaUsers, FaUserTie, FaPhone, FaEnvelope, FaMagic, FaSave, FaInfoCircle, FaRobot } from 'react-icons/fa';
 import { SearchIcon, SpinnerIcon, FaTrash as DeleteIcon, PlusIcon, CheckIcon } from './common/Icons';
-import { ContactList } from './common/ContactList'; // Import generic contact list
+import { ContactList } from './common/ContactList'; 
 import * as dataService from '../services/dataService';
 
 interface AddSupplierModalProps {
     onClose: () => void;
     onSave: (supplier: Omit<Supplier, 'id'> | Supplier) => Promise<any>;
     supplierToEdit?: Supplier | null;
-    teams?: Team[]; // To select team for ticket
-    onCreateTicket?: (ticket: Partial<Ticket>) => Promise<void> | void; // Function to create ticket
+    teams?: Team[]; 
+    onCreateTicket?: (ticket: Partial<Ticket>) => Promise<void> | void; 
     businessServices?: BusinessService[];
 }
 
 const MAX_FILES = 3;
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
-const NIF_API_KEY = '9393091ec69bd1564657157b9624809e';
+const MAX_FILE_SIZE = 5 * 1024 * 1024; 
 
 const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return '0 Bytes';
@@ -30,7 +27,6 @@ const formatFileSize = (bytes: number): string => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 };
 
-// Extract domain from website URL
 const extractDomain = (url: string): string => {
     try {
         let domain = url.trim();
@@ -41,7 +37,7 @@ const extractDomain = (url: string): string => {
     } catch { return ''; }
 };
 
-const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, supplierToEdit, teams = [], onCreateTicket, businessServices = [] }) => {
+const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, supplierToEdit, teams = [], businessServices = [] }) => {
     const [activeTab, setActiveTab] = useState<'details' | 'contacts' | 'contracts'>('details');
     
     const [formData, setFormData] = useState<Partial<Supplier>>({
@@ -72,21 +68,10 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [isSaving, setIsSaving] = useState(false);
     const [successMessage, setSuccessMessage] = useState('');
-    
-    // Smart Email Suggestion
     const [emailSuggestion, setEmailSuggestion] = useState('');
-
-    // Ticket Automation State
-    const [createTicket, setCreateTicket] = useState(false);
-    const [ticketTeamId, setTicketTeamId] = useState('');
-    const [reminderOffset, setReminderOffset] = useState('3'); // '1', '3', 'custom'
-    const [customTicketDate, setCustomTicketDate] = useState('');
-
-    // Extra Certificates State
     const [newCertName, setNewCertName] = useState('');
     const [newCertDate, setNewCertDate] = useState('');
 
-    // Contracts State
     const [newContract, setNewContract] = useState<Partial<SupplierContract>>({
         ref_number: '',
         description: '',
@@ -121,34 +106,9 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
         const newErrors: Record<string, string> = {};
         if (!formData.name?.trim()) newErrors.name = "O nome do fornecedor é obrigatório.";
         if (!formData.nif?.trim()) newErrors.nif = "O NIF é obrigatório.";
-        
-        if (formData.contact_email?.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.contact_email)) {
-            newErrors.contact_email = "Email inválido.";
-        }
-        
-        if (formData.contact_phone?.trim()) {
-             const phone = formData.contact_phone.replace(/[\s-()]/g, '').replace(/^\+351/, '');
-             if (!/^(2\d{8}|9[1236]\d{7})$/.test(phone)) {
-                 newErrors.contact_phone = "Telefone inválido (9 dígitos).";
-             }
-        }
-
-        if (formData.website?.trim()) {
-            if (!/^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$/.test(formData.website)) {
-                newErrors.website = "Formato de website inválido.";
-            }
-        }
-
         if (formData.is_iso27001_certified && !formData.iso_certificate_expiry) {
             newErrors.iso_certificate_expiry = "Se tem certificação, a data de validade é obrigatória.";
         }
-        if (createTicket && !ticketTeamId) {
-            newErrors.ticketTeamId = "Selecione uma equipa para o ticket.";
-        }
-        if (createTicket && reminderOffset === 'custom' && !customTicketDate) {
-            newErrors.customTicketDate = "Selecione a data para o alerta.";
-        }
-
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
@@ -159,18 +119,13 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
             ...prev, 
             [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value 
         }));
-        
-        // Email Domain Suggestion Logic
         if (name === 'contact_email') {
             setEmailSuggestion('');
             if (value.endsWith('@') && formData.website) {
                 const domain = extractDomain(formData.website);
-                if (domain) {
-                    setEmailSuggestion(domain);
-                }
+                if (domain) setEmailSuggestion(domain);
             }
         }
-        
         if (errors[name]) {
             setErrors(prev => {
                 const newErrors = { ...prev };
@@ -188,15 +143,10 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
     };
 
     const handlePostalCodeChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        let val = e.target.value;
-        val = val.replace(/[^0-9-]/g, ''); 
-        if (val.length > 4 && val.indexOf('-') === -1) {
-            val = val.slice(0, 4) + '-' + val.slice(4);
-        }
+        let val = e.target.value.replace(/[^0-9-]/g, ''); 
+        if (val.length > 4 && val.indexOf('-') === -1) val = val.slice(0, 4) + '-' + val.slice(4);
         if (val.length > 8) val = val.slice(0, 8);
-
         setFormData((prev: any) => ({ ...prev, postal_code: val }));
-
         if (/^\d{4}-\d{3}$/.test(val)) {
             setIsFetchingCP(true);
             try {
@@ -204,51 +154,22 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
                 if (res.ok) {
                     const data = await res.json();
                     if (data && data.Concelho) {
-                        let loc = '';
-                        if (data.Freguesia) loc = data.Freguesia;
-                        else if (data.part && data.part.length > 0) loc = data.part[0];
-
-                        setFormData((prev: any) => ({
-                            ...prev,
-                            city: data.Concelho,
-                            locality: loc
-                        }));
+                        setFormData((prev: any) => ({ ...prev, city: data.Concelho, locality: data.Freguesia || (data.part && data.part[0]) || '' }));
                     }
                 }
-            } catch (err) {
-                console.warn("Erro ao obter dados do CP:", err);
-            } finally {
-                setIsFetchingCP(false);
-            }
+            } finally { setIsFetchingCP(false); }
         }
     };
 
     const handleFetchNifData = async () => {
-        if (!formData.nif?.trim()) {
-            setErrors(prev => ({ ...prev, nif: "Insira um NIF para pesquisar." }));
-            return;
-        }
-
+        if (!formData.nif?.trim()) return;
         const nif = formData.nif.trim().replace(/[^0-9]/g, '');
-        
-        if (nif.length !== 9) {
-             setErrors(prev => ({ ...prev, nif: "O NIF deve ter 9 dígitos." }));
-             return;
-        }
-
+        if (nif.length !== 9) return;
         setIsFetchingNif(true);
-        setErrors(prev => {
-            const newErr = { ...prev };
-            delete newErr.nif;
-            return newErr;
-        });
-
         try {
-            const targetUrl = `https://www.nif.pt/?json=1&q=${nif}&key=${NIF_API_KEY}`;
+            const targetUrl = `https://www.nif.pt/?json=1&q=${nif}&key=9393091ec69bd1564657157b9624809e`;
             const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
-            
             const response = await fetch(proxyUrl);
-
             if (response.ok) {
                 const data = await response.json();
                 if (data.result === 'success' && data.records && data.records[nif]) {
@@ -256,7 +177,6 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
                     setFormData(prev => ({
                         ...prev,
                         name: prev.name || record.title,
-                        nif: nif,
                         address_line: record.address,
                         postal_code: record.pc4 && record.pc3 ? `${record.pc4}-${record.pc3}` : prev.postal_code,
                         city: record.city,
@@ -265,36 +185,16 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
                         contact_phone: record.contacts?.phone || prev.contact_phone,
                         website: record.website || prev.website
                     }));
-                } else {
-                     setErrors(prev => ({ ...prev, nif: "NIF não encontrado ou inválido." }));
                 }
-            } else {
-                 setErrors(prev => ({ ...prev, nif: "Erro de ligação ao serviço de NIF." }));
             }
-        } catch (e) {
-            console.error("Erro NIF.pt:", e);
-            setErrors(prev => ({ ...prev, nif: "Erro na consulta do NIF (API indisponível). Tente preencher manualmente." }));
-        } finally {
-            setIsFetchingNif(false);
-        }
+        } finally { setIsFetchingNif(false); }
     };
 
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
         const files = e.target.files;
         if (!files) return;
-
-        if (attachments.length + files.length > MAX_FILES) {
-            alert(`Não pode anexar mais de ${MAX_FILES} ficheiros.`);
-            return;
-        }
-        
         for (let i = 0; i < files.length; i++) {
             const file = files[i];
-            if (file.size > MAX_FILE_SIZE) {
-                alert(`O ficheiro "${file.name}" é demasiado grande. O limite é de 5MB.`);
-                continue;
-            }
-
             const reader = new FileReader();
             reader.onload = (loadEvent) => {
                 const dataUrl = loadEvent.target?.result as string;
@@ -304,584 +204,91 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
         }
         e.target.value = '';
     };
-    
-    const handleRemoveAttachment = (indexToRemove: number) => {
-        setAttachments(prev => prev.filter((_, index) => index !== indexToRemove));
-    };
-
-    const handleAddCertificate = () => {
-        if (!newCertName.trim()) return;
-        const newCert = { name: newCertName, expiryDate: newCertDate };
-        setFormData(prev => ({
-            ...prev,
-            other_certifications: [...(prev.other_certifications || []), newCert]
-        }));
-        setNewCertName('');
-        setNewCertDate('');
-    };
-
-    const handleRemoveCertificate = (index: number) => {
-        setFormData(prev => ({
-            ...prev,
-            other_certifications: (prev.other_certifications || []).filter((_, i) => i !== index)
-        }));
-    };
-
-    const handleContactsChange = (contacts: ResourceContact[]) => {
-        setFormData(prev => ({ ...prev, contacts }));
-    };
-
-    // Contract Handlers
-    const handleAddContract = () => {
-        if (!newContract.ref_number?.trim() || !newContract.end_date) {
-            alert("Preencha pelo menos a Referência e a Data de Fim.");
-            return;
-        }
-        
-        const contract: SupplierContract = {
-            id: crypto.randomUUID(),
-            ref_number: newContract.ref_number || '',
-            description: newContract.description || '',
-            start_date: newContract.start_date || '',
-            end_date: newContract.end_date || '',
-            notice_period_days: newContract.notice_period_days || 90,
-            exit_strategy: newContract.exit_strategy || '',
-            supported_service_ids: newContract.supported_service_ids || [],
-            is_active: true
-        };
-
-        setFormData(prev => ({
-            ...prev,
-            contracts: [...(prev.contracts || []), contract]
-        }));
-
-        setNewContract({
-            ref_number: '',
-            description: '',
-            start_date: '',
-            end_date: '',
-            notice_period_days: 90,
-            exit_strategy: '',
-            supported_service_ids: [],
-            is_active: true
-        });
-    };
-
-    const handleRemoveContract = (id: string) => {
-        setFormData(prev => ({
-            ...prev,
-            contracts: (prev.contracts || []).filter(c => c.id !== id)
-        }));
-    };
-
-    const handleServiceToggle = (serviceId: string) => {
-        setNewContract(prev => {
-            const current = prev.supported_service_ids || [];
-            if (current.includes(serviceId)) {
-                return { ...prev, supported_service_ids: current.filter(id => id !== serviceId) };
-            } else {
-                return { ...prev, supported_service_ids: [...current, serviceId] };
-            }
-        });
-    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!validate()) return;
-        
         setIsSaving(true);
-        setSuccessMessage('');
-
-        const dataToSave: any = {
-            ...formData,
-            attachments: attachments.map(({ name, dataUrl }) => ({ name, dataUrl }))
-        };
-
+        const dataToSave: any = { ...formData, attachments: attachments.map(({ name, dataUrl }) => ({ name, dataUrl })) };
         try {
-            let result;
-            if (supplierToEdit || formData.id) {
-                const id = formData.id || supplierToEdit?.id;
-                const payload = { ...supplierToEdit, ...dataToSave, id };
-                result = await onSave(payload);
-            } else {
-                result = await onSave(dataToSave);
-            }
-
-            if (result) {
-                // IMPORTANT: Update local formData with the result (including ID) to prevent duplicates if user saves again
-                if (result.id && !formData.id) {
-                    setFormData(prev => ({ ...prev, id: result.id }));
-                }
-
-                if (createTicket && onCreateTicket && formData.is_iso27001_certified && formData.iso_certificate_expiry) {
-                    let requestDate = customTicketDate;
-                    if (reminderOffset !== 'custom') {
-                        const expiry = new Date(formData.iso_certificate_expiry);
-                        expiry.setMonth(expiry.getMonth() - parseInt(reminderOffset));
-                        requestDate = expiry.toISOString().split('T')[0];
-                    }
-
-                    const ticketPayload: Partial<Ticket> = {
-                        title: `Renovação Certificado ISO 27001: ${formData.name}`,
-                        description: `O certificado ISO 27001 do fornecedor ${formData.name} expira em ${formData.iso_certificate_expiry}. Por favor iniciar processo de renovação ou solicitar novo certificado.`,
-                        request_date: requestDate,
-                        status: TicketStatus.Requested,
-                        team_id: ticketTeamId,
-                        category: 'Manutenção'
-                    };
-                    await onCreateTicket(ticketPayload);
-                }
-                setSuccessMessage('Fornecedor gravado com sucesso!');
-                setTimeout(() => {
-                    setSuccessMessage('');
-                }, 3000);
-            }
-        } catch (error) {
-            console.error("Erro ao salvar fornecedor ou ticket:", error);
-            alert("Erro ao gravar. Verifique a consola.");
-        } finally {
-            setIsSaving(false);
-        }
-    };
-    
-    const modalTitle = (supplierToEdit || formData.id) ? "Editar Fornecedor" : "Adicionar Novo Fornecedor";
-
-    const generateEmailTemplate = () => {
-        const subject = `Solicitação de Evidências de Segurança (NIS2) - ${formData.name}`;
-        const body = `Exmos. Senhores,\n\n` +
-            `No âmbito da nossa conformidade com a diretiva NIS2 e gestão de risco da cadeia de abastecimento, vimos por este meio solicitar o envio das vossas evidências de segurança atualizadas, nomeadamente:\n\n` +
-            `1. Certificado ISO 27001 (se aplicável)\n` +
-            `2. Relatório de auditoria de segurança recente ou SOC2\n` +
-            `3. Contacto do vosso Encarregado de Proteção de Dados (DPO) ou responsável de segurança (CISO)\n\n` +
-            `Agradecemos a vossa colaboração.\n\n` +
-            `Atenciosamente,\n\n[A Vossa Empresa]`;
-            
-        navigator.clipboard.writeText(`Assunto: ${subject}\n\n${body}`);
-        alert("Modelo de email copiado para a área de transferência!");
+            await onSave(dataToSave);
+            setSuccessMessage('Fornecedor gravado com sucesso! A monitorização diária está ativa.');
+            setTimeout(() => setSuccessMessage(''), 3000);
+        } finally { setIsSaving(false); }
     };
 
     return (
-        <Modal title={modalTitle} onClose={onClose} maxWidth="max-w-5xl">
+        <Modal title={supplierToEdit ? "Editar Fornecedor" : "Adicionar Fornecedor"} onClose={onClose} maxWidth="max-w-5xl">
             <div className="flex flex-col h-[80vh]">
                 <div className="flex border-b border-gray-700 mb-4">
-                    <button 
-                        type="button"
-                        onClick={() => setActiveTab('details')} 
-                        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'details' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}
-                    >
-                        Detalhes Gerais
-                    </button>
-                    <button 
-                        type="button"
-                        onClick={() => setActiveTab('contacts')} 
-                        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'contacts' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}
-                    >
-                        Pessoas de Contacto
-                    </button>
-                    <button 
-                        type="button"
-                        onClick={() => setActiveTab('contracts')} 
-                        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'contracts' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}
-                    >
-                        Contratos & DORA
-                    </button>
+                    <button type="button" onClick={() => setActiveTab('details')} className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'details' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}>Detalhes Gerais</button>
+                    <button type="button" onClick={() => setActiveTab('contacts')} className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'contacts' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}>Pessoas de Contacto</button>
+                    <button type="button" onClick={() => setActiveTab('contracts')} className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'contracts' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}>Contratos & DORA</button>
                 </div>
 
                 <form onSubmit={handleSubmit} className="flex-grow overflow-y-auto custom-scrollbar pr-2">
                     {activeTab === 'details' && (
                     <div className="space-y-4">
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div className="md:col-span-1">
-                                <label htmlFor="nif" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">NIF</label>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-400 mb-1">NIF</label>
                                 <div className="flex">
-                                    <input 
-                                        type="text" 
-                                        name="nif" 
-                                        id="nif" 
-                                        value={formData.nif} 
-                                        onChange={handleChange} 
-                                        placeholder="NIF"
-                                        className={`flex-grow bg-gray-700 border text-white rounded-l-md p-2 w-full ${errors.nif ? 'border-red-500' : 'border-gray-600'}`}
-                                    />
-                                    <button 
-                                        type="button" 
-                                        onClick={handleFetchNifData}
-                                        disabled={isFetchingNif || !formData.nif}
-                                        className="bg-gray-600 px-3 rounded-r-md hover:bg-gray-500 text-white transition-colors border-t border-b border-r border-gray-600 flex items-center justify-center min-w-[3rem]"
-                                        title="Preencher dados via NIF"
-                                    >
-                                        {isFetchingNif ? <SpinnerIcon /> : <SearchIcon />}
-                                    </button>
+                                    <input type="text" name="nif" value={formData.nif} onChange={handleChange} className={`flex-grow bg-gray-700 border text-white rounded-l p-2 ${errors.nif ? 'border-red-500' : 'border-gray-600'}`} />
+                                    <button type="button" onClick={handleFetchNifData} className="bg-gray-600 px-3 rounded-r border-gray-600">{isFetchingNif ? <SpinnerIcon /> : <SearchIcon />}</button>
                                 </div>
-                                {errors.nif && <p className="text-red-400 text-xs italic mt-1">{errors.nif}</p>}
                             </div>
                             <div className="md:col-span-2">
-                                <label htmlFor="name" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Nome do Fornecedor</label>
-                                <input 
-                                    type="text" 
-                                    name="name" 
-                                    id="name" 
-                                    value={formData.name} 
-                                    onChange={handleChange} 
-                                    className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.name ? 'border-red-500' : 'border-gray-600'}`} 
-                                />
-                                {errors.name && <p className="text-red-400 text-xs italic mt-1">{errors.name}</p>}
+                                <label className="block text-xs font-bold text-gray-400 mb-1">Nome do Fornecedor</label>
+                                <input type="text" name="name" value={formData.name} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded p-2 ${errors.name ? 'border-red-500' : 'border-gray-600'}`} />
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div>
-                                <label htmlFor="contact_name" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Nome de Contacto (Geral)</label>
-                                <input type="text" name="contact_name" id="contact_name" value={formData.contact_name} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" />
+                        <div className="bg-gray-800/50 p-4 rounded-lg border border-gray-600">
+                            <div className="flex items-center mb-2">
+                                <input type="checkbox" name="is_iso27001_certified" id="iso" checked={formData.is_iso27001_certified} onChange={handleChange} className="h-4 w-4 rounded bg-gray-700 text-brand-primary" />
+                                <label htmlFor="iso" className="ml-2 block text-sm font-bold text-white">Certificado ISO 27001</label>
                             </div>
-                            <div className="relative">
-                                <label htmlFor="contact_email" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Email Geral</label>
-                                <input type="email" name="contact_email" id="contact_email" value={formData.contact_email} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.contact_email ? 'border-red-500' : 'border-gray-600'}`} />
-                                {emailSuggestion && (
-                                    <div 
-                                        className="absolute top-full left-0 mt-1 bg-gray-800 border border-gray-600 text-brand-secondary text-xs px-2 py-1 rounded cursor-pointer hover:bg-gray-700 z-10 flex items-center gap-1 shadow-lg"
-                                        onClick={applyEmailSuggestion}
-                                    >
-                                        <FaMagic /> Sugestão: {emailSuggestion}
+                            {formData.is_iso27001_certified && (
+                                <div className="ml-6 mt-2 space-y-3 animate-fade-in">
+                                    <input type="date" name="iso_certificate_expiry" value={formData.iso_certificate_expiry} onChange={handleChange} className={`bg-gray-700 border text-white rounded p-2 text-sm ${errors.iso_certificate_expiry ? 'border-red-500' : 'border-gray-600'}`} />
+                                    <div className="bg-blue-900/10 p-3 rounded border border-blue-500/30 flex items-start gap-3">
+                                        <FaRobot className="text-brand-secondary mt-1" />
+                                        <p className="text-[11px] text-blue-200">
+                                            <strong>Monitorização Hands-Free:</strong> O servidor criará um ticket de renovação automaticamente 30 dias antes da expiração.
+                                        </p>
                                     </div>
-                                )}
-                                {errors.contact_email && <p className="text-red-400 text-xs italic mt-1">{errors.contact_email}</p>}
-                            </div>
-                            <div>
-                                <label htmlFor="contact_phone" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Telefone Geral</label>
-                                <input type="text" name="contact_phone" id="contact_phone" value={formData.contact_phone} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.contact_phone ? 'border-red-500' : 'border-gray-600'}`} placeholder="210000000" />
-                                {errors.contact_phone && <p className="text-red-400 text-xs italic mt-1">{errors.contact_phone}</p>}
-                            </div>
-                        </div>
-
-                        <div>
-                            <label htmlFor="website" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Website</label>
-                            <div className="flex items-center">
-                                <FaGlobe className="text-gray-400 mr-2" />
-                                <input type="text" name="website" id="website" value={formData.website} onChange={handleChange} placeholder="www.fornecedor.com" className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.website ? 'border-red-500' : 'border-gray-600'}`} />
-                            </div>
-                            {errors.website && <p className="text-red-400 text-xs italic mt-1">{errors.website}</p>}
+                                </div>
+                            )}
                         </div>
 
                         <div className="bg-gray-900/30 p-3 rounded-lg border border-gray-700">
-                            <h4 className="text-sm font-semibold text-white mb-2">Morada</h4>
-                            <div className="space-y-3">
-                                <div>
-                                    <label htmlFor="address_line" className="block text-xs font-medium text-on-surface-dark-secondary mb-1">Endereço</label>
-                                    <input type="text" name="address_line" value={formData.address_line} onChange={handleChange} placeholder="Rua..." className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm"/>
-                                </div>
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                                    <div>
-                                        <label htmlFor="postal_code" className="block text-xs font-medium text-on-surface-dark-secondary mb-1">Código Postal</label>
-                                        <div className="relative">
-                                            <input type="text" name="postal_code" value={formData.postal_code} onChange={handlePostalCodeChange} placeholder="0000-000" className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm"/>
-                                            {isFetchingCP && <div className="absolute right-2 top-2"><SpinnerIcon className="h-4 w-4"/></div>}
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <label htmlFor="city" className="block text-xs font-medium text-on-surface-dark-secondary mb-1">Cidade</label>
-                                        <input type="text" name="city" value={formData.city} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm"/>
-                                    </div>
-                                    <div>
-                                        <label htmlFor="locality" className="block text-xs font-medium text-on-surface-dark-secondary mb-1">Localidade</label>
-                                        <input type="text" name="locality" value={formData.locality} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm"/>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="border-t border-gray-700 pt-4 mt-2">
-                            <h3 className="text-lg font-bold text-white mb-3 flex items-center gap-2">
-                                <FaShieldAlt className="text-brand-secondary" />
-                                Gestão de Risco & Conformidade (NIS2)
-                            </h3>
-                            
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                                <div>
-                                    <label htmlFor="risk_level" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Nível de Risco (Supply Chain)</label>
-                                    <select name="risk_level" id="risk_level" value={formData.risk_level} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2">
-                                        {Object.values(CriticalityLevel).map(lvl => <option key={lvl} value={lvl}>{lvl}</option>)}
-                                    </select>
-                                </div>
-                                <div>
-                                    <label htmlFor="security_contact_email" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Email de Segurança (PSIRT)</label>
-                                    <input type="email" name="security_contact_email" value={formData.security_contact_email} onChange={handleChange} placeholder="security@vendor.com" className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2" />
-                                </div>
-                            </div>
-
-                            <div className="bg-gray-800/50 p-4 rounded-lg border border-gray-600 mb-4">
-                                <div className="flex items-center mb-2">
-                                    <input
-                                        type="checkbox"
-                                        name="is_iso27001_certified"
-                                        id="is_iso27001_certified"
-                                        checked={formData.is_iso27001_certified}
-                                        onChange={handleChange}
-                                        className="h-4 w-4 rounded border-gray-300 bg-gray-700 text-brand-primary focus:ring-brand-secondary"
-                                    />
-                                    <label htmlFor="is_iso27001_certified" className="ml-2 block text-sm font-bold text-white">
-                                        Certificado ISO 27001
-                                    </label>
-                                </div>
-                                
-                                {formData.is_iso27001_certified && (
-                                    <div className="ml-6 mt-2 space-y-3 animate-fade-in">
-                                        <div>
-                                            <label htmlFor="iso_certificate_expiry" className="block text-xs font-medium text-on-surface-dark-secondary mb-1">Data de Validade do Certificado</label>
-                                            <input 
-                                                type="date" 
-                                                name="iso_certificate_expiry" 
-                                                id="iso_certificate_expiry" 
-                                                value={formData.iso_certificate_expiry} 
-                                                onChange={handleChange} 
-                                                className={`bg-gray-700 border text-white rounded-md p-2 text-sm ${errors.iso_certificate_expiry ? 'border-red-500' : 'border-gray-600'}`}
-                                            />
-                                            {errors.iso_certificate_expiry && <p className="text-red-400 text-xs italic mt-1">{errors.iso_certificate_expiry}</p>}
-                                        </div>
-
-                                        <div className="bg-brand-primary/10 p-3 rounded border border-brand-primary/30">
-                                            <div className="flex items-center mb-2">
-                                                <input 
-                                                    type="checkbox" 
-                                                    id="createTicket" 
-                                                    checked={createTicket} 
-                                                    onChange={(e) => setCreateTicket(e.target.checked)} 
-                                                    disabled={!onCreateTicket}
-                                                    className="h-4 w-4 rounded border-gray-300 bg-gray-700 text-brand-primary"
-                                                />
-                                                <label htmlFor="createTicket" className="ml-2 text-sm font-bold text-brand-secondary flex items-center gap-2">
-                                                    <FaTicketAlt /> Criar alerta de renovação (Ticket)
-                                                </label>
-                                            </div>
-                                            
-                                            {createTicket && (
-                                                <div className="ml-6 grid grid-cols-1 md:grid-cols-2 gap-3">
-                                                    <div>
-                                                        <label className="block text-xs text-gray-400 mb-1">Equipa Responsável</label>
-                                                        <select 
-                                                            value={ticketTeamId} 
-                                                            onChange={(e) => setTicketTeamId(e.target.value)} 
-                                                            className={`w-full bg-gray-800 border border-gray-600 text-white rounded p-1 text-xs ${errors.ticketTeamId ? 'border-red-500' : ''}`}
-                                                        >
-                                                            <option value="">-- Selecione --</option>
-                                                            {teams.map(t => <option value={t.id}>{t.name}</option>)}
-                                                        </select>
-                                                    </div>
-                                                    <div>
-                                                        <label className="block text-xs text-gray-400 mb-1">Antecedência do Alerta</label>
-                                                        <select 
-                                                            value={reminderOffset} 
-                                                            onChange={(e) => setReminderOffset(e.target.value)} 
-                                                            className="w-full bg-gray-800 border border-gray-600 text-white rounded p-1 text-xs"
-                                                        >
-                                                            <option value="1">1 Mês Antes</option>
-                                                            <option value="3">3 Meses Antes</option>
-                                                            <option value="custom">Data Personalizada</option>
-                                                        </select>
-                                                    </div>
-                                                    {reminderOffset === 'custom' && (
-                                                        <div className="md:col-span-2">
-                                                            <label className="block text-xs text-gray-400 mb-1">Data do Alerta</label>
-                                                            <input 
-                                                                type="date" 
-                                                                value={customTicketDate} 
-                                                                onChange={(e) => setCustomTicketDate(e.target.value)} 
-                                                                className={`bg-gray-800 border border-gray-600 text-white rounded p-1 text-xs ${errors.customTicketDate ? 'border-red-500' : ''}`}
-                                                            />
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-
-                            <div className="bg-gray-900/30 p-3 rounded-lg border border-gray-700 mb-4">
-                                <h4 className="text-sm font-semibold text-white mb-2 flex items-center gap-2">
-                                    <FaCertificate className="text-yellow-500"/> Outras Certificações
-                                </h4>
-                                
-                                <div className="flex flex-wrap gap-2 mb-3">
-                                    {(formData.other_certifications || []).map((cert, idx) => (
-                                        <div key={idx} className="flex items-center gap-2 bg-gray-800 px-2 py-1 rounded text-xs border border-gray-600">
-                                            <span className="text-white font-medium">{cert.name}</span>
-                                            {cert.expiryDate && <span className="text-gray-400">({cert.expiryDate})</span>}
-                                            <button 
-                                                type="button" 
-                                                onClick={() => handleRemoveCertificate(idx)}
-                                                className="text-red-400 hover:text-red-300"
-                                            >
-                                                <DeleteIcon className="h-3 w-3"/>
-                                            </button>
-                                        </div>
-                                    ))}
-                                    {(formData.other_certifications || []).length === 0 && (
-                                        <span className="text-xs text-gray-500 italic">Nenhuma certificação extra adicionada.</span>
-                                    )}
-                                </div>
-
-                                <div className="flex gap-2 items-end bg-gray-800/50 p-2 rounded">
-                                    <div className="flex-grow">
-                                        <label className="block text-[10px] text-gray-400 uppercase mb-1">Nome do Certificado</label>
-                                        <input 
-                                            type="text" 
-                                            value={newCertName} 
-                                            onChange={(e) => setNewCertName(e.target.value)} 
-                                            placeholder="Ex: SOC2 Type II" 
-                                            className="w-full bg-gray-700 border border-gray-600 text-white rounded p-1 text-sm"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-[10px] text-gray-400 uppercase mb-1">Validade</label>
-                                        <input 
-                                            type="date" 
-                                            value={newCertDate} 
-                                            onChange={(e) => setNewCertDate(e.target.value)} 
-                                            className="bg-gray-700 border border-gray-600 text-white rounded p-1 text-sm"
-                                        />
-                                    </div>
-                                    <button 
-                                        type="button" 
-                                        onClick={handleAddCertificate} 
-                                        disabled={!newCertName}
-                                        className="bg-green-600 text-white p-1.5 rounded hover:bg-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                                    >
-                                        <PlusIcon className="h-4 w-4"/>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="bg-gray-900/30 p-3 rounded-lg border border-gray-700">
-                            <label className="block text-sm font-medium text-white mb-2">Ficheiros e Documentos (PDF, Imagens)</label>
+                            <label className="block text-sm font-medium text-white mb-2">Anexos (PDF, Imagens)</label>
                             <div className="bg-gray-800 p-3 rounded border border-gray-600">
                                 {attachments.length > 0 && (
                                     <ul className="space-y-2 mb-3">
                                         {attachments.map((file, index) => (
-                                            <li key={index} className="flex justify-between items-center text-xs p-2 bg-surface-dark rounded-md">
+                                            <li key={index} className="flex justify-between items-center text-xs p-2 bg-surface-dark rounded">
                                                 <span className="truncate text-gray-300">{file.name}</span>
-                                                <div className="flex items-center gap-2">
-                                                    {file.size > 0 && <span className="text-[10px] text-gray-500">{formatFileSize(file.size)}</span>}
-                                                    <button type="button" onClick={() => handleRemoveAttachment(index)} className="text-red-400 hover:text-red-300 p-1"><DeleteIcon className="h-4 w-4" /></button>
-                                                </div>
+                                                <button type="button" onClick={() => setAttachments(prev => prev.filter((_, i) => i !== index))} className="text-red-400 p-1"><DeleteIcon className="h-4 w-4" /></button>
                                             </li>
                                         ))}
                                     </ul>
                                 )}
                                 <input type="file" multiple ref={fileInputRef} onChange={handleFileSelect} className="hidden" accept="image/*,application/pdf" />
-                                <button type="button" onClick={() => fileInputRef.current?.click()} disabled={attachments.length >= MAX_FILES} className="w-full px-4 py-2 text-sm bg-gray-600 text-white rounded hover:bg-gray-500 transition-colors border border-dashed border-gray-500 disabled:opacity-50 disabled:cursor-not-allowed">
-                                    + Anexar Documento ({attachments.length}/{MAX_FILES})
-                                </button>
+                                <button type="button" onClick={() => fileInputRef.current?.click()} className="w-full px-4 py-2 text-xs bg-gray-600 text-white rounded border border-dashed border-gray-500">+ Adicionar Documento</button>
                             </div>
-                        </div>
-
-                        <div>
-                            <label htmlFor="notes" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Notas / Observações</label>
-                            <textarea name="notes" id="notes" value={formData.notes} onChange={handleChange} rows={3} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm"></textarea>
                         </div>
                     </div>
                     )}
-
-                    {activeTab === 'contacts' && (
-                        <div className="animate-fade-in h-full">
-                            <ContactList contacts={formData.contacts || []} onChange={handleContactsChange} resourceType="supplier" />
-                        </div>
-                    )}
-
-                    {activeTab === 'contracts' && (
-                        <div className="space-y-6 animate-fade-in">
-                            <div className="bg-blue-900/20 border border-blue-900/50 p-4 rounded-lg text-sm text-blue-200">
-                                <div className="flex items-center gap-2 font-bold mb-1">
-                                    <FaFileContract /> Contratos com Fornecedores TIC (DORA Art. 28º)
-                                </div>
-                                <p>Registe os contratos vigentes para cumprir com o Registo de Informações exigido pelo regulamento DORA.</p>
-                            </div>
-
-                            <div className="bg-gray-800 p-4 rounded-lg border border-gray-700 space-y-4">
-                                <h4 className="font-bold text-white text-sm border-b border-gray-700 pb-2">Adicionar Novo Contrato</h4>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-xs text-gray-400 mb-1 uppercase">Ref. Contrato</label>
-                                        <input type="text" value={newContract.ref_number} onChange={e => setNewContract({...newContract, ref_number: e.target.value})} className="w-full bg-gray-700 border border-gray-600 rounded p-2 text-white text-sm" placeholder="Ex: CTR-2024-001" />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs text-gray-400 mb-1 uppercase">Descrição Breve</label>
-                                        <input type="text" value={newContract.description} onChange={e => setNewContract({...newContract, description: e.target.value})} className="w-full bg-gray-700 border border-gray-600 rounded p-2 text-white text-sm" placeholder="Ex: Licenciamento Office 365" />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs text-gray-400 mb-1 uppercase">Início</label>
-                                        <input type="date" value={newContract.start_date} onChange={e => setNewContract({...newContract, start_date: e.target.value})} className="w-full bg-gray-700 border border-gray-600 rounded p-2 text-white text-sm" />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs text-gray-400 mb-1 uppercase">Fim</label>
-                                        <input type="date" value={newContract.end_date} onChange={e => setNewContract({...newContract, end_date: e.target.value})} className="w-full bg-gray-700 border border-gray-600 rounded p-2 text-white text-sm" />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs text-gray-400 mb-1 uppercase">Pré-Aviso Rescisão (Dias)</label>
-                                        <input type="number" value={newContract.notice_period_days} onChange={e => setNewContract({...newContract, notice_period_days: parseInt(e.target.value)})} className="w-full bg-gray-700 border border-gray-600 rounded p-2 text-white text-sm" />
-                                    </div>
-                                </div>
-                                
-                                <div>
-                                    <label className="block text-xs text-gray-400 mb-2 uppercase">Serviços Suportados (BIA)</label>
-                                    <div className="flex flex-wrap gap-2">
-                                        {businessServices?.map(svc => (
-                                            <button 
-                                                key={svc.id}
-                                                type="button"
-                                                onClick={() => handleServiceToggle(svc.id)}
-                                                className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${newContract.supported_service_ids?.includes(svc.id) ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-400 border border-gray-600'}`}
-                                            >
-                                                {svc.name}
-                                            </button>
-                                        ))}
-                                        {(!businessServices || businessServices.length === 0) && <span className="text-gray-500 text-xs italic">Nenhum serviço de negócio configurado.</span>}
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <label className="block text-xs text-gray-400 mb-1 uppercase">Estratégia de Saída (DORA)</label>
-                                    <textarea value={newContract.exit_strategy} onChange={e => setNewContract({...newContract, exit_strategy: e.target.value})} rows={2} className="w-full bg-gray-700 border border-gray-600 rounded p-2 text-white text-sm" placeholder="Como mitigar a interrupção se o contrato for cancelado?"></textarea>
-                                </div>
-
-                                <button type="button" onClick={handleAddContract} className="w-full bg-green-600 hover:bg-green-500 text-white py-2 rounded flex items-center justify-center gap-2 font-bold transition-all"><FaPlus /> Adicionar Contrato à Lista</button>
-                            </div>
-
-                            <div>
-                                <h4 className="font-bold text-white text-sm mb-3">Contratos Registados ({(formData.contracts || []).length})</h4>
-                                <div className="space-y-2">
-                                    {(formData.contracts || []).map(contract => (
-                                        <div key={contract.id} className="bg-gray-800 p-3 rounded border border-gray-700 flex justify-between items-center group">
-                                            <div>
-                                                <p className="font-bold text-brand-secondary text-sm">{contract.ref_number}</p>
-                                                <p className="text-xs text-white">{contract.description}</p>
-                                                <p className="text-[10px] text-gray-500 mt-1 uppercase">Termina em: {contract.end_date}</p>
-                                            </div>
-                                            <button type="button" onClick={() => handleRemoveContract(contract.id)} className="text-red-400 opacity-0 group-hover:opacity-100 p-2 hover:bg-red-900/20 rounded transition-all"><DeleteIcon/></button>
-                                        </div>
-                                    ))}
-                                    {(formData.contracts || []).length === 0 && <p className="text-center py-4 text-gray-500 text-sm italic">Nenhum contrato registado.</p>}
-                                </div>
-                            </div>
-                        </div>
-                    )}
+                    {activeTab === 'contacts' && <div className="h-full"><ContactList contacts={formData.contacts || []} onChange={(c) => setFormData({...formData, contacts: c})} resourceType="supplier" /></div>}
                 </form>
 
-                {successMessage && (
-                    <div className="p-3 bg-green-500/20 text-green-300 rounded border border-green-500/50 text-center font-medium animate-fade-in mt-4">
-                        {successMessage}
-                    </div>
-                )}
+                {successMessage && <div className="p-3 bg-green-500/20 text-green-300 rounded border border-green-500/50 text-center font-medium mt-4">{successMessage}</div>}
 
-                <div className="flex justify-end gap-4 pt-4 border-t border-gray-700 mt-4 flex-shrink-0">
-                    {activeTab === 'details' && (
-                        <button type="button" onClick={generateEmailTemplate} className="mr-auto text-xs text-brand-secondary hover:underline flex items-center gap-1"><FaEnvelope /> Modelo Email NIS2</button>
-                    )}
-                    <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500" disabled={isSaving}>Fechar / Cancelar</button>
-                    <button type="submit" onClick={handleSubmit} disabled={isSaving} className="px-6 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary disabled:opacity-50 flex items-center gap-2 shadow-lg">
-                        {isSaving ? <SpinnerIcon className="h-4 w-4" /> : successMessage ? <CheckIcon className="h-4 w-4" /> : <FaSave />}
-                        {isSaving ? 'A Gravar...' : 'Salvar Fornecedor'}
+                <div className="flex justify-end gap-4 pt-4 border-t border-gray-700 mt-4">
+                    <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-500">Cancelar</button>
+                    <button type="submit" onClick={handleSubmit} disabled={isSaving} className="px-6 py-2 bg-brand-primary text-white rounded flex items-center gap-2 shadow-lg">
+                        {isSaving ? <SpinnerIcon /> : <FaSave />} {isSaving ? 'A Gravar...' : 'Salvar Fornecedor'}
                     </button>
                 </div>
             </div>

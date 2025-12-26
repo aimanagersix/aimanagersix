@@ -1,3 +1,4 @@
+
 import { getSupabase } from './supabaseClient';
 import { ResourceContact } from '../types';
 import { adminProvisionUser } from './authService';
@@ -26,11 +27,28 @@ export const fetchOrganizationData = async () => {
         sb().from('config_custom_roles').select('*').order('name'),
         sb().from('contact_titles').select('*').order('name'),
         sb().from('contact_roles').select('*').order('name'),
-        sb().from('collaborator_history').select('*').order('start_date', { ascending: false })
+        sb().from('collaborator_history').select('*').order('start_date', { ascending: false }),
+        // Adição: Buscar contactos para instituições e entidades
+        sb().from('resource_contacts').select('*').in('resource_type', ['entidade', 'instituicao'])
     ]);
+
+    const allContacts = results[7].data || [];
+    
+    // Hidratação de Instituições
+    const hydratedInstitutions = (results[0].data || []).map((i: any) => ({
+        ...i,
+        contacts: allContacts.filter((c: any) => c.resource_type === 'instituicao' && c.resource_id === i.id)
+    }));
+
+    // Hidratação de Entidades
+    const hydratedEntities = (results[1].data || []).map((e: any) => ({
+        ...e,
+        contacts: allContacts.filter((c: any) => c.resource_type === 'entidade' && c.resource_id === e.id)
+    }));
+
     return { 
-        instituicoes: results[0].data || [], 
-        entidades: results[1].data || [], 
+        instituicoes: hydratedInstitutions, 
+        entidades: hydratedEntities, 
         collaborators: results[2].data || [], 
         customRoles: results[3].data || [], 
         contactTitles: results[4].data || [],
