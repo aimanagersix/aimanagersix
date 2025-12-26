@@ -399,14 +399,20 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
 
         try {
             let result;
-            if (supplierToEdit) {
-                const payload = { ...supplierToEdit, ...dataToSave };
+            if (supplierToEdit || formData.id) {
+                const id = formData.id || supplierToEdit?.id;
+                const payload = { ...supplierToEdit, ...dataToSave, id };
                 result = await onSave(payload);
             } else {
                 result = await onSave(dataToSave);
             }
 
             if (result) {
+                // IMPORTANT: Update local formData with the result (including ID) to prevent duplicates if user saves again
+                if (result.id && !formData.id) {
+                    setFormData(prev => ({ ...prev, id: result.id }));
+                }
+
                 if (createTicket && onCreateTicket && formData.is_iso27001_certified && formData.iso_certificate_expiry) {
                     let requestDate = customTicketDate;
                     if (reminderOffset !== 'custom') {
@@ -438,7 +444,7 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
         }
     };
     
-    const modalTitle = supplierToEdit ? "Editar Fornecedor" : "Adicionar Novo Fornecedor";
+    const modalTitle = (supplierToEdit || formData.id) ? "Editar Fornecedor" : "Adicionar Novo Fornecedor";
 
     const generateEmailTemplate = () => {
         const subject = `Solicitação de Evidências de Segurança (NIS2) - ${formData.name}`;
@@ -658,7 +664,7 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
                                                             className={`w-full bg-gray-800 border border-gray-600 text-white rounded p-1 text-xs ${errors.ticketTeamId ? 'border-red-500' : ''}`}
                                                         >
                                                             <option value="">-- Selecione --</option>
-                                                            {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                                                            {teams.map(t => <option value={t.id}>{t.name}</option>)}
                                                         </select>
                                                     </div>
                                                     <div>
@@ -820,7 +826,7 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
                                 <div>
                                     <label className="block text-xs text-gray-400 mb-2 uppercase">Serviços Suportados (BIA)</label>
                                     <div className="flex flex-wrap gap-2">
-                                        {businessServices.map(svc => (
+                                        {businessServices?.map(svc => (
                                             <button 
                                                 key={svc.id}
                                                 type="button"
@@ -830,7 +836,7 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
                                                 {svc.name}
                                             </button>
                                         ))}
-                                        {businessServices.length === 0 && <span className="text-gray-500 text-xs italic">Nenhum serviço de negócio configurado.</span>}
+                                        {(!businessServices || businessServices.length === 0) && <span className="text-gray-500 text-xs italic">Nenhum serviço de negócio configurado.</span>}
                                     </div>
                                 </div>
 

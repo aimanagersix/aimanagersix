@@ -110,9 +110,11 @@ const OrganizationManager: React.FC<OrganizationManagerProps> = ({ activeTab, ap
             delete supplierData.contacts;
 
             let resultSupplier;
-            if (supplierToEdit) {
-                await dataService.updateSupplier(supplierToEdit.id, supplierData);
-                resultSupplier = { ...supplierToEdit, ...supplierData };
+            // FIX: If 's' already contains an 'id', it must be an UPDATE regardless of the parent state
+            if (supplierToEdit || s.id) {
+                const id = s.id || supplierToEdit?.id;
+                await dataService.updateSupplier(id, supplierData);
+                resultSupplier = { ...supplierData, id };
             } else {
                 resultSupplier = await dataService.addSupplier(supplierData);
             }
