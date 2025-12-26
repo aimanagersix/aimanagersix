@@ -196,7 +196,8 @@ const AddResilienceTestModal: React.FC<AddResilienceTestModalProps> = ({ onClose
                         <div>
                             <label className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Tipo</label>
                             <select name="test_type" value={formData.test_type} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2">
-                                {Object.values(ResilienceTestType).map(t => <option key={t} value={t}>{t}</option>)}
+                                {/* Fix: Explicitly cast to string array for mapping */}
+                                {(Object.values(ResilienceTestType) as string[]).map(t => <option key={t} value={t}>{t}</option>)}
                             </select>
                         </div>
                         <div>

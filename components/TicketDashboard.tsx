@@ -37,11 +37,16 @@ interface TicketDashboardProps {
   onSortChange?: (sort: { key: string, direction: 'ascending' | 'descending' }) => void;
 }
 
+// Fix: Support date ranges and use start_date instead of date
 const isHolidayOrWeekend = (date: Date, holidays: Holiday[] = []) => {
     const day = date.getDay();
     if (day === 0 || day === 6) return true; // Fim de semana
     const dateStr = date.toISOString().split('T')[0];
-    return holidays.some(h => h.date === dateStr);
+    return holidays.some(h => {
+        const start = h.start_date;
+        const end = h.end_date || h.start_date;
+        return dateStr >= start && dateStr <= end;
+    });
 };
 
 const addBusinessDays = (startDate: Date, days: number, holidays: Holiday[] = []) => {

@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { SecurityTrainingRecord, Collaborator, ConfigItem, TrainingType } from '../types';
+import { SecurityTrainingRecord, Collaborator, ConfigItem, TrainingType, CriticalityLevel } from '../types';
 import { FaGraduationCap, FaSearch, FaPlus, FaCheckCircle, FaTimesCircle, FaUserGraduate } from 'react-icons/fa';
 import Pagination from './common/Pagination';
 import SortableHeader from './common/SortableHeader';
@@ -28,7 +28,7 @@ const TrainingDashboard: React.FC<TrainingDashboardProps> = ({ trainings, collab
     const collaboratorMap = useMemo(() => new Map(collaborators.map(c => [c.id, c.full_name])), [collaborators]);
     const trainingOptions = useMemo(() => {
         if (trainingTypes && trainingTypes.length > 0) return trainingTypes.map(t => t.name);
-        return Object.values(TrainingType);
+        return Object.values(TrainingType) as string[];
     }, [trainingTypes]);
 
     const handleSort = (key: string) => {
@@ -143,7 +143,8 @@ const TrainingDashboard: React.FC<TrainingDashboardProps> = ({ trainings, collab
                     className="bg-gray-800 border border-gray-600 text-white rounded-md p-2 text-sm"
                 >
                     <option value="">Todos os Tipos</option>
-                    {trainingOptions.map(t => <option key={t} value={t}>{t}</option>)}
+                    {/* Fix: Explicitly cast to string array for mapping */}
+                    {(trainingOptions as string[]).map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
             </div>
 

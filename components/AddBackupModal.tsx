@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import Modal from './common/Modal';
 import { BackupExecution, BackupType, Collaborator, Equipment, EquipmentType, Ticket, TicketStatus } from '../types';
@@ -232,7 +233,8 @@ const AddBackupModal: React.FC<AddBackupModalProps> = ({ onClose, onSave, backup
                             className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm"
                         >
                             <option value="">-- Selecione Equipamento (Opcional) --</option>
-                            {eligibleEquipment.map(eq => (
+                            {/* Fix: Added explicit type Equipment to mapping */}
+                            {eligibleEquipment.map((eq: Equipment) => (
                                 <option key={eq.id} value={eq.id}>{eq.description} (S/N: {eq.serial_number})</option>
                             ))}
                         </select>

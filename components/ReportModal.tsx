@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import Modal from './common/Modal';
 import { Equipment, Entidade, Collaborator, Assignment, Ticket, SoftwareLicense, LicenseAssignment, BusinessService, ServiceDependency, Instituicao, Brand, EquipmentType, Holiday } from '../types';
@@ -51,11 +52,11 @@ const ReportModal: React.FC<ReportModalProps> = ({
 
         if (type === 'vacations') {
             const filteredHolidays = holidays.filter(h => {
-                const hDate = new Date(h.date);
+                const hDate = new Date(h.start_date);
                 const fromMatch = !dateFrom || hDate >= new Date(dateFrom);
                 const toMatch = !dateTo || hDate <= new Date(dateTo);
                 return fromMatch && toMatch && h.type === 'Vacation';
-            }).sort((a,b) => a.date.localeCompare(b.date));
+            }).sort((a,b) => a.start_date.localeCompare(b.start_date));
             return { type: 'vacations', items: filteredHolidays };
         }
 
@@ -91,14 +92,18 @@ const ReportModal: React.FC<ReportModalProps> = ({
         if (reportData.type === 'vacations' && reportData.items) {
             html += `<table style="width:100%; border-collapse:collapse; margin-top:20px; font-size:11px;">
                 <thead><tr style="background:#eee;">
-                    <th style="border:1px solid #ddd; padding:8px;">Data Ausência</th>
+                    <th style="border:1px solid #ddd; padding:8px;">Período</th>
                     <th style="border:1px solid #ddd; padding:8px;">Colaborador</th>
                     <th style="border:1px solid #ddd; padding:8px;">Descrição / Motivo</th>
                 </tr></thead>
                 <tbody>`;
             reportData.items.forEach((h:any) => {
+                const range = h.end_date && h.end_date !== h.start_date 
+                    ? `${new Date(h.start_date).toLocaleDateString()} a ${new Date(h.end_date).toLocaleDateString()}`
+                    : new Date(h.start_date).toLocaleDateString();
+
                 html += `<tr>
-                    <td style="border:1px solid #ddd; padding:8px; font-weight:bold;">${new Date(h.date).toLocaleDateString()}</td>
+                    <td style="border:1px solid #ddd; padding:8px; font-weight:bold;">${range}</td>
                     <td style="border:1px solid #ddd; padding:8px;">${collaboratorMap.get(h.collaborator_id) || 'Todos'}</td>
                     <td style="border:1px solid #ddd; padding:8px;">${h.name}</td>
                 </tr>`;

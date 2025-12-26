@@ -1,3 +1,4 @@
+
 export enum UserRole {
     SuperAdmin = 'SuperAdmin',
     Admin = 'Admin',
@@ -283,7 +284,6 @@ export interface Team {
     name: string;
     description?: string;
     is_active: boolean;
-    // Pedido 3: Sugestão do Engenheiro - SLA Dinâmico
     vacation_auto_reassign: boolean; 
     sla_pause_on_absence: boolean;
 }
@@ -613,6 +613,27 @@ export interface ContinuityPlan {
     document_name?: string;
 }
 
+export interface AuditLogEntry {
+    id: string;
+    timestamp: string;
+    action: string;
+    resource_type: string;
+    resource_id?: string;
+    user_email: string;
+    details?: string;
+}
+
+export interface Holiday {
+    id: string;
+    name: string;
+    start_date: string; 
+    end_date?: string; 
+    type: 'Holiday' | 'Vacation' | 'Bridge' | 'Other';
+    is_recurring: boolean;
+    collaborator_id?: string; 
+    instituicao_id?: string; 
+}
+
 export enum BackupType {
     Full = 'Full',
     Incremental = 'Incremental',
@@ -622,56 +643,8 @@ export enum BackupType {
 export enum ResilienceTestType {
     VulnerabilityScan = 'Vulnerability Scan',
     Pentest = 'Pentest',
-    RedTeaming = 'Red Teaming',
-    DRPTest = 'DRP Test',
-    Tabletop = 'Tabletop'
-}
-
-export enum TrainingType {
-    Phishing = 'Phishing',
-    Awareness = 'Geral / Awareness',
-    Technical = 'Técnica / SOC',
-    Privacy = 'Privacidade / RGPD'
-}
-
-export interface DiagnosticResult {
-    module: string;
-    status: 'Success' | 'Failure' | 'Warning';
-    message: string;
-}
-
-export interface DbPolicy {
-    tablename: string;
-    policyname: string;
-    permissive: string;
-    roles: string[];
-    cmd: string;
-    qual: string;
-    with_check: string;
-}
-
-export interface DbTrigger {
-    trigger_name: string;
-    event_manipulation: string;
-    event_object_table: string;
-    action_statement: string;
-}
-
-export interface DbFunction {
-    routine_name: string;
-    routine_type: string;
-}
-
-export interface AutomationRule {
-    id: string;
-    name: string;
-    trigger_event: 'TICKET_CREATED' | 'EQUIPMENT_CREATED';
-    conditions: RuleCondition[];
-    actions: RuleAction[];
-    priority: number;
-    is_active: boolean;
-    description?: string;
-    created_at?: string;
+    DRP = 'DRP',
+    RedTeaming = 'Red Teaming'
 }
 
 export interface RuleCondition {
@@ -686,6 +659,32 @@ export interface RuleAction {
     target_field?: string;
 }
 
+export interface AutomationRule {
+    id: string;
+    name: string;
+    description?: string;
+    trigger_event: 'TICKET_CREATED' | 'EQUIPMENT_CREATED';
+    conditions: RuleCondition[];
+    actions: RuleAction[];
+    priority: number;
+    is_active: boolean;
+    created_at: string;
+}
+
+export enum TrainingType {
+    SecurityAwareness = 'Consciencialização de Segurança',
+    PhishingSimulation = 'Simulação de Phishing',
+    DataProtection = 'Proteção de Dados (RGPD)',
+    SecureCoding = 'Desenvolvimento Seguro',
+    IncidentResponse = 'Resposta a Incidentes'
+}
+
+export interface DiagnosticResult {
+    module: string;
+    status: 'Success' | 'Failure' | 'Warning';
+    message: string;
+}
+
 export interface DocumentTemplate {
     id: string;
     name: string;
@@ -695,22 +694,26 @@ export interface DocumentTemplate {
     created_at: string;
 }
 
-export interface AuditLogEntry {
-    id: string;
-    timestamp: string;
-    action: string;
-    resource_type: string;
-    resource_id?: string;
-    user_email: string;
-    details?: string;
+export interface DbPolicy {
+    tablename: string;
+    policyname: string;
+    roles: string[];
+    cmd: string;
+    qual: string;
+    with_check: string;
 }
 
-export interface Holiday {
-    id: string;
-    name: string;
-    date: string; 
-    type: 'Holiday' | 'Vacation' | 'Bridge' | 'Other';
-    is_recurring: boolean;
-    collaborator_id?: string; 
-    instituicao_id?: string; 
+export interface DbTrigger {
+    trigger_name: string;
+    event_manipulation: string;
+    event_object_table: string;
+    action_statement: string;
+    action_timing: string;
+}
+
+export interface DbFunction {
+    routine_name: string;
+    routine_type: string;
+    data_type: string;
+    routine_definition: string;
 }

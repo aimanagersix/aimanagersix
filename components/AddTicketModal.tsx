@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Modal from './common/Modal';
 import { Ticket, Entidade, Collaborator, Team, TeamMember, TicketCategoryItem, SecurityIncidentTypeItem, CriticalityLevel, TicketStatus, Instituicao, ModuleKey, PermissionAction, Equipment, Assignment, SoftwareLicense, LicenseAssignment, UserRole, Holiday } from '../types';
@@ -70,10 +71,11 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
         const now = new Date();
         const next48h = new Date(now.getTime() + 48 * 60 * 60 * 1000);
         
+        // Fix: Use start_date instead of date
         const upcomingAbsence = holidays.find(h => 
             h.collaborator_id === formData.technician_id && 
-            new Date(h.date) >= now && 
-            new Date(h.date) <= next48h
+            new Date(h.start_date) >= now && 
+            new Date(h.start_date) <= next48h
         );
 
         if (upcomingAbsence) {
@@ -82,7 +84,8 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
                 ? "Nota: Esta equipa reatribui tickets automaticamente durante ausências." 
                 : "Atenção: Esta equipa não tem reatribuição automática ativa. O ticket poderá ficar parado.";
 
-            return `O técnico selecionado entra de férias em breve (${new Date(upcomingAbsence.date).toLocaleDateString()}). ${policyNote}`;
+            // Fix: Use start_date instead of date
+            return `O técnico selecionado entra de férias em breve (${new Date(upcomingAbsence.start_date).toLocaleDateString()}). ${policyNote}`;
         }
         return null;
     }, [formData.technician_id, formData.team_id, holidays, teams]);

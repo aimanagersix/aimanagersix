@@ -15,10 +15,10 @@ interface CalendarModalProps {
     collaborators: Collaborator[];
     onViewTicket: (ticket: Ticket) => void;
     calendarEvents?: CalendarEvent[];
-    holidays?: Holiday[]; // Pedido 3
+    holidays?: Holiday[]; 
 }
 
-const CalendarModal: React.FC<CalendarModalProps> = ({ onClose, tickets, currentUser, teams, teamMembers, collaborators, onViewTicket, calendarEvents = [], holidays = [] }) => {
+export const CalendarModal: React.FC<CalendarModalProps> = ({ onClose, tickets, currentUser, teams, teamMembers, collaborators, onViewTicket, calendarEvents = [], holidays = [] }) => {
     const [currentDate, setCurrentDate] = useState(new Date());
     const [showAddEventModal, setShowAddEventModal] = useState(false);
     const [eventToEdit, setEventToEdit] = useState<CalendarEvent | null>(null);
@@ -58,18 +58,26 @@ const CalendarModal: React.FC<CalendarModalProps> = ({ onClose, tickets, current
             });
         }
 
-        // Injetar Feriados e Ausências (Pedido 3)
+        // Injetar Feriados e Ausências (Intervalos Suportados)
         if (filterType === 'all' || filterType === 'holidays') {
             holidays.forEach(h => {
-                items.push({ 
-                    id: h.id, 
-                    title: h.name, 
-                    date: new Date(h.date), 
-                    type: h.type === 'Vacation' ? 'vacation' : 'holiday', 
-                    color: h.type === 'Holiday' ? '#F43F5E' : '#EC4899', 
-                    isAllDay: true, 
-                    data: h 
-                });
+                const start = new Date(h.start_date);
+                const end = h.end_date ? new Date(h.end_date) : start;
+                
+                // Para calendários mensais, precisamos de um item para cada dia do intervalo
+                const curr = new Date(start);
+                while (curr <= end) {
+                    items.push({ 
+                        id: `${h.id}-${curr.getTime()}`, 
+                        title: h.name, 
+                        date: new Date(curr), 
+                        type: h.type === 'Vacation' ? 'vacation' : 'holiday', 
+                        color: h.type === 'Holiday' ? '#F43F5E' : '#EC4899', 
+                        isAllDay: true, 
+                        data: h 
+                    });
+                    curr.setDate(curr.getDate() + 1);
+                }
             });
         }
 
@@ -93,15 +101,15 @@ const CalendarModal: React.FC<CalendarModalProps> = ({ onClose, tickets, current
             const isToday = new Date().getDate() === day && new Date().getMonth() === currentDate.getMonth() && new Date().getFullYear() === currentDate.getFullYear();
             
             cells.push(
-                <div key={day} className={`border border-gray-700 p-1 min-h-[100px] relative hover:bg-gray-800/30 cursor-pointer ${isToday ? 'bg-brand-primary/10' : 'bg-surface-dark'}`} onClick={() => { setEventToEdit(null); setShowAddEventModal(true); }}>
+                <div key={day} className={`border border-gray-700 p-1 min-h-[100px] relative hover:bg-gray-800/30 cursor-pointer ${isToday ? 'bg-brand-primary/10' : 'bg-surface-dark'}`}>
                     <span className={`text-xs font-bold ${isToday ? 'text-brand-secondary' : 'text-gray-400'}`}>{day}</span>
-                    <div className="mt-1 space-y-1 overflow-y-auto max-h-[70px] custom-scrollbar">
+                    <div className="mt-1 space-y-1 overflow-y-auto max-h-[85px] custom-scrollbar">
                         {dayItems.map(item => (
                             <div key={`${item.type}-${item.id}`} onClick={(e) => { 
                                 e.stopPropagation(); 
                                 if (item.type === 'ticket') onViewTicket(item.data); 
                                 else if (item.type === 'event') { setEventToEdit(item.data); setShowAddEventModal(true); }
-                            }} className="text-[9px] px-1 py-0.5 rounded truncate border-l-2 flex items-center gap-1" style={{ backgroundColor: `${item.color}20`, borderColor: item.color, color: '#fff' }}>
+                            }} className="text-[9px] px-1 py-0.5 rounded truncate border-l-2 flex items-center gap-1 shadow-sm" style={{ backgroundColor: `${item.color}20`, borderColor: item.color, color: '#fff' }}>
                                 {item.type === 'vacation' && <FaUmbrellaBeach className="text-[8px]"/>}
                                 {item.type === 'holiday' && <FaGlassCheers className="text-[8px]"/>}
                                 {item.title}
@@ -136,11 +144,11 @@ const CalendarModal: React.FC<CalendarModalProps> = ({ onClose, tickets, current
                             <option value="tasks">Tarefas / Eventos</option>
                             <option value="holidays">Feriados / Ausências</option>
                         </select>
-                        <button onClick={() => { setEventToEdit(null); setShowAddEventModal(true); }} className="bg-brand-primary text-white px-4 py-2 rounded text-sm flex items-center gap-2 hover:bg-brand-secondary transition-all shadow-lg"><FaPlus /> Agendar</button>
+                        <button onClick={() => { setEventToEdit(null); setShowAddEventModal(true); }} className="bg-brand-primary text-white px-4 py-2 rounded text-sm flex items-center gap-2 hover:bg-brand-secondary transition-all shadow-lg font-bold uppercase tracking-wider"><FaPlus /> Agendar</button>
                     </div>
                 </div>
-                <div className="grid grid-cols-7 gap-px mb-1 text-center bg-gray-800 p-1 rounded-t-lg"><div className="text-xs font-bold text-gray-400">DOM</div><div className="text-xs font-bold text-gray-400">SEG</div><div className="text-xs font-bold text-gray-400">TER</div><div className="text-xs font-bold text-gray-400">QUA</div><div className="text-xs font-bold text-gray-400">QUI</div><div className="text-xs font-bold text-gray-400">SEX</div><div className="text-xs font-bold text-gray-400">SÁB</div></div>
-                <div className="grid grid-cols-7 gap-px flex-grow bg-gray-800 rounded-b-lg overflow-hidden border border-gray-800">{renderCalendarCells()}</div>
+                <div className="grid grid-cols-7 gap-px mb-1 text-center bg-gray-800 p-1 rounded-t-lg shadow-inner"><div className="text-xs font-black text-gray-500">DOM</div><div className="text-xs font-black text-gray-500">SEG</div><div className="text-xs font-black text-gray-500">TER</div><div className="text-xs font-black text-gray-500">QUA</div><div className="text-xs font-black text-gray-500">QUI</div><div className="text-xs font-black text-gray-500">SEX</div><div className="text-xs font-black text-gray-500">SÁB</div></div>
+                <div className="grid grid-cols-7 gap-px flex-grow bg-gray-800 rounded-b-lg overflow-hidden border border-gray-800 shadow-2xl">{renderCalendarCells()}</div>
             </div>
         </Modal>
         {showAddEventModal && <AddCalendarEventModal onClose={() => setShowAddEventModal(false)} onSave={async (event) => { if (eventToEdit?.id) await dataService.updateCalendarEvent(eventToEdit.id, event); else await dataService.addCalendarEvent(event); window.location.reload(); }} currentUser={currentUser} teams={teams} eventToEdit={eventToEdit} />}
