@@ -6,10 +6,10 @@ import { FaCamera, FaKey, FaUserShield, FaUserTie, FaBuilding, FaMapMarkerAlt, F
 import * as dataService from '../services/dataService';
 
 /**
- * ADD COLLABORATOR MODAL - V5.11 (Advanced CP Mapping & Fix)
+ * ADD COLLABORATOR MODAL - V5.12 (Build Error Fix)
  * -----------------------------------------------------------------------------
  * STATUS DE BLOQUEIO RIGOROSO (Freeze UI):
- * - PEDIDO 4: LUPA DO CP AGORA DISPARA PESQUISA MANUAL E PREENCHE TUDO.
+ * - PEDIDO 4: FIX NO ERRO DE BUILD (handleEntityChange missing).
  * -----------------------------------------------------------------------------
  */
 
@@ -177,12 +177,22 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
         }
     }, [formData.postal_code]);
 
-    // Added missing handlePostalCodeChange function
     const handlePostalCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         let val = e.target.value.replace(/[^0-9-]/g, ''); 
         if (val.length > 4 && val.indexOf('-') === -1) val = val.slice(0, 4) + '-' + val.slice(4);
         if (val.length > 8) val = val.slice(0, 8);
         setFormData((prev: any) => ({ ...prev, postal_code: val }));
+    };
+
+    // Pedido 4: Adicionada função faltante para troca de entidade
+    const handleEntityChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        const entId = e.target.value;
+        const entity = entidades.find(ent => ent.id === entId);
+        setFormData(prev => ({
+            ...prev,
+            entidade_id: entId,
+            instituicao_id: entity ? entity.instituicao_id : prev.instituicao_id
+        }));
     };
 
     const validateForm = () => {
