@@ -6,10 +6,11 @@ import { FaCamera, FaKey, FaUserShield, FaUserTie, FaBuilding, FaMapMarkerAlt, F
 import * as dataService from '../services/dataService';
 
 /**
- * ADD COLLABORATOR MODAL - V5.14 (Title/Trato Support)
+ * ADD COLLABORATOR MODAL - V5.16 (Layout & Role Sync)
  * -----------------------------------------------------------------------------
  * STATUS DE BLOQUEIO RIGOROSO (Freeze UI):
- * - PEDIDO 4: INCLUSÃO DO CAMPO TRATO (Sr., Dr., etc).
+ * - PEDIDO 3: AJUSTE DE TAMANHO TRATO (PEQUENO) E NOME (GRANDE).
+ * - PEDIDO 3: LIMPEZA DE DESCRITORES NOS PERFIS (ROLE) PARA SYNC RBAC.
  * -----------------------------------------------------------------------------
  */
 
@@ -258,7 +259,7 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
     };
 
     const filteredRoles = useMemo(() => {
-        const standardNames = ['Utilizador', 'Técnico', 'SuperAdmin'];
+        const standardNames = ['Utilizador', 'Técnico', 'Admin', 'SuperAdmin'];
         return availableRoles.filter(role => !standardNames.includes(role.name));
     }, [availableRoles]);
 
@@ -275,11 +276,12 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
                         <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={async (e) => { if (e.target.files?.[0]) { setIsCompressing(true); const f = await compressProfileImage(e.target.files[0]); setPhotoFile(f); setPhotoPreview(URL.createObjectURL(f)); setIsCompressing(false); } }} />
                     </div>
                     
-                    <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
-                        <div className="md:col-span-1">
-                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Trato (Título)</label>
+                    <div className="flex-1 grid grid-cols-4 md:grid-cols-6 gap-4 w-full">
+                        {/* Pedido 3: Ajuste de layout Trato(1) e Nome(5) */}
+                        <div className="col-span-1">
+                            <label className="block text-[10px] font-black text-gray-500 uppercase mb-1 truncate tracking-widest">Trato</label>
                             <select value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} className="w-full bg-gray-800 border border-gray-700 text-white rounded p-2 text-sm focus:border-brand-primary outline-none">
-                                <option value="">Sem Título</option>
+                                <option value="">-</option>
                                 <option value="Sr.">Sr.</option>
                                 <option value="Sra.">Sra.</option>
                                 <option value="Dr.">Dr.</option>
@@ -288,19 +290,19 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
                                 <option value="Prof.">Prof.</option>
                             </select>
                         </div>
-                        <div className="md:col-span-1">
-                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Nome Completo</label>
+                        <div className="col-span-3 md:col-span-5">
+                            <label className="block text-[10px] font-black text-gray-500 uppercase mb-1 tracking-widest">Nome Completo</label>
                             <div className="relative">
                                 <FaUserTie className="absolute left-3 top-3 text-gray-500" />
                                 <input type="text" value={formData.full_name} onChange={e => setFormData({...formData, full_name: e.target.value})} className={`w-full bg-gray-800 border ${errors.full_name ? 'border-red-500' : 'border-gray-700'} text-white rounded p-2 pl-10 text-sm focus:border-brand-primary outline-none`} placeholder="Nome Completo..." required />
                             </div>
                         </div>
-                        <div>
+                        <div className="col-span-4 md:col-span-3">
                             <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Email Corporativo</label>
                             <input type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className={`w-full bg-gray-800 border ${errors.email ? 'border-red-500' : 'border-gray-700'} text-white rounded p-2 text-sm focus:border-brand-primary outline-none`} placeholder="email@empresa.pt" required />
                             {errors.email && <p className="text-red-400 text-[10px] mt-1 font-bold">{errors.email}</p>}
                         </div>
-                        <div>
+                        <div className="col-span-4 md:col-span-3">
                             <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Nº Mecanográfico</label>
                             <div className="relative">
                                 <FaIdCard className="absolute left-3 top-3 text-gray-500" />
@@ -405,9 +407,10 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
                                 <div>
                                     <label className="block text-[10px] text-gray-500 uppercase font-black mb-1">Perfil (Role)</label>
                                     <select value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})} className="w-full bg-gray-800 border border-gray-700 text-white rounded p-2 text-sm">
-                                        <option value="Utilizador">Utilizador (Padrão)</option>
-                                        <option value="Técnico">Técnico (Suporte)</option>
-                                        <option value="Admin">Administrador (Total)</option>
+                                        {/* Pedido 3: Limpeza de nomes de perfis para sync RBAC */}
+                                        <option value="Utilizador">Utilizador</option>
+                                        <option value="Técnico">Técnico</option>
+                                        <option value="Admin">Admin</option>
                                         {filteredRoles.map(r => <option key={r.id} value={r.name}>{r.name}</option>)}
                                     </select>
                                 </div>

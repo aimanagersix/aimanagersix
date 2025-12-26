@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Collaborator, Entidade, Equipment, Assignment, CollaboratorStatus, Ticket, TicketActivity, TeamMember, CollaboratorHistory, Message, TooltipConfig, defaultTooltipConfig, UserRole, Instituicao, ConfigItem } from '../types';
 import { EditIcon, FaTrash as DeleteIcon, CheckIcon, XIcon, ReportIcon, FaComment, SearchIcon, PlusIcon } from './common/Icons';
-import { FaHistory, FaToggleOn, FaToggleOff, FaPlaneArrival, FaPhone, FaEnvelope, FaIdCard } from 'react-icons/fa';
+import { FaHistory, FaToggleOn, FaToggleOff, FaPlaneArrival, FaPhone, FaEnvelope, FaIdCard, FaBriefcase } from 'react-icons/fa';
 import Pagination from './common/Pagination';
 import SortableHeader from './common/SortableHeader';
 
@@ -18,7 +18,7 @@ interface CollaboratorDashboardProps {
   messages: Message[];
   currentUser: Collaborator | null;
   onEdit?: (collaborator: Collaborator) => void;
-  onDelete?: (id: string, reason: string) => void; // Pedido 4: Adicionado reason
+  onDelete?: (id: string, reason: string) => void; 
   onShowHistory?: (collaborator: Collaborator) => void;
   onShowDetails?: (collaborator: Collaborator) => void;
   onGenerateReport?: () => void;
@@ -247,7 +247,6 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
         return 'Sem Associação';
     };
 
-    // Pedido 4: Função para capturar motivo e chamar remoção lógica
     const handleDeleteWithReason = (col: Collaborator) => {
         const reason = window.prompt(`Indique o motivo para a remoção de ${col.full_name}:`, 'Saída da organização / Reforma');
         if (reason !== null && onDelete) {
@@ -503,7 +502,10 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
                     {col.telemovel && <div className="text-xs text-gray-400">Móvel: {col.telemovel}</div>}
                 </td>
                 <td className="px-6 py-4">
-                    <div className="font-semibold text-white text-sm">{resolvedJobTitle || <span className="text-gray-500 text-xs italic">Sem Cargo</span>}</div>
+                    {/* Pedido 3: Cargo restaurado na listagem */}
+                    <div className="font-semibold text-white text-sm">
+                        {resolvedJobTitle || <span className="text-gray-500 text-xs italic">Sem Cargo</span>}
+                    </div>
                     <div className="text-xs text-brand-secondary">{col.role}</div>
                 </td>
                 <td className="px-6 py-4 text-xs text-gray-300">{getAssociationText(col)}</td>
