@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useEffect } from 'react';
 import { Collaborator, Instituicao, Entidade, Assignment, TicketStatus, ConfigItem, Supplier } from '../../types';
 import * as dataService from '../../services/dataService';
@@ -101,6 +102,32 @@ const OrganizationManager: React.FC<OrganizationManagerProps> = ({ activeTab, ap
             throw err;
         }
     };
+
+    const handleSaveSupplier = async (s: any) => {
+        try {
+            const contacts = s.contacts || [];
+            const supplierData = { ...s };
+            delete supplierData.contacts;
+
+            let resultSupplier;
+            if (supplierToEdit) {
+                await dataService.updateSupplier(supplierToEdit.id, supplierData);
+                resultSupplier = { ...supplierToEdit, ...supplierData };
+            } else {
+                resultSupplier = await dataService.addSupplier(supplierData);
+            }
+
+            if (resultSupplier?.id) {
+                await dataService.syncResourceContacts('supplier', resultSupplier.id, contacts);
+            }
+
+            refreshData();
+            return resultSupplier;
+        } catch (err) {
+            console.error("[OrgManager] Erro ao gravar fornecedor:", err);
+            throw err;
+        }
+    };
     
     return (
         <>
@@ -150,7 +177,7 @@ const OrganizationManager: React.FC<OrganizationManagerProps> = ({ activeTab, ap
             {showAddInstituicaoModal && <AddInstituicaoModal onClose={() => setShowAddInstituicaoModal(false)} onSave={async (inst) => { if (instituicaoToEdit) await dataService.updateInstituicao(instituicaoToEdit.id, inst); else await dataService.addInstituicao(inst); refreshData(); }} instituicaoToEdit={instituicaoToEdit} />}
             {showAddEntidadeModal && <AddEntidadeModal onClose={() => setShowAddEntidadeModal(false)} onSave={async (ent) => { if (entidadeToEdit) await dataService.updateEntidade(entidadeToEdit.id, ent); else await dataService.addEntidade(ent); refreshData(); }} entidadeToEdit={entidadeToEdit} instituicoes={appData.instituicoes} />}
             {showAddCollaboratorModal && <AddCollaboratorModal onClose={() => setShowAddCollaboratorModal(false)} onSave={handleSaveCollaborator} collaboratorToEdit={collaboratorToEdit} escolasDepartamentos={appData.entidades} instituicoes={appData.instituicoes} currentUser={currentUser} />}
-            {showAddSupplierModal && <AddSupplierModal onClose={() => setShowAddSupplierModal(false)} onSave={async (s) => { if (supplierToEdit) await dataService.updateSupplier(supplierToEdit.id, s); else await dataService.addSupplier(s); refreshData(); }} supplierToEdit={supplierToEdit} businessServices={appData.businessServices} />}
+            {showAddSupplierModal && <AddSupplierModal onClose={() => setShowAddSupplierModal(false)} onSave={handleSaveSupplier} supplierToEdit={supplierToEdit} businessServices={appData.businessServices} />}
             {showCollaboratorHistoryModal && historyCollaborator && <CollaboratorHistoryModal collaborator={historyCollaborator} history={appData.collaboratorHistory} escolasDepartamentos={appData.entidades} onClose={() => setShowCollaboratorHistoryModal(false)} />}
             {showCollaboratorDetailModal && detailCollaborator && <CollaboratorDetailModal collaborator={detailCollaborator} assignments={appData.assignments} equipment={appData.equipment} tickets={appData.tickets} brandMap={new Map(appData.brands.map((b:any)=>[b.id,b.name]))} equipmentTypeMap={new Map(appData.equipmentTypes.map((t:any)=>[t.id,t.name]))} licenseAssignments={appData.licenseAssignments} softwareLicenses={appData.softwareLicenses} onClose={() => setShowCollaboratorDetailModal(false)} onShowHistory={()=>{}} onStartChat={onStartChat} onEdit={(c)=>{setCollaboratorToEdit(c);setShowAddCollaboratorModal(true);}} onViewTicket={(t) => { setDetailCollaborator(null); setShowCollaboratorDetailModal(false); setActiveTab('tickets.list'); }} onViewEquipment={(eq) => { setDetailCollaborator(null); setShowCollaboratorDetailModal(false); setActiveTab('equipment.inventory'); }} />}
             {showCredentialsModal && newCredentials && <CredentialsModal onClose={() => setShowCredentialsModal(false)} email={newCredentials.email} password={newCredentials.password} />}

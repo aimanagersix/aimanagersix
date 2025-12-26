@@ -1,3 +1,4 @@
+
 import { getSupabase } from './supabaseClient';
 import { Equipment } from '../types';
 
@@ -46,7 +47,16 @@ const cleanPayload = (data: any) => {
         'supplierId': 'supplier_id',
         'externalProviderId': 'external_provider_id',
         'defaultTeamId': 'default_team_id',
-        'default_team_id': 'default_team_id'
+        'default_team_id': 'default_team_id',
+        'wwanAddress': 'wwan_address',
+        'bluetoothAddress': 'bluetooth_address',
+        'usbThunderboltAddress': 'usb_thunderbolt_address',
+        'ipAddress': 'ip_address',
+        'ramSize': 'ram_size',
+        'diskInfo': 'disk_info',
+        'cpuInfo': 'cpu_info',
+        'monitorInfo': 'monitor_info',
+        'manufactureDate': 'manufacture_date'
     };
 
     const numericFields = ['acquisition_cost', 'residual_value', 'unit_cost', 'total_seats', 'estimated_cost', 'quantity'];
@@ -55,10 +65,8 @@ const cleanPayload = (data: any) => {
         const targetKey = keyMap[key] || key;
         const val = data[key];
         
-        // Pedido 4: Adicionada proteção explícita para evitar envio de colunas que podem não estar no cache do schema
-        // Se a chave for 'availability' e o valor for nulo/vazio, garantimos que não corrompe o pedido
         if (targetKey === 'availability' && (val === undefined || val === null || val === '')) {
-            return; // Não envia se estiver vazio para evitar erro de schema cache
+            return; 
         }
 
         if (typeof val === 'string' && val.trim() === '') {

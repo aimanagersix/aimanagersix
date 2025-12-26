@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import Modal from './common/Modal';
 import { FaDatabase, FaCheck, FaCopy, FaExclamationTriangle, FaCode, FaBolt, FaShieldAlt, FaSync, FaSearch, FaTools, FaInfoCircle, FaRobot, FaTerminal, FaKey, FaEnvelope, FaExternalLinkAlt, FaListOl, FaPlay, FaFolderOpen, FaTrash, FaLock, FaExclamationCircle, FaUmbrellaBeach, FaClock } from 'react-icons/fa';
@@ -44,9 +45,17 @@ VALUES
     ('Outro', '#6B7280')
 ON CONFLICT (name) DO NOTHING;
 
--- 3. REPARAÇÃO DE SCHEMA: ADIÇÃO DE COLUNA AVAILABILITY (Pedido 4)
--- O PostgREST necessita desta coluna para mapear os ratings CIA (Confidencialidade, Integridade, Disponibilidade)
+-- 3. REPARAÇÃO DE SCHEMA: ADIÇÃO DE COLUNAS DE HARDWARE E ESPECIFICAÇÕES (Pedido 3)
 ALTER TABLE IF EXISTS public.equipment ADD COLUMN IF NOT EXISTS availability TEXT DEFAULT 'Baixa';
+ALTER TABLE IF EXISTS public.equipment ADD COLUMN IF NOT EXISTS bluetooth_address TEXT;
+ALTER TABLE IF EXISTS public.equipment ADD COLUMN IF NOT EXISTS wwan_address TEXT;
+ALTER TABLE IF EXISTS public.equipment ADD COLUMN IF NOT EXISTS usb_thunderbolt_address TEXT;
+ALTER TABLE IF EXISTS public.equipment ADD COLUMN IF NOT EXISTS ip_address TEXT;
+ALTER TABLE IF EXISTS public.equipment ADD COLUMN IF NOT EXISTS ram_size TEXT;
+ALTER TABLE IF EXISTS public.equipment ADD COLUMN IF NOT EXISTS disk_info TEXT;
+ALTER TABLE IF EXISTS public.equipment ADD COLUMN IF NOT EXISTS cpu_info TEXT;
+ALTER TABLE IF EXISTS public.equipment ADD COLUMN IF NOT EXISTS monitor_info TEXT;
+ALTER TABLE IF EXISTS public.equipment ADD COLUMN IF NOT EXISTS manufacture_date DATE;
 
 -- 4. AUDITORIA DE SEGURANÇA RLS
 DO $$ 
@@ -64,7 +73,7 @@ BEGIN
     END LOOP;
 END $$;
 
--- 5. REFRESH SCHEMA CACHE (Crítico para o erro do utilizador)
+-- 5. REFRESH SCHEMA CACHE (Crítico para PostgREST detetar as novas colunas)
 NOTIFY pgrst, 'reload schema';
 `;
 
