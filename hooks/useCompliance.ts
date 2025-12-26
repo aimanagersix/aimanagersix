@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useEffect } from 'react';
 import * as dataService from '../services/dataService';
 import { BusinessService, ServiceDependency, Vulnerability, BackupExecution, ResilienceTest, SecurityTrainingRecord, Policy, PolicyAcceptance, ContinuityPlan, ConfigItem } from '../types';
@@ -19,7 +18,8 @@ export const useCompliance = (isConfigured: boolean) => {
         configCiaRatings: [] as ConfigItem[],
         configServiceStatuses: [] as ConfigItem[],
         configBackupTypes: [] as ConfigItem[],
-        configResilienceTestTypes: [] as ConfigItem[]
+        configResilienceTestTypes: [] as ConfigItem[],
+        configHolidayTypes: [] as ConfigItem[] // Pedido 3
     });
     const [isLoading, setIsLoading] = useState(false);
 
@@ -28,7 +28,7 @@ export const useCompliance = (isConfigured: boolean) => {
         setIsLoading(true);
         try {
             const complianceData = await dataService.fetchComplianceData();
-            setData(complianceData);
+            setData(prev => ({ ...prev, ...complianceData }));
         } catch (error) {
             console.error("Failed to fetch compliance data", error);
         } finally {

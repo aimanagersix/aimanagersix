@@ -1,4 +1,3 @@
-
 import { getSupabase } from './supabaseClient';
 
 const sb = () => getSupabase();
@@ -27,7 +26,8 @@ export const fetchComplianceData = async () => {
         sb().from('config_cia_ratings').select('*'),
         sb().from('config_service_statuses').select('*'),
         sb().from('config_backup_types').select('*'),
-        sb().from('config_resilience_test_types').select('*')
+        sb().from('config_resilience_test_types').select('*'),
+        sb().from('config_holiday_types').select('*') // Pedido 3
     ]);
     return {
         businessServices: results[0].data || [], 
@@ -44,7 +44,8 @@ export const fetchComplianceData = async () => {
         configCiaRatings: results[11].data || [],
         configServiceStatuses: results[12].data || [],
         configBackupTypes: results[13].data || [],
-        configResilienceTestTypes: results[14].data || []
+        configResilienceTestTypes: results[14].data || [],
+        configHolidayTypes: results[15].data || [] // Pedido 3
     };
 };
 

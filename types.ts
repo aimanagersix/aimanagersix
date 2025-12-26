@@ -1,4 +1,3 @@
-
 export enum UserRole {
     SuperAdmin = 'SuperAdmin',
     Admin = 'Admin',
@@ -613,6 +612,88 @@ export interface ContinuityPlan {
     document_name?: string;
 }
 
+export enum BackupType {
+    Full = 'Full',
+    Incremental = 'Incremental',
+    Differential = 'Differential'
+}
+
+export enum ResilienceTestType {
+    VulnerabilityScan = 'Vulnerability Scan',
+    Pentest = 'Pentest',
+    RedTeaming = 'Red Teaming',
+    DRPTest = 'DRP Test',
+    Tabletop = 'Tabletop'
+}
+
+export enum TrainingType {
+    Phishing = 'Phishing',
+    Awareness = 'Geral / Awareness',
+    Technical = 'Técnica / SOC',
+    Privacy = 'Privacidade / RGPD'
+}
+
+export interface DiagnosticResult {
+    module: string;
+    status: 'Success' | 'Failure' | 'Warning';
+    message: string;
+}
+
+export interface DbPolicy {
+    tablename: string;
+    policyname: string;
+    permissive: string;
+    roles: string[];
+    cmd: string;
+    qual: string;
+    with_check: string;
+}
+
+export interface DbTrigger {
+    trigger_name: string;
+    event_manipulation: string;
+    event_object_table: string;
+    action_statement: string;
+}
+
+export interface DbFunction {
+    routine_name: string;
+    routine_type: string;
+}
+
+export interface AutomationRule {
+    id: string;
+    name: string;
+    trigger_event: 'TICKET_CREATED' | 'EQUIPMENT_CREATED';
+    conditions: RuleCondition[];
+    actions: RuleAction[];
+    priority: number;
+    is_active: boolean;
+    description?: string;
+    created_at?: string;
+}
+
+export interface RuleCondition {
+    field: string;
+    operator: 'equals' | 'not_equals' | 'contains' | 'starts_with' | 'greater_than' | 'less_than' | 'is_empty' | 'is_not_empty';
+    value: any;
+}
+
+export interface RuleAction {
+    type: 'ASSIGN_TEAM' | 'ASSIGN_USER' | 'SET_PRIORITY' | 'SET_STATUS' | 'UPDATE_FIELD' | 'SEND_EMAIL';
+    value: any;
+    target_field?: string;
+}
+
+export interface DocumentTemplate {
+    id: string;
+    name: string;
+    type: 'equipment' | 'collaborator' | 'generic';
+    template_json: any;
+    is_active: boolean;
+    created_at: string;
+}
+
 export interface AuditLogEntry {
     id: string;
     timestamp: string;
@@ -628,92 +709,10 @@ export interface Holiday {
     name: string;
     start_date: string; 
     end_date?: string; 
-    type: 'Holiday' | 'Vacation' | 'Bridge' | 'Other';
+    type: string; // Agora dinâmico vindo da tabela config_holiday_types
     is_recurring: boolean;
     collaborator_id?: string; 
     instituicao_id?: string; 
 }
 
-export enum BackupType {
-    Full = 'Full',
-    Incremental = 'Incremental',
-    Differential = 'Differential'
-}
-
-export enum ResilienceTestType {
-    VulnerabilityScan = 'Vulnerability Scan',
-    Pentest = 'Pentest',
-    DRP = 'DRP',
-    RedTeaming = 'Red Teaming'
-}
-
-export interface RuleCondition {
-    field: string;
-    operator: 'equals' | 'not_equals' | 'contains' | 'starts_with' | 'greater_than' | 'less_than' | 'is_empty' | 'is_not_empty';
-    value: any;
-}
-
-export interface RuleAction {
-    type: 'ASSIGN_TEAM' | 'ASSIGN_USER' | 'SET_PRIORITY' | 'SET_STATUS' | 'UPDATE_FIELD' | 'SEND_EMAIL';
-    value: any;
-    target_field?: string;
-}
-
-export interface AutomationRule {
-    id: string;
-    name: string;
-    description?: string;
-    trigger_event: 'TICKET_CREATED' | 'EQUIPMENT_CREATED';
-    conditions: RuleCondition[];
-    actions: RuleAction[];
-    priority: number;
-    is_active: boolean;
-    created_at: string;
-}
-
-export enum TrainingType {
-    SecurityAwareness = 'Consciencialização de Segurança',
-    PhishingSimulation = 'Simulação de Phishing',
-    DataProtection = 'Proteção de Dados (RGPD)',
-    SecureCoding = 'Desenvolvimento Seguro',
-    IncidentResponse = 'Resposta a Incidentes'
-}
-
-export interface DiagnosticResult {
-    module: string;
-    status: 'Success' | 'Failure' | 'Warning';
-    message: string;
-}
-
-export interface DocumentTemplate {
-    id: string;
-    name: string;
-    type: 'equipment' | 'collaborator' | 'generic';
-    template_json: any;
-    is_active: boolean;
-    created_at: string;
-}
-
-export interface DbPolicy {
-    tablename: string;
-    policyname: string;
-    roles: string[];
-    cmd: string;
-    qual: string;
-    with_check: string;
-}
-
-export interface DbTrigger {
-    trigger_name: string;
-    event_manipulation: string;
-    event_object_table: string;
-    action_statement: string;
-    action_timing: string;
-}
-
-export interface DbFunction {
-    routine_name: string;
-    routine_type: string;
-    data_type: string;
-    routine_definition: string;
-}
+export interface HolidayType extends ConfigItem {}
