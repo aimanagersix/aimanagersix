@@ -100,7 +100,7 @@ export const fetchInventoryData = async () => {
         softwareProducts: results[8].data || [],
         suppliers: results[9].data || [], 
         configEquipmentStatuses: results[10].data || [],
-        configLicenseStatuses: results[11].data || [],
+        configTicketStatuses: results[11].data || [],
         configCpus: results[12].data || [], 
         configRamSizes: results[13].data || [], 
         configStorageTypes: results[14].data || [],
@@ -219,7 +219,9 @@ export const addLicense = async (lic: any) => {
     return data; 
 };
 export const addMultipleLicenses = async (items: any[]) => { 
-    await sb().from('software_licenses').insert(items.map(cleanPayload)); 
+    // Fix: Captured the error object from the supabase insert operation
+    const { error } = await sb().from('software_licenses').insert(items.map(cleanPayload)); 
+    if (error) throw error;
 };
 export const updateLicense = async (id: string, updates: any) => { 
     const { error } = await sb().from('software_licenses').update(cleanPayload(updates)).eq('id', id); 
