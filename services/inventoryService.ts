@@ -243,7 +243,7 @@ export const deleteProcurement = async (id: string) => {
     if (error) throw error;
 };
 export const addSoftwareProduct = async (p: any) => { 
-    const { error = await sb().from('config_software_products').insert(cleanPayload(p)); 
+    const { error } = await sb().from('config_software_products').insert(cleanPayload(p)); 
     if (error) throw error;
 };
 export const updateSoftwareProduct = async (id: string, updates: any) => { 

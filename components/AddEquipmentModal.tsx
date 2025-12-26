@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import Modal from './common/Modal';
 import { Equipment, EquipmentType, Brand, CriticalityLevel, CIARating, Supplier, SoftwareLicense, Entidade, Collaborator, CollaboratorStatus, ConfigItem, EquipmentStatus, LicenseAssignment } from '../types';
@@ -748,6 +747,28 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                                     <div>
                                         <label htmlFor="mac_address_cabo" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Endereço MAC Cabo</label>
                                         <input type="text" name="mac_address_cabo" id="mac_address_cabo" value={formData.mac_address_cabo} onChange={handleChange} placeholder="00:1A:2B:3C:4D:5F" className={`w-full bg-gray-700 border text-white rounded-md p-2 ${errors.mac_address_cabo ? 'border-red-500' : 'border-gray-600'}`} />
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Pedido 4: Inclusão de campos adicionais de Hardware se requeridos pelo tipo */}
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                                {selectedType?.requires_wwan_address && (
+                                    <div>
+                                        <label htmlFor="wwan_address" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">IMEI / WWAN (SIM)</label>
+                                        <input type="text" name="wwan_address" id="wwan_address" value={formData.wwan_address || ''} onChange={handleChange} placeholder="ID do modem 4G/5G" className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm" />
+                                    </div>
+                                )}
+                                {selectedType?.requires_bluetooth_address && (
+                                    <div>
+                                        <label htmlFor="bluetooth_address" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Endereço Bluetooth</label>
+                                        <input type="text" name="bluetooth_address" id="bluetooth_address" value={formData.bluetooth_address || ''} onChange={handleChange} placeholder="XX:XX:XX:XX:XX:XX" className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm" />
+                                    </div>
+                                )}
+                                {selectedType?.requires_usb_thunderbolt_address && (
+                                    <div>
+                                        <label htmlFor="usb_thunderbolt_address" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">USB / Thunderbolt ID</label>
+                                        <input type="text" name="usb_thunderbolt_address" id="usb_thunderbolt_address" value={formData.usb_thunderbolt_address || ''} onChange={handleChange} placeholder="ID da controladora" className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm" />
                                     </div>
                                 )}
                             </div>
