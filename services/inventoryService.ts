@@ -87,6 +87,7 @@ export const fetchInventoryData = async () => {
         sb().from('config_job_titles').select('*'),
         sb().from('config_collaborator_deactivation_reasons').select('*')
     ]);
+    
     return {
         equipment: results[0].data || [], 
         brands: results[1].data || [], 
@@ -99,16 +100,15 @@ export const fetchInventoryData = async () => {
         softwareProducts: results[8].data || [],
         suppliers: results[9].data || [], 
         configEquipmentStatuses: results[10].data || [],
-        configTicketStatuses: results[11].data || [],
-        configLicenseStatuses: results[12].data || [],
-        configCpus: results[13].data || [], 
-        configRamSizes: results[14].data || [], 
-        configStorageTypes: results[15].data || [],
-        configAccountingCategories: results[16].data || [], 
-        configConservationStates: results[17].data || [],
-        configDecommissionReasons: results[18].data || [],
-        configJobTitles: results[19].data || [],
-        configCollaboratorDeactivationReasons: results[20].data || []
+        configLicenseStatuses: results[11].data || [],
+        configCpus: results[12].data || [], 
+        configRamSizes: results[13].data || [], 
+        configStorageTypes: results[14].data || [],
+        configAccountingCategories: results[15].data || [], 
+        configConservationStates: results[16].data || [],
+        configDecommissionReasons: results[17].data || [],
+        configJobTitles: results[18].data || [],
+        configCollaboratorDeactivationReasons: results[19].data || []
     };
 };
 
@@ -225,7 +225,6 @@ export const updateLicense = async (id: string, updates: any) => {
     const { error } = await sb().from('software_licenses').update(cleanPayload(updates)).eq('id', id); 
     if (error) throw error;
 };
-// Fix: Added deleteLicense to resolve missing property error in InventoryManager
 export const deleteLicense = async (id: string) => { 
     const { error } = await sb().from('software_licenses').delete().eq('id', id); 
     if (error) throw error;

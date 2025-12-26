@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Modal from './common/Modal';
 import { Entidade, Instituicao, EntidadeStatus } from '../types';
 import { SpinnerIcon, SearchIcon, CheckIcon } from './common/Icons';
-import { FaGlobe, FaPhone, FaEnvelope, FaBuilding, FaMapMarkerAlt } from 'react-icons/fa';
+import { FaGlobe, FaPhone, FaEnvelope, FaBuilding, FaMapMarkerAlt, FaSearchLocation } from 'react-icons/fa';
 
 interface AddEntidadeModalProps {
     onClose: () => void;
@@ -35,31 +35,68 @@ const AddEntidadeModal: React.FC<AddEntidadeModalProps> = ({ onClose, onSave, en
         if (entidadeToEdit) setFormData({ ...entidadeToEdit });
     }, [entidadeToEdit]);
 
-    const handlePostalCodeChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Função de mapeamento robusto para os campos do CP
+    const mapCPData = (data: any) => {
+        setFormData((prev: any) => ({
+            ...prev,
+            city: data.Concelho || data.concelho || prev.city,
+            locality: data.Freguesia || data.freguesia || (data.part && data.part[0] ? data.part[0] : prev.locality),
+            address_line: !prev.address_line?.trim() ? (data.Designacao || data.designacao || prev.address_line) : prev.address_line
+        }));
+    };
+
+    const fetchCPData = async () => {
+        const cp = formData.postal_code?.trim() || '';
+        if (!/^\d{4}-\d{3}$/.test(cp)) {
+            alert("Introduza o Código Postal no formato 0000-000.");
+            return;
+        }
+
+        setIsFetchingCP(true);
+        try {
+            const response = await fetch(`https://json.geoapi.pt/cp/${cp}`);
+            if (response.ok) {
+                const data = await response.json();
+                mapCPData(data);
+            } else {
+                alert("Código Postal não encontrado.");
+            }
+        } catch (e) {
+            console.error("Erro ao consultar CP:", e);
+            alert("Falha na ligação ao serviço de moradas.");
+        } finally {
+            setIsFetchingCP(false);
+        }
+    };
+
+    const handlePostalCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         let val = e.target.value.replace(/[^0-9-]/g, ''); 
         if (val.length > 4 && val.indexOf('-') === -1) val = val.slice(0, 4) + '-' + val.slice(4);
         if (val.length > 8) val = val.slice(0, 8);
-
-        setFormData(prev => ({ ...prev, postal_code: val }));
-
-        if (/^\d{4}-\d{3}$/.test(val)) {
-            setIsFetchingCP(true);
-            try {
-                const res = await fetch(`https://json.geoapi.pt/cp/${val}`);
-                if (res.ok) {
-                    const data = await res.json();
-                    if (data && data.Concelho) {
-                        setFormData(prev => ({
-                            ...prev,
-                            city: data.Concelho,
-                            locality: data.Freguesia || (data.part && data.part[0]) || ''
-                        }));
-                    }
-                }
-            } catch (err) { console.warn("Erro CP:", err); }
-            finally { setIsFetchingCP(false); }
-        }
+        setFormData((prev: any) => ({ ...prev, postal_code: val }));
     };
+
+    // Disparo automático ao completar CP
+    useEffect(() => {
+        const cp = formData.postal_code || '';
+        if (/^\d{4}-\d{3}$/.test(cp)) {
+            const fetchAutoCP = async () => {
+                setIsFetchingCP(true);
+                try {
+                    const response = await fetch(`https://json.geoapi.pt/cp/${cp}`);
+                    if (response.ok) {
+                        const data = await response.json();
+                        mapCPData(data);
+                    }
+                } catch (e) {
+                    console.error("Erro ao consultar CP automático:", e);
+                } finally {
+                    setIsFetchingCP(false);
+                }
+            };
+            fetchAutoCP();
+        }
+    }, [formData.postal_code]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -105,7 +142,7 @@ const AddEntidadeModal: React.FC<AddEntidadeModalProps> = ({ onClose, onSave, en
                         </div>
                         <div>
                             <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Email Geral</label>
-                            <input type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm focus:border-brand-primary outline-none" required placeholder="entidade@empresa.pt" />
+                            <input type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full bg-gray-800 border border-gray-600 text-white rounded p-2 text-sm focus:border-brand-primary outline-none" required placeholder="entidade@empresa.pt" />
                         </div>
                         <div className="grid grid-cols-2 gap-3">
                             <div>
@@ -129,8 +166,16 @@ const AddEntidadeModal: React.FC<AddEntidadeModalProps> = ({ onClose, onSave, en
                             <div>
                                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Código Postal</label>
                                 <div className="relative">
-                                    <input type="text" value={formData.postal_code} onChange={handlePostalCodeChange} placeholder="0000-000" className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm outline-none focus:border-brand-primary" />
-                                    {isFetchingCP && <div className="absolute right-2 top-2"><SpinnerIcon className="h-4 w-4"/></div>}
+                                    <input type="text" value={formData.postal_code} onChange={handlePostalCodeChange} placeholder="0000-000" className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm outline-none focus:border-brand-primary" maxLength={8} />
+                                    <button 
+                                        type="button" 
+                                        onClick={fetchCPData} 
+                                        className="absolute right-2 top-2 p-1 text-gray-500 hover:text-brand-secondary transition-colors"
+                                        title="Pesquisar Morada"
+                                    >
+                                        <FaSearchLocation />
+                                    </button>
+                                    {isFetchingCP && <div className="absolute right-8 top-2"><SpinnerIcon className="h-4 w-4"/></div>}
                                 </div>
                             </div>
                             <div>

@@ -6,7 +6,7 @@ import { FaCamera, FaKey, FaUserShield, FaUserTie, FaBuilding, FaMapMarkerAlt, F
 import * as dataService from '../services/dataService';
 
 /**
- * ADD COLLABORATOR MODAL - V5.10 (Advanced CP Mapping Fix)
+ * ADD COLLABORATOR MODAL - V5.11 (Advanced CP Mapping & Fix)
  * -----------------------------------------------------------------------------
  * STATUS DE BLOQUEIO RIGOROSO (Freeze UI):
  * - PEDIDO 4: LUPA DO CP AGORA DISPARA PESQUISA MANUAL E PREENCHE TUDO.
@@ -121,14 +121,12 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
         }
     }, [collaboratorToEdit]);
 
-    // Pedido 4: Autocomplete Código Postal Avançado (Mapeamento Robusto)
+    // Mapeamento robusto dos dados da API
     const mapCPData = (data: any) => {
-        setFormData(prev => ({
+        setFormData((prev: any) => ({
             ...prev,
             city: data.Concelho || data.concelho || prev.city,
-            // Mapeia Freguesia ou tenta a primeira parte da morada se for um CP genérico
             locality: data.Freguesia || data.freguesia || (data.part && data.part[0] ? data.part[0] : prev.locality),
-            // Preenche a rua (Designação) se o campo estiver vazio
             address_line: !prev.address_line?.trim() ? (data.Designacao || data.designacao || prev.address_line) : prev.address_line
         }));
     };
@@ -157,7 +155,7 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
         }
     };
 
-    // Pedido 4: Disparo automático ao completar CP
+    // Disparo automático ao completar CP
     useEffect(() => {
         const cp = formData.postal_code || '';
         if (/^\d{4}-\d{3}$/.test(cp)) {
@@ -178,6 +176,14 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
             fetchAutoCP();
         }
     }, [formData.postal_code]);
+
+    // Added missing handlePostalCodeChange function
+    const handlePostalCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        let val = e.target.value.replace(/[^0-9-]/g, ''); 
+        if (val.length > 4 && val.indexOf('-') === -1) val = val.slice(0, 4) + '-' + val.slice(4);
+        if (val.length > 8) val = val.slice(0, 8);
+        setFormData((prev: any) => ({ ...prev, postal_code: val }));
+    };
 
     const validateForm = () => {
         const newErrors: Record<string, string> = {};
@@ -295,7 +301,7 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
                     </div>
                     <div>
                         <label className="block text-xs font-bold text-gray-500 uppercase mb-1 flex items-center gap-2"><FaMapMarkerAlt/> Entidade / Local</label>
-                        <select value={formData.entidade_id} onChange={e => setFormData({...formData, entidade_id: e.target.value})} className="w-full bg-gray-800 border border-gray-700 text-white rounded p-2 text-sm">
+                        <select value={formData.entidade_id} onChange={handleEntityChange} className="w-full bg-gray-800 border border-gray-700 text-white rounded p-2 text-sm">
                             <option value="">-- Selecione Entidade --</option>
                             {entidades.filter(e => !formData.instituicao_id || e.instituicao_id === formData.instituicao_id).map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
                         </select>
@@ -330,7 +336,7 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
                             <input type="text" value={formData.address_line} onChange={e => setFormData({...formData, address_line: e.target.value})} className="w-full bg-gray-800 border border-gray-600 text-white rounded p-2 text-sm mb-2" placeholder="Rua, Número..." />
                             <div className="grid grid-cols-2 gap-2">
                                 <div className="relative">
-                                    <input type="text" value={formData.postal_code} onChange={e => setFormData({...formData, postal_code: e.target.value})} className="w-full bg-gray-800 border border-gray-600 text-white rounded p-2 text-sm" placeholder="0000-000" maxLength={8} />
+                                    <input type="text" value={formData.postal_code} onChange={handlePostalCodeChange} className="w-full bg-gray-800 border border-gray-600 text-white rounded p-2 text-sm" placeholder="0000-000" maxLength={8} />
                                     <button 
                                         type="button" 
                                         onClick={fetchCPData} 
