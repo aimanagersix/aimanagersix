@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import Header from './Header';
 import Sidebar from './Sidebar';
@@ -45,7 +46,6 @@ export const App: React.FC = () => {
 
     const [isConfigured, setIsConfigured] = useState<boolean>(() => {
         if (dataService.isUsingMock()) return true;
-        // Pedido 4: Verifica SB_URL (prefixo padronizado) ou SUPABASE_URL
         return !!(process.env.SB_URL || process.env.SUPABASE_URL || localStorage.getItem('SB_URL') || localStorage.getItem('SUPABASE_URL'));
     });
     
@@ -207,10 +207,23 @@ export const App: React.FC = () => {
             const { data: { session: curSess } } = await supabase.auth.getSession();
             setSession(curSess);
             if (curSess?.user) {
+                // Se temos sessão, mas os colaboradores ainda não carregaram, aguardamos no splash
+                if (org.data.collaborators.length === 0) {
+                   return; 
+                }
                 const user = org.data.collaborators.find(c => c.email === curSess.user.email);
-                if (user) { setCurrentUser(user); setIsAppLoading(false); }
-                else if (org.data.collaborators.length > 0) setIsAppLoading(false);
-            } else setIsAppLoading(false);
+                if (user) { 
+                    setCurrentUser(user); 
+                    setIsAppLoading(false); 
+                } else {
+                    // Sessão válida mas utilizador não está na tabela public.collaborators
+                    // Pode ser erro de RLS ou Sync. Desbloqueamos para mostrar Erro ou Login.
+                    setIsAppLoading(false);
+                }
+            } else {
+                // Sem sessão, vai para Login
+                setIsAppLoading(false);
+            }
         };
         initSession();
         
@@ -232,7 +245,6 @@ export const App: React.FC = () => {
         try {
             await supabase.auth.signOut();
             
-            // Limpeza extensiva de estado local e persistência
             Object.keys(localStorage).forEach(key => {
                 if (key.startsWith('sb-')) {
                     localStorage.removeItem(key);
@@ -245,7 +257,6 @@ export const App: React.FC = () => {
             setCurrentUser(null);
             setSession(null);
             
-            // Força o redirecionamento imediato para a raiz para limpar a aplicação
             window.location.assign(window.location.origin);
         } catch (e) {
             console.error("Erro crítico no Logout:", e);
@@ -263,11 +274,17 @@ export const App: React.FC = () => {
 
     if (!isConfigured) return <ConfigurationSetup onConfigured={() => setIsConfigured(true)} />;
     
-    // Se não houver utilizador e não estiver em carregamento inicial, mostra Login
-    if (!currentUser && !isAppLoading) return <LoginPage onLogin={async () => ({ success: true })} onForgotPassword={() => {}} />;
+    // Splash Screen Fix: Só bloqueia se houver sessão ativa mas o fetch de dados organizacionais ainda estiver pendente
+    if (isAppLoading || (session && !currentUser && org.data.collaborators.length === 0)) {
+        return (
+            <div className="min-h-screen bg-background-dark flex flex-col items-center justify-center text-white">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-secondary mb-4"></div>
+                <p className="font-bold tracking-widest text-gray-500 uppercase text-xs">Sincronizando Sistema...</p>
+            </div>
+        );
+    }
     
-    // Se estiver em carregamento ou processando logout, mostra a tela de splash
-    if (isAppLoading || (!currentUser && session)) return <div className="min-h-screen bg-background-dark flex flex-col items-center justify-center text-white"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-secondary mb-4"></div><p className="font-bold tracking-widest text-gray-500 uppercase text-xs">Sincronizando Sistema...</p></div>;
+    if (!currentUser) return <LoginPage onLogin={async () => ({ success: true })} onForgotPassword={() => {}} />;
 
     const mainMarginClass = layoutMode === 'side' ? (sidebarExpanded ? 'md:ml-64' : 'md:ml-20') : '';
 
