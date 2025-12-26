@@ -6,11 +6,11 @@ import { FaCamera, FaKey, FaUserShield, FaUserTie, FaBuilding, FaMapMarkerAlt, F
 import * as dataService from '../services/dataService';
 
 /**
- * ADD COLLABORATOR MODAL - V5.16 (Layout & Role Sync)
+ * ADD COLLABORATOR MODAL - V5.17 (Layout & Profile Refinement)
  * -----------------------------------------------------------------------------
  * STATUS DE BLOQUEIO RIGOROSO (Freeze UI):
  * - PEDIDO 3: AJUSTE DE TAMANHO TRATO (PEQUENO) E NOME (GRANDE).
- * - PEDIDO 3: LIMPEZA DE DESCRITORES NOS PERFIS (ROLE) PARA SYNC RBAC.
+ * - PEDIDO 3: LIMPEZA DE DESCRITORES NOS PERFIS (ROLE).
  * -----------------------------------------------------------------------------
  */
 
@@ -277,7 +277,7 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
                     </div>
                     
                     <div className="flex-1 grid grid-cols-4 md:grid-cols-6 gap-4 w-full">
-                        {/* Pedido 3: Ajuste de layout Trato(1) e Nome(5) */}
+                        {/* Pedido 3: Ajuste estético Trato(1) e Nome(5) */}
                         <div className="col-span-1">
                             <label className="block text-[10px] font-black text-gray-500 uppercase mb-1 truncate tracking-widest">Trato</label>
                             <select value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} className="w-full bg-gray-800 border border-gray-700 text-white rounded p-2 text-sm focus:border-brand-primary outline-none">
@@ -407,7 +407,6 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
                                 <div>
                                     <label className="block text-[10px] text-gray-500 uppercase font-black mb-1">Perfil (Role)</label>
                                     <select value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})} className="w-full bg-gray-800 border border-gray-700 text-white rounded p-2 text-sm">
-                                        {/* Pedido 3: Limpeza de nomes de perfis para sync RBAC */}
                                         <option value="Utilizador">Utilizador</option>
                                         <option value="Técnico">Técnico</option>
                                         <option value="Admin">Admin</option>

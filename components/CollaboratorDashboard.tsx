@@ -502,10 +502,7 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
                     {col.telemovel && <div className="text-xs text-gray-400">Móvel: {col.telemovel}</div>}
                 </td>
                 <td className="px-6 py-4">
-                    {/* Pedido 3: Cargo restaurado na listagem */}
-                    <div className="font-semibold text-white text-sm">
-                        {resolvedJobTitle || <span className="text-gray-500 text-xs italic">Sem Cargo</span>}
-                    </div>
+                    <div className="font-semibold text-white text-sm">{resolvedJobTitle || <span className="text-gray-500 text-xs italic">Sem Cargo</span>}</div>
                     <div className="text-xs text-brand-secondary">{col.role}</div>
                 </td>
                 <td className="px-6 py-4 text-xs text-gray-300">{getAssociationText(col)}</td>

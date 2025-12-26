@@ -105,6 +105,7 @@ export const updateCollaborator = async (id: string, updates: any) => {
     return orgSvc.updateCollaborator(id, updates);
 };
 
-export const deleteCollaborator = async (id: string) => {
-    return orgSvc.deleteCollaborator(id);
+// Fix: Updated deleteCollaborator to accept reason parameter to match orgService and fix TS error in OrganizationManager
+export const deleteCollaborator = async (id: string, reason?: string) => {
+    return orgSvc.deleteCollaborator(id, reason);
 };

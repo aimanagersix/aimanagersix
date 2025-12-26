@@ -54,6 +54,13 @@ const cleanPayload = (data: any) => {
     Object.keys(data).forEach(key => {
         const targetKey = keyMap[key] || key;
         const val = data[key];
+        
+        // Pedido 4: Adicionada proteção explícita para evitar envio de colunas que podem não estar no cache do schema
+        // Se a chave for 'availability' e o valor for nulo/vazio, garantimos que não corrompe o pedido
+        if (targetKey === 'availability' && (val === undefined || val === null || val === '')) {
+            return; // Não envia se estiver vazio para evitar erro de schema cache
+        }
+
         if (typeof val === 'string' && val.trim() === '') {
             cleaned[targetKey] = null;
         } else if (numericFields.includes(targetKey)) {
@@ -68,7 +75,6 @@ const cleanPayload = (data: any) => {
 
 export const fetchInventoryData = async () => {
     const results = await Promise.all([
-        // Pedido 4: Filtrar Soft Delete
         sb().from('equipment').select('*').is('deleted_at', null),
         sb().from('brands').select('*'),
         sb().from('equipment_types').select('*'),
@@ -125,7 +131,6 @@ export const fetchEquipmentPaginated = async (params: {
     userId?: string, 
     isAdmin?: boolean 
 }) => {
-    // Pedido 4: Ocultar itens removidos logicamente
     let query = sb().from('equipment').select('*', { count: 'exact' }).is('deleted_at', null);
     if (!params.isAdmin && params.userId) {
         const { data: userEq } = await sb().from('assignments').select('equipment_id').eq('collaborator_id', params.userId).is('return_date', null);
@@ -191,11 +196,9 @@ export const addMultipleEquipment = async (items: any[]) => {
     await sb().from('equipment').insert(items.map(cleanPayload)); 
 };
 
-// Pedido 4: Implementação de Soft Delete com Auditoria para Equipamentos
 export const deleteEquipment = async (id: string, reason: string = 'Abate Administrativo') => { 
     const { data: { user } } = await sb().auth.getUser();
 
-    // 1. Marcar como removido logicamente
     const { error: softDelError } = await sb().from('equipment').update({ 
         deleted_at: new Date().toISOString(),
         status: 'Retirado (Arquivo)'
@@ -203,7 +206,6 @@ export const deleteEquipment = async (id: string, reason: string = 'Abate Admini
     
     if (softDelError) throw softDelError;
 
-    // 2. Registar na tabela de auditoria de abate
     await sb().from('decommission_audit').insert({
         resource_type: 'equipment',
         resource_id: id,

@@ -113,7 +113,34 @@ const OrganizationManager: React.FC<OrganizationManagerProps> = ({ activeTab, ap
             )}
 
             {activeTab === 'collaborators' && (
-                <CollaboratorDashboard collaborators={collabsData} totalItems={totalCollabs} loading={collabsLoading} page={collabPage} pageSize={collabPageSize} onPageChange={setCollabPage} onPageSizeChange={setCollabPageSize} onFilterChange={setCollabFilters} escolasDepartamentos={appData.entidades} instituicoes={appData.instituicoes} equipment={appData.equipment} assignments={appData.assignments} tickets={appData.tickets} ticketActivities={appData.ticketActivities} teamMembers={appData.teamMembers} collaboratorHistory={appData.collaboratorHistory} messages={appData.messages} currentUser={currentUser} onEdit={checkPermission('org_collaborators', 'edit') ? (c) => { setCollaboratorToEdit(c); setShowAddCollaboratorModal(true); } : undefined} onDelete={checkPermission('org_collaborators', 'delete') ? async (id) => { if(confirm("Deseja eliminar este colaborador?")) { await dataService.deleteCollaborator(id); await handleRefresh(); } } : undefined} onCreate={checkPermission('org_collaborators', 'create') ? () => { setCollaboratorToEdit(null); setShowAddCollaboratorModal(true); } : undefined} onShowHistory={(c) => { setHistoryCollaborator(c); setShowCollaboratorHistoryModal(true); }} onShowDetails={(c) => { setDetailCollaborator(c); setShowCollaboratorDetailModal(true); }} onStartChat={onStartChat} onToggleStatus={checkPermission('org_collaborators', 'edit') ? async (c) => { if(c.status === 'Ativo') { setCollaboratorToOffboard(c); setShowOffboardingModal(true); } else { await dataService.updateCollaborator(c.id, { status: 'Ativo' }); await handleRefresh(); } } : undefined} />
+                <CollaboratorDashboard 
+                    collaborators={collabsData} 
+                    totalItems={totalCollabs} 
+                    loading={collabsLoading} 
+                    page={collabPage} 
+                    pageSize={collabPageSize} 
+                    onPageChange={setCollabPage} 
+                    onPageSizeChange={setCollabPageSize} 
+                    onFilterChange={setCollabFilters} 
+                    escolasDepartamentos={appData.entidades} 
+                    instituicoes={appData.instituicoes} 
+                    equipment={appData.equipment} 
+                    assignments={appData.assignments} 
+                    tickets={appData.tickets} 
+                    ticketActivities={appData.ticketActivities} 
+                    teamMembers={appData.teamMembers} 
+                    collaboratorHistory={appData.collaboratorHistory} 
+                    messages={appData.messages} 
+                    currentUser={currentUser} 
+                    jobTitles={appData.configJobTitles}
+                    onEdit={checkPermission('org_collaborators', 'edit') ? (c) => { setCollaboratorToEdit(c); setShowAddCollaboratorModal(true); } : undefined} 
+                    onDelete={checkPermission('org_collaborators', 'delete') ? async (id, reason) => { if(confirm("Deseja eliminar este colaborador?")) { await dataService.deleteCollaborator(id, reason); await handleRefresh(); } } : undefined} 
+                    onCreate={checkPermission('org_collaborators', 'create') ? () => { setCollaboratorToEdit(null); setShowAddCollaboratorModal(true); } : undefined} 
+                    onShowHistory={(c) => { setHistoryCollaborator(c); setShowCollaboratorHistoryModal(true); }} 
+                    onShowDetails={(c) => { setDetailCollaborator(c); setShowCollaboratorDetailModal(true); }} 
+                    onStartChat={onStartChat} 
+                    onToggleStatus={checkPermission('org_collaborators', 'edit') ? async (c) => { if(c.status === 'Ativo') { setCollaboratorToOffboard(c); setShowOffboardingModal(true); } else { await dataService.updateCollaborator(c.id, { status: 'Ativo' }); await handleRefresh(); } } : undefined} 
+                />
             )}
 
             {activeTab === 'organizacao.suppliers' && (
