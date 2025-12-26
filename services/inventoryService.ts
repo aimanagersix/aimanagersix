@@ -44,7 +44,9 @@ const cleanPayload = (data: any) => {
         'categoryId': 'category_id',
         'supplier_id': 'supplier_id',
         'supplierId': 'supplier_id',
-        'externalProviderId': 'external_provider_id'
+        'externalProviderId': 'external_provider_id',
+        'defaultTeamId': 'default_team_id',
+        'default_team_id': 'default_team_id'
     };
 
     const numericFields = ['acquisition_cost', 'residual_value', 'unit_cost', 'total_seats', 'estimated_cost', 'quantity'];
@@ -66,7 +68,8 @@ const cleanPayload = (data: any) => {
 
 export const fetchInventoryData = async () => {
     const results = await Promise.all([
-        sb().from('equipment').select('*'),
+        // Pedido 4: Filtrar Soft Delete
+        sb().from('equipment').select('*').is('deleted_at', null),
         sb().from('brands').select('*'),
         sb().from('equipment_types').select('*'),
         sb().from('assignments').select('*'),
@@ -122,7 +125,8 @@ export const fetchEquipmentPaginated = async (params: {
     userId?: string, 
     isAdmin?: boolean 
 }) => {
-    let query = sb().from('equipment').select('*', { count: 'exact' });
+    // Pedido 4: Ocultar itens removidos logicamente
+    let query = sb().from('equipment').select('*', { count: 'exact' }).is('deleted_at', null);
     if (!params.isAdmin && params.userId) {
         const { data: userEq } = await sb().from('assignments').select('equipment_id').eq('collaborator_id', params.userId).is('return_date', null);
         const eqIds = userEq?.map(a => a.equipment_id) || [];
@@ -186,9 +190,28 @@ export const syncLicenseAssignments = async (equipmentId: string, licenseIds: st
 export const addMultipleEquipment = async (items: any[]) => { 
     await sb().from('equipment').insert(items.map(cleanPayload)); 
 };
-export const deleteEquipment = async (id: string) => { 
-    await sb().from('equipment').delete().eq('id', id); 
+
+// Pedido 4: Implementação de Soft Delete com Auditoria para Equipamentos
+export const deleteEquipment = async (id: string, reason: string = 'Abate Administrativo') => { 
+    const { data: { user } } = await sb().auth.getUser();
+
+    // 1. Marcar como removido logicamente
+    const { error: softDelError } = await sb().from('equipment').update({ 
+        deleted_at: new Date().toISOString(),
+        status: 'Retirado (Arquivo)'
+    }).eq('id', id); 
+    
+    if (softDelError) throw softDelError;
+
+    // 2. Registar na tabela de auditoria de abate
+    await sb().from('decommission_audit').insert({
+        resource_type: 'equipment',
+        resource_id: id,
+        reason: reason,
+        deleted_by: user?.email || 'Sistema'
+    });
 };
+
 export const addBrand = async (brand: any) => { 
     const { data, error } = await sb().from('brands').insert(cleanPayload(brand)).select().single(); 
     if (error) throw error;

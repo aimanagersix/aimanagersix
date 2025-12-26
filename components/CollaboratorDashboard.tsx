@@ -18,7 +18,7 @@ interface CollaboratorDashboardProps {
   messages: Message[];
   currentUser: Collaborator | null;
   onEdit?: (collaborator: Collaborator) => void;
-  onDelete?: (id: string) => void;
+  onDelete?: (id: string, reason: string) => void; // Pedido 4: Adicionado reason
   onShowHistory?: (collaborator: Collaborator) => void;
   onShowDetails?: (collaborator: Collaborator) => void;
   onGenerateReport?: () => void;
@@ -247,6 +247,14 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
         return 'Sem Associação';
     };
 
+    // Pedido 4: Função para capturar motivo e chamar remoção lógica
+    const handleDeleteWithReason = (col: Collaborator) => {
+        const reason = window.prompt(`Indique o motivo para a remoção de ${col.full_name}:`, 'Saída da organização / Reforma');
+        if (reason !== null && onDelete) {
+            onDelete(col.id, reason || 'Não especificado');
+        }
+    };
+
   return (
     <div className="bg-surface-dark p-4 md:p-6 rounded-lg shadow-xl">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
@@ -411,7 +419,7 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
                             )}
                              {onDelete && !isSuperAdmin && (
                                 <button 
-                                    onClick={() => { if (!isDeleteDisabled) onDelete(col.id); }} 
+                                    onClick={() => handleDeleteWithReason(col)} 
                                     className={`flex flex-col items-center justify-center p-2 rounded hover:bg-gray-700 bg-gray-700/30 ${isDeleteDisabled ? "text-gray-600 opacity-50 cursor-not-allowed" : "text-red-400 hover:text-red-300"}`}
                                     disabled={isDeleteDisabled}
                                 >
@@ -531,8 +539,8 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
                         )}
                         {onDelete && !isSuperAdmin && (
                             <button 
-                                onClick={(e) => { e.stopPropagation(); if (!isDeleteDisabled) onDelete(col.id); }} 
-                                className={`p-1 rounded hover:bg-gray-700 ${isDeleteDisabled ? "text-gray-600 opacity-50 cursor-not-allowed" : "text-red-400 hover:text-red-300"}`}
+                                onClick={(e) => { e.stopPropagation(); handleDeleteWithReason(col); }} 
+                                className={`p-1 rounded hover:bg-gray-700 ${isDeleteDisabled ? "text-gray-600 opacity-30 cursor-not-allowed" : "text-red-400 hover:text-red-300"}`}
                                 disabled={isDeleteDisabled}
                                 title={deleteTooltip}
                             >

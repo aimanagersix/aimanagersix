@@ -21,7 +21,8 @@ export const fetchOrganizationData = async () => {
     const results = await Promise.all([
         sb().from('institutions').select('*').order('name'),
         sb().from('entities').select('*').order('name'),
-        sb().from('collaborators').select('*').order('full_name'),
+        // Pedido 4: Filtrar Soft Delete
+        sb().from('collaborators').select('*').is('deleted_at', null).order('full_name'),
         sb().from('config_custom_roles').select('*').order('name'),
         sb().from('contact_titles').select('*').order('name'),
         sb().from('contact_roles').select('*').order('name'),
@@ -72,35 +73,19 @@ export const deleteEntidade = async (id: string) => {
 
 /**
  * addCollaborator v2.8 - Auth-First Flow
- * Todo o colaborador criado gera obrigatoriamente um utilizador no Supabase Auth.
- * O ID público na BD será igual ao ID privado no Auth.
  */
 export const addCollaborator = async (col: any, password?: string) => { 
-    // 1. Gerar password temporária se não existir (necessária para criar conta no Auth)
     const tempPass = password || "AIManager" + Math.floor(1000 + Math.random() * 9000) + "!";
-    
-    console.log(`[OrgService v2.8] Provisionando identidade Auth para: ${col.email}`);
-    
-    // 2. Provisionar no Supabase Auth primeiro (via Edge Function)
-    // Passamos um UUID aleatório como placeholder que será substituído pelo ID real do Auth
     const authResult = await adminProvisionUser(crypto.randomUUID(), col.email, tempPass);
-    
     if (!authResult.success || !authResult.user?.id) {
         throw new Error("Não foi possível criar a identidade digital (Auth) no servidor.");
     }
-
-    // 3. Inserir na tabela pública usando o ID retornado pelo Auth
     const payload = { 
         ...cleanPayload(col),
         id: authResult.user.id 
     };
-
     const { data, error } = await sb().from('collaborators').insert(payload).select().single(); 
-    if (error) {
-        console.error("[OrgService] Erro ao inserir colaborador público:", error);
-        throw error;
-    }
-    
+    if (error) throw error;
     return { ...data, temporaryPassword: tempPass }; 
 };
 
@@ -109,9 +94,25 @@ export const updateCollaborator = async (id: string, updates: any) => {
     if (error) throw error;
 };
 
-export const deleteCollaborator = async (id: string) => { 
-    const { error } = await sb().from('collaborators').delete().eq('id', id); 
-    if (error) throw error;
+// Pedido 4: Implementação de Soft Delete com Auditoria
+export const deleteCollaborator = async (id: string, reason: string = 'Remoção Administrativa') => { 
+    const { data: { user } } = await sb().auth.getUser();
+    
+    // 1. Marcar como removido logicamente
+    const { error: softDelError } = await sb().from('collaborators').update({ 
+        deleted_at: new Date().toISOString(),
+        status: 'Inativo'
+    }).eq('id', id); 
+    
+    if (softDelError) throw softDelError;
+
+    // 2. Registar na tabela de auditoria de abate
+    await sb().from('decommission_audit').insert({
+        resource_type: 'collaborator',
+        resource_id: id,
+        reason: reason,
+        deleted_by: user?.email || 'Sistema'
+    });
 };
 
 export const uploadCollaboratorPhoto = async (id: string, file: File) => { 
@@ -125,7 +126,8 @@ export const uploadCollaboratorPhoto = async (id: string, file: File) => {
 };
 
 export const fetchCollaboratorsPaginated = async (params: { page: number, pageSize: number, filters?: any, sort?: { key: string, direction: 'ascending' | 'descending' } }) => {
-    let query = sb().from('collaborators').select('*', { count: 'exact' });
+    // Pedido 4: Ocultar itens removidos logicamente
+    let query = sb().from('collaborators').select('*', { count: 'exact' }).is('deleted_at', null);
     if (params.filters) {
         if (params.filters.query) query = query.or(`full_name.ilike.%${params.filters.query}%,email.ilike.%${params.filters.query}%,numero_mecanografico.ilike.%${params.filters.query}%`);
         if (params.filters.entidade_id) query = query.eq('entidade_id', params.filters.entidade_id);

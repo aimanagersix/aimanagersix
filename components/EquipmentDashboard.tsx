@@ -25,7 +25,7 @@ interface EquipmentDashboardProps {
   onUpdateStatus?: (id: string, status: EquipmentStatus) => void;
   onShowHistory: (equipment: Equipment) => void;
   onEdit?: (equipment: Equipment) => void;
-  onDelete?: (id: string) => void; 
+  onDelete?: (id: string, reason: string) => void; // Pedido 4: Adicionado reason
   onClone?: (equipment: Equipment) => void;
   onGenerateReport?: () => void;
   onManageKeys?: (equipment: Equipment) => void;
@@ -287,6 +287,14 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
 
     const handleMouseLeave = () => setTooltip(null);
 
+    // Pedido 4: Função para capturar motivo e chamar remoção lógica de equipamento
+    const handleDeleteWithReason = (item: Equipment) => {
+        const reason = window.prompt(`Indique o motivo para o abate/saída de ${item.description} (S/N: ${item.serial_number}):`, 'Fim de vida útil / Avaria irreparável');
+        if (reason !== null && onDelete) {
+            onDelete(item.id, reason || 'Não especificado');
+        }
+    };
+
   return (
     <div className="bg-surface-dark p-6 rounded-lg shadow-xl">
         <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
@@ -458,10 +466,10 @@ const EquipmentDashboard: React.FC<EquipmentDashboardProps> = ({
                                 <button onClick={(e) => { e.stopPropagation(); onClone && onClone(item); }} className="text-indigo-400 hover:text-indigo-300" title="Clonar"><FaCopy /></button>
                                 {onDelete && (
                                     <button 
-                                        onClick={(e) => { e.stopPropagation(); if(confirm("Deseja apagar este equipamento?")) onDelete(item.id); }} 
+                                        onClick={(e) => { e.stopPropagation(); handleDeleteWithReason(item); }} 
                                         className={`${canDelete ? 'text-red-400 hover:text-red-300' : 'text-gray-600 opacity-30 cursor-not-allowed'}`} 
                                         disabled={!canDelete}
-                                        title={canDelete ? "Eliminar" : "Impossível eliminar: Existem registos associados"}
+                                        title={canDelete ? "Eliminar (Log de Auditoria)" : "Impossível eliminar: Existem registos associados"}
                                     >
                                         <FaTrash />
                                     </button>

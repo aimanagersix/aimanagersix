@@ -8,8 +8,8 @@ interface AddEquipmentTypeModalProps {
     onSave: (type: Omit<EquipmentType, 'id'> | EquipmentType) => Promise<any>;
     typeToEdit?: EquipmentType | null;
     existingTypes?: EquipmentType[];
-    // Fix: Added teams prop to match usage in SettingsManager.tsx
-    teams: Team[];
+    // Fix: Added teams prop to support team association
+    teams?: Team[];
 }
 
 const AddEquipmentTypeModal: React.FC<AddEquipmentTypeModalProps> = ({ onClose, onSave, typeToEdit, existingTypes = [], teams = [] }) => {
@@ -30,7 +30,7 @@ const AddEquipmentTypeModal: React.FC<AddEquipmentTypeModalProps> = ({ onClose, 
         requires_cpu_info: false,
         requires_manufacture_date: false,
         requires_ip: false,
-        // Fix: Added default_team_id to state
+        // Fix: Added default_team_id field
         default_team_id: ''
     });
     const [error, setError] = useState('');
@@ -89,10 +89,10 @@ const AddEquipmentTypeModal: React.FC<AddEquipmentTypeModalProps> = ({ onClose, 
             return;
         }
         
-        // Fix: Ensure default_team_id is null if empty for database compatibility
         const dataToSave = {
             ...formData,
             name,
+            // Fix: Include default_team_id in saved data
             default_team_id: formData.default_team_id || null
         };
 
@@ -113,7 +113,7 @@ const AddEquipmentTypeModal: React.FC<AddEquipmentTypeModalProps> = ({ onClose, 
     return (
         <Modal title={modalTitle} onClose={onClose}>
             <form onSubmit={handleSubmit} className="space-y-4 max-h-[75vh] overflow-y-auto pr-2 custom-scrollbar">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                         <label htmlFor="name" className="block text-sm font-bold text-gray-400 mb-1 uppercase tracking-widest text-[10px]">Nome do Tipo</label>
                         <input 
@@ -130,7 +130,7 @@ const AddEquipmentTypeModal: React.FC<AddEquipmentTypeModalProps> = ({ onClose, 
 
                     {/* Fix: Added Equipa Padrão select field */}
                     <div>
-                        <label htmlFor="default_team_id" className="block text-sm font-bold text-gray-400 mb-1 uppercase tracking-widest text-[10px]">Equipa Padrão (Suporte)</label>
+                        <label htmlFor="default_team_id" className="block text-sm font-bold text-gray-400 mb-1 uppercase tracking-widest text-[10px]">Equipa Padrão</label>
                         <select 
                             name="default_team_id" 
                             id="default_team_id" 
@@ -138,7 +138,7 @@ const AddEquipmentTypeModal: React.FC<AddEquipmentTypeModalProps> = ({ onClose, 
                             onChange={handleChange} 
                             className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm focus:border-brand-primary outline-none"
                         >
-                            <option value="">-- Nenhuma (Manual) --</option>
+                            <option value="">Nenhuma</option>
                             {teams.map(team => (
                                 <option key={team.id} value={team.id}>{team.name}</option>
                             ))}
@@ -154,7 +154,7 @@ const AddEquipmentTypeModal: React.FC<AddEquipmentTypeModalProps> = ({ onClose, 
                             <span className="ml-2 text-sm text-gray-300 group-hover:text-white transition-colors">Nome na Rede</span>
                         </label>
                         <label className="flex items-center cursor-pointer group">
-                            <input type="checkbox" name="requires_ip" checked={formData.requires_ip} onChange={handleChange} className="h-4 w-4 rounded border-gray-500 bg-gray-700 text-brand-primary focus:ring-brand-secondary" />
+                            <input type="checkbox" name="requires_ip" checked={formData.requires_ip} onChange={handleChange} className="h-4 w-4 rounded border-gray-700 text-brand-primary focus:ring-brand-secondary" />
                             <span className="ml-2 text-sm text-gray-300 group-hover:text-white transition-colors">Endereço IP</span>
                         </label>
                         <label className="flex items-center cursor-pointer group">

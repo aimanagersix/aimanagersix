@@ -1,5 +1,4 @@
 
-
 export enum UserRole {
     SuperAdmin = 'SuperAdmin',
     Admin = 'Admin',
@@ -97,7 +96,6 @@ export interface EquipmentType {
     requires_cpu_info: boolean;
     requires_manufacture_date: boolean;
     requires_ip: boolean;
-    // Fix: Added default_team_id property to match database schema and components usage
     default_team_id?: string;
 }
 
@@ -131,6 +129,7 @@ export interface Collaborator {
         tooltip_config?: TooltipConfig;
     };
     deactivation_reason_id?: string;
+    deleted_at?: string; // Pedido 4: Soft Delete
 }
 
 export interface Equipment {
@@ -179,6 +178,7 @@ export interface Equipment {
     creation_date: string;
     modified_date: string;
     procurement_request_id?: string;
+    deleted_at?: string; // Pedido 4: Soft Delete
 }
 
 export interface Assignment {
