@@ -1,7 +1,6 @@
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Modal from './common/Modal';
-import { Ticket, Entidade, Collaborator, Team, TeamMember, TicketCategoryItem, SecurityIncidentTypeItem, CriticalityLevel, TicketStatus, Instituicao, ModuleKey, PermissionAction, Equipment, Assignment, SoftwareLicense, LicenseAssignment, UserRole } from '../types';
+import { Ticket, Entidade, Collaborator, Team, TeamMember, TicketCategoryItem, SecurityIncidentTypeItem, CriticalityLevel, TicketStatus, Instituicao, ModuleKey, PermissionAction, Equipment, Assignment, SoftwareLicense, LicenseAssignment, UserRole, Holiday } from '../types';
 import { FaShieldAlt, FaSpinner, FaHistory, FaExclamationTriangle, FaUsers, FaUserTie, FaBuilding, FaLaptop, FaKey, FaBoxOpen, FaExternalLinkAlt, FaInfoCircle, FaCamera, FaTrash, FaPaperclip } from './common/Icons';
 
 interface AddTicketModalProps {
@@ -23,12 +22,13 @@ interface AddTicketModalProps {
     licenseAssignments: LicenseAssignment[];
     onViewEquipment?: (equipment: Equipment) => void;
     onViewLicense?: (license: SoftwareLicense) => void;
+    holidays?: Holiday[]; // Pedido 4
 }
 
 export const AddTicketModal: React.FC<AddTicketModalProps> = ({ 
     onClose, onSave, ticketToEdit, collaborators, teams, teamMembers = [], currentUser, categories, securityIncidentTypes = [], checkPermission, escolasDepartamentos: entidades, instituicoes,
     equipment, assignments, softwareLicenses, licenseAssignments,
-    onViewEquipment, onViewLicense
+    onViewEquipment, onViewLicense, holidays = []
 }) => {
     const [isSaving, setIsSaving] = useState(false);
     const isEditMode = !!ticketToEdit;
@@ -62,6 +62,25 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
             setFormData({ ...ticketToEdit, attachments: ticketToEdit.attachments || [] });
         }
     }, [ticketToEdit]);
+
+    // Pedido 4: Alerta de Férias do Técnico
+    const technicianVacationAlert = useMemo(() => {
+        if (!formData.technician_id || !holidays.length) return null;
+        
+        const now = new Date();
+        const next48h = new Date(now.getTime() + 48 * 60 * 60 * 1000);
+        
+        const upcomingAbsence = holidays.find(h => 
+            h.collaborator_id === formData.technician_id && 
+            new Date(h.date) >= now && 
+            new Date(h.date) <= next48h
+        );
+
+        if (upcomingAbsence) {
+            return `Atenção: Este técnico tem uma ausência registada (${upcomingAbsence.name}) para o dia ${new Date(upcomingAbsence.date).toLocaleDateString()}. Considere outro técnico se o assunto for urgente.`;
+        }
+        return null;
+    }, [formData.technician_id, holidays]);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const files = e.target.files;
@@ -171,7 +190,6 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
                             {isEditMode ? <div className="w-full bg-gray-900 border border-gray-700 text-gray-400 rounded p-2 text-sm italic whitespace-pre-wrap min-h-[100px]">{formData.description}</div> : <textarea value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} rows={4} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm focus:border-brand-primary outline-none" placeholder="Descreva o que aconteceu..." required />}
                         </div>
                         
-                        {/* Imagens Anexadas (Pedido 4) */}
                         <div className="border-t border-gray-700 pt-3 mt-3">
                             <div className="flex justify-between items-center mb-2">
                                 <label className="block text-[10px] font-black text-gray-400 uppercase flex items-center gap-2 tracking-widest"><FaCamera className="text-brand-secondary"/> Anexos (Imagens)</label>
@@ -214,7 +232,19 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
                         {canEditAdvanced && (
                             <div className="space-y-4 pt-2 border-t border-gray-700">
                                 <div><label className="block text-xs font-bold text-gray-400 uppercase mb-1 flex items-center gap-2"><FaUsers className="text-blue-400" /> Equipa Técnica</label><select value={formData.team_id || ''} onChange={e => setFormData({...formData, team_id: e.target.value})} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm focus:border-brand-primary outline-none"><option value="">-- Selecione --</option>{teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}</select></div>
-                                <div><label className="block text-xs font-bold text-gray-400 uppercase mb-1 flex items-center gap-2"><FaUserTie className="text-green-400" /> Técnico Atribuído</label><select value={formData.technician_id || ''} onChange={e => setFormData({...formData, technician_id: e.target.value})} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm focus:border-brand-primary outline-none"><option value="">-- Não Atribuído --</option>{filteredTechnicians.map(c => <option key={c.id} value={c.id}>{c.full_name}</option>)}</select></div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-400 uppercase mb-1 flex items-center gap-2"><FaUserTie className="text-green-400" /> Técnico Atribuído</label>
+                                    <select value={formData.technician_id || ''} onChange={e => setFormData({...formData, technician_id: e.target.value})} className={`w-full bg-gray-700 border text-white rounded p-2 text-sm focus:border-brand-primary outline-none ${technicianVacationAlert ? 'border-orange-500' : 'border-gray-600'}`}>
+                                        <option value="">-- Não Atribuído --</option>
+                                        {filteredTechnicians.map(c => <option key={c.id} value={c.id}>{c.full_name}</option>)}
+                                    </select>
+                                    {technicianVacationAlert && (
+                                        <div className="mt-2 p-2 bg-orange-900/30 border border-orange-500/50 rounded flex items-start gap-2 animate-pulse">
+                                            <FaExclamationTriangle className="text-orange-400 mt-0.5 flex-shrink-0" />
+                                            <p className="text-[10px] text-orange-200 leading-tight font-bold">{technicianVacationAlert}</p>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         )}
                     </div>

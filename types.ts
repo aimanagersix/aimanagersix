@@ -1,4 +1,3 @@
-
 export enum UserRole {
     SuperAdmin = 'SuperAdmin',
     Admin = 'Admin',
@@ -26,7 +25,7 @@ export type ModuleKey =
     | 'org_institutions' | 'org_entities' | 'org_collaborators' | 'org_suppliers'
     | 'notif_tickets' | 'notif_licenses' | 'notif_warranties'
     | 'msg_tickets' | 'msg_licenses' | 'msg_warranties'
-    | 'holidays'; // Pedido 3
+    | 'holidays' | 'vacation_schedule' | 'vacation_report'; // Pedido 4
 
 export type PermissionAction = 'view' | 'view_own' | 'create' | 'edit' | 'delete' | 'manage';
 

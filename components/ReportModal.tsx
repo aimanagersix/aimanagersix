@@ -1,8 +1,7 @@
-
 import React, { useState, useMemo } from 'react';
 import Modal from './common/Modal';
-import { Equipment, Entidade, Collaborator, Assignment, Ticket, SoftwareLicense, LicenseAssignment, BusinessService, ServiceDependency, Instituicao, Brand, EquipmentType } from '../types';
-import { FaPrint, FaDownload, FaFilePdf, FaFilter } from 'react-icons/fa';
+import { Equipment, Entidade, Collaborator, Assignment, Ticket, SoftwareLicense, LicenseAssignment, BusinessService, ServiceDependency, Instituicao, Brand, EquipmentType, Holiday } from '../types';
+import { FaPrint, FaDownload, FaFilePdf, FaFilter, FaUmbrellaBeach, FaCalendarAlt } from 'react-icons/fa';
 import PrintPreviewModal from './PrintPreviewModal';
 
 interface ReportModalProps {
@@ -20,6 +19,7 @@ interface ReportModalProps {
     licenseAssignments?: LicenseAssignment[];
     businessServices?: BusinessService[];
     serviceDependencies?: ServiceDependency[];
+    holidays?: Holiday[]; // Pedido 4
 }
 
 const ReportModal: React.FC<ReportModalProps> = ({ 
@@ -27,130 +27,125 @@ const ReportModal: React.FC<ReportModalProps> = ({
     equipment = [], brandMap = new Map(), equipmentTypeMap = new Map(), 
     instituicoes = [], escolasDepartamentos: entidades = [], collaborators = [], 
     assignments = [], tickets = [], softwareLicenses = [], licenseAssignments = [], 
-    businessServices = [], serviceDependencies = [] 
+    businessServices = [], serviceDependencies = [], holidays = []
 }) => {
-    const [ticketDateFrom, setTicketDateFrom] = useState('');
-    const [ticketDateTo, setTicketDateTo] = useState('');
+    const [dateFrom, setDateFrom] = useState('');
+    const [dateTo, setDateTo] = useState('');
     const [showPreview, setShowPreview] = useState(false);
     const [previewContent, setPreviewContent] = useState('');
 
     const instituicaoMap = useMemo(() => new Map(instituicoes.map(i => [i.id, i])), [instituicoes]);
     const entidadeMap = useMemo(() => new Map(entidades.map(e => [e.id, e.name])), [entidades]);
+    const collaboratorMap = useMemo(() => new Map(collaborators.map(c => [c.id, c.full_name])), [collaborators]);
 
-    const ticketReportData = useMemo(() => {
-        if (type !== 'ticket') return null;
+    const reportData = useMemo(() => {
+        if (type === 'ticket') {
+            const filteredTickets = (tickets || []).filter(ticket => {
+                const requestDate = new Date(ticket.request_date);
+                const fromMatch = !dateFrom || requestDate >= new Date(dateFrom);
+                const toMatch = !dateTo || requestDate <= new Date(dateTo);
+                return fromMatch && toMatch;
+            });
+            return { type: 'ticket', tickets: filteredTickets };
+        }
 
-        const filteredTickets = (tickets || []).filter(ticket => {
-            // FIX: request_date
-            const requestDate = new Date(ticket.request_date);
-            const fromMatch = !ticketDateFrom || requestDate >= new Date(ticketDateFrom);
-            const toMatch = !ticketDateTo || requestDate <= new Date(ticketDateTo);
-            return fromMatch && toMatch;
-        });
+        if (type === 'vacations') {
+            const filteredHolidays = holidays.filter(h => {
+                const hDate = new Date(h.date);
+                const fromMatch = !dateFrom || hDate >= new Date(dateFrom);
+                const toMatch = !dateTo || hDate <= new Date(dateTo);
+                return fromMatch && toMatch && h.type === 'Vacation';
+            }).sort((a,b) => a.date.localeCompare(b.date));
+            return { type: 'vacations', items: filteredHolidays };
+        }
 
-        // FIX: instituicao_id
-        const entidadeInstituicaoMap = new Map(entidades.map(e => [e.id, e.instituicao_id]));
-
-        const byEntidade = filteredTickets.reduce((acc, ticket) => {
-            // FIX: entidade_id
-            const entidadeName = entidadeMap.get(ticket.entidade_id || '') || 'Desconhecido';
-            acc.set(entidadeName, (acc.get(entidadeName) || 0) + 1);
-            return acc;
-        }, new Map<string, number>());
-
-        const byInstituicao = filteredTickets.reduce((acc, ticket) => {
-            // FIX: entidade_id
-            const instituicaoId = entidadeInstituicaoMap.get(ticket.entidade_id || '');
-            if (instituicaoId) {
-                const instituicaoName = instituicaoMap.get(instituicaoId)?.name || 'Desconhecido';
-                acc.set(instituicaoName, (acc.get(instituicaoName) || 0) + 1);
-            }
-            return acc;
-        }, new Map<string, number>());
-        
-        return {
-            type: 'ticket' as const,
-            byEntidade: Array.from(byEntidade.entries()).map(([name, value]) => ({ name, value })).sort((a,b) => b.value - a.value),
-            byInstituicao: Array.from(byInstituicao.entries()).map(([name, value]) => ({ name, value })).sort((a,b) => b.value - a.value),
-            rawTickets: filteredTickets // Added for AI context
-        };
-    }, [type, tickets, ticketDateFrom, ticketDateTo, entidades, instituicoes, entidadeMap, instituicaoMap]);
+        return null;
+    }, [type, tickets, holidays, dateFrom, dateTo]);
 
     const handleGeneratePreview = () => {
-        if (!ticketReportData) return;
+        if (!reportData) return;
         
-        let html = `<h1>Relatório de Tickets</h1>`;
-        html += `<p>Período: ${ticketDateFrom || 'Início'} a ${ticketDateTo || 'Fim'}</p>`;
+        let html = `<h1 style="color:#0D47A1; border-bottom:2px solid #0D47A1; padding-bottom:10px;">${type === 'ticket' ? 'Relatório de Suporte Técnico' : 'Mapa de Férias e Ausências'}</h1>`;
+        html += `<p style="font-size:12px; color:#666;">Período: ${dateFrom || 'Início'} a ${dateTo || 'Hoje'}</p>`;
         
-        html += `<h3>Por Instituição</h3><ul>`;
-        ticketReportData.byInstituicao.forEach(item => {
-            html += `<li>${item.name}: ${item.value} tickets</li>`;
-        });
-        html += `</ul>`;
+        if (reportData.type === 'ticket') {
+            html += `<table style="width:100%; border-collapse:collapse; margin-top:20px; font-size:11px;">
+                <thead><tr style="background:#eee;">
+                    <th style="border:1px solid #ddd; padding:8px;">Data</th>
+                    <th style="border:1px solid #ddd; padding:8px;">Título</th>
+                    <th style="border:1px solid #ddd; padding:8px;">Categoria</th>
+                    <th style="border:1px solid #ddd; padding:8px;">Estado</th>
+                </tr></thead>
+                <tbody>`;
+            reportData.tickets.forEach((t:any) => {
+                html += `<tr>
+                    <td style="border:1px solid #ddd; padding:8px;">${new Date(t.request_date).toLocaleDateString()}</td>
+                    <td style="border:1px solid #ddd; padding:8px;">${t.title}</td>
+                    <td style="border:1px solid #ddd; padding:8px;">${t.category}</td>
+                    <td style="border:1px solid #ddd; padding:8px;">${t.status}</td>
+                </tr>`;
+            });
+            html += `</tbody></table>`;
+        }
 
-        html += `<h3>Por Entidade</h3><ul>`;
-        ticketReportData.byEntidade.forEach(item => {
-            html += `<li>${item.name}: ${item.value} tickets</li>`;
-        });
-        html += `</ul>`;
+        if (reportData.type === 'vacations') {
+            html += `<table style="width:100%; border-collapse:collapse; margin-top:20px; font-size:11px;">
+                <thead><tr style="background:#eee;">
+                    <th style="border:1px solid #ddd; padding:8px;">Data Ausência</th>
+                    <th style="border:1px solid #ddd; padding:8px;">Colaborador</th>
+                    <th style="border:1px solid #ddd; padding:8px;">Descrição / Motivo</th>
+                </tr></thead>
+                <tbody>`;
+            reportData.items.forEach((h:any) => {
+                html += `<tr>
+                    <td style="border:1px solid #ddd; padding:8px; font-weight:bold;">${new Date(h.date).toLocaleDateString()}</td>
+                    <td style="border:1px solid #ddd; padding:8px;">${collaboratorMap.get(h.collaborator_id) || 'Todos'}</td>
+                    <td style="border:1px solid #ddd; padding:8px;">${h.name}</td>
+                </tr>`;
+            });
+            html += `</tbody></table>`;
+        }
 
         setPreviewContent(html);
         setShowPreview(true);
     };
 
     return (
-        <Modal title={`Relatório: ${type.charAt(0).toUpperCase() + type.slice(1)}`} onClose={onClose} maxWidth="max-w-4xl">
+        <Modal title={type === 'vacations' ? "Relatório de Ausências" : "Gerador de Relatórios"} onClose={onClose} maxWidth="max-w-4xl">
             <div className="space-y-4">
-                {type === 'ticket' && (
-                    <div className="bg-gray-800 p-4 rounded border border-gray-700">
-                        <h3 className="text-white font-bold mb-3 flex items-center gap-2"><FaFilter /> Filtros de Data</h3>
-                        <div className="flex gap-4">
-                            <div>
-                                <label className="block text-xs text-gray-400 mb-1">De</label>
-                                <input type="date" value={ticketDateFrom} onChange={e => setTicketDateFrom(e.target.value)} className="bg-gray-700 border border-gray-600 rounded p-2 text-white text-sm" />
-                            </div>
-                            <div>
-                                <label className="block text-xs text-gray-400 mb-1">Até</label>
-                                <input type="date" value={ticketDateTo} onChange={e => setTicketDateTo(e.target.value)} className="bg-gray-700 border border-gray-600 rounded p-2 text-white text-sm" />
-                            </div>
+                <div className="bg-gray-800 p-4 rounded border border-gray-700">
+                    <h3 className="text-white font-bold mb-3 flex items-center gap-2"><FaFilter /> Parâmetros de Tempo</h3>
+                    <div className="flex gap-4">
+                        <div className="flex-1">
+                            <label className="block text-xs text-gray-400 mb-1 uppercase font-bold">Data Início</label>
+                            <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="w-full bg-gray-700 border border-gray-600 rounded p-2 text-white text-sm focus:border-brand-primary" />
+                        </div>
+                        <div className="flex-1">
+                            <label className="block text-xs text-gray-400 mb-1 uppercase font-bold">Data Fim</label>
+                            <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="w-full bg-gray-700 border border-gray-600 rounded p-2 text-white text-sm focus:border-brand-primary" />
                         </div>
                     </div>
-                )}
+                </div>
                 
-                {ticketReportData && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="bg-gray-900 p-4 rounded border border-gray-700">
-                            <h4 className="text-white font-bold mb-2">Por Instituição</h4>
-                            <ul className="space-y-1 text-sm text-gray-300">
-                                {ticketReportData.byInstituicao.map((item, idx) => (
-                                    <li key={idx} className="flex justify-between border-b border-gray-800 py-1">
-                                        <span>{item.name}</span>
-                                        <span className="font-mono text-white">{item.value}</span>
-                                    </li>
-                                ))}
-                            </ul>
+                <div className="bg-gray-900/50 p-6 rounded border border-dashed border-gray-700 text-center space-y-4">
+                    {type === 'vacations' ? (
+                        <div className="flex flex-col items-center">
+                            <FaUmbrellaBeach className="text-4xl text-pink-400 mb-2" />
+                            <p className="text-gray-300">Este relatório consolidará todas as férias e ausências planeadas para o período selecionado.</p>
                         </div>
-                         <div className="bg-gray-900 p-4 rounded border border-gray-700">
-                            <h4 className="text-white font-bold mb-2">Por Entidade</h4>
-                            <ul className="space-y-1 text-sm text-gray-300">
-                                {ticketReportData.byEntidade.slice(0, 10).map((item, idx) => (
-                                    <li key={idx} className="flex justify-between border-b border-gray-800 py-1">
-                                        <span>{item.name}</span>
-                                        <span className="font-mono text-white">{item.value}</span>
-                                    </li>
-                                ))}
-                            </ul>
+                    ) : (
+                        <div className="flex flex-col items-center">
+                            <FaCalendarAlt className="text-4xl text-blue-400 mb-2" />
+                            <p className="text-gray-300">A gerar relatório de atividade operacional (Tickets e SLAs).</p>
                         </div>
-                    </div>
-                )}
+                    )}
+                </div>
 
                 <div className="flex justify-end gap-2 pt-4 border-t border-gray-700">
-                    <button onClick={onClose} className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-500">Fechar</button>
-                    {type === 'ticket' && (
-                        <button onClick={handleGeneratePreview} className="px-4 py-2 bg-brand-primary text-white rounded hover:bg-brand-secondary flex items-center gap-2">
-                            <FaPrint /> Pré-visualizar / Imprimir
-                        </button>
-                    )}
+                    <button onClick={onClose} className="px-6 py-2 bg-gray-600 text-white rounded font-bold hover:bg-gray-500">Cancelar</button>
+                    <button onClick={handleGeneratePreview} className="px-6 py-2 bg-brand-primary text-white rounded font-bold hover:bg-brand-secondary flex items-center gap-2 shadow-lg">
+                        <FaPrint /> Gerar PDF / Imprimir
+                    </button>
                 </div>
             </div>
             

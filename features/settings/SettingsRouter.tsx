@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { 
-    FaList, FaTicketAlt, FaKey, FaBroom, FaLandmark, FaLeaf, FaMicrochip, FaMemory, FaHdd, FaUserTie, FaUserTag, FaUserSlash, FaTags 
+    FaList, FaTicketAlt, FaKey, FaBroom, FaLandmark, FaLeaf, FaMicrochip, FaMemory, FaHdd, FaUserTie, FaUserTag, FaUserSlash, FaTags, FaCalendarAlt 
 } from 'react-icons/fa';
 
 // Components
@@ -19,6 +19,7 @@ import WebhooksTab from './WebhooksTab';
 import CronJobsTab from './CronJobsTab';
 import SoftwareProductDashboard from './SoftwareProductDashboard';
 import GenericConfigDashboard from './GenericConfigDashboard';
+import HolidaysConfigDashboard from '../../components/HolidaysConfigDashboard';
 
 interface SettingsRouterProps {
     selectedMenuId: string;
@@ -91,6 +92,7 @@ const SettingsRouter: React.FC<SettingsRouterProps> = ({
         case 'agents': return <AgentsTab />;
         case 'webhooks': return <WebhooksTab settings={settings} onSettingsChange={onSettingsChange} onSimulate={()=>{}} />;
         case 'diagnostics': return <div className="p-6 text-center"><button onClick={onShowDiagnostics} className="bg-brand-primary text-white px-6 py-3 rounded-lg font-bold">Abrir Sistema de Diagnóstico</button></div>;
+        case 'holidays': return <HolidaysConfigDashboard holidays={safeData(appData.holidays)} collaborators={safeData(appData.collaborators)} instituicoes={safeData(appData.instituicoes)} onRefresh={onRefresh} />; // Pedido 3
         default: return <div className="p-10 text-center text-gray-500">Selecione uma opção no menu à esquerda.</div>;
     }
 };
