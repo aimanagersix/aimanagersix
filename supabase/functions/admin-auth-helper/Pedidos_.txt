@@ -1,3 +1,8 @@
-- usa o TPM para confirmares os campos das tabelas:
-- nas configurações do tipo de equipamento, desapareceram alguns campos adicionais do "requer .."
--nas entidades e instituições, o campos NIF desapareceu. lembra te que a procura do código postal para preenchimento das ruas, localdade e cidade é apenas para os colaboradores pois nas entidades e instituições, temos a funcionalidade de procurar por NIF e caso exista, prenche os campos
+Sugestão do Engenheiro
+
+Para o módulo de Incidentes NIS2, sugiro futuramente adicionar um campo de "Severidade Padrão Sugerida" no tipo de incidente. Isso permitiria que, ao abrir um ticket do tipo "Ransomware", a IA ou o sistema já pré-selecionasse "Crítica", otimizando o tempo de resposta (MTTR).
+
+Database Webhooks: Pode configurar o Supabase para "disparar" uma Edge Function sempre que algo acontece na base de dados (ex: "Quando um novo ticket for inserido, chama a função de IA para analisar")
+
+
+Para garantir que o formulário de Contratos (DORA) seja robusto, recomendo que a "Estratégia de Saída" seja um campo obrigatório para fornecedores de risco "Crítico" ou "Alto", forçando o cumprimento do regulamento logo no registo do ativo.

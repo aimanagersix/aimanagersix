@@ -2,7 +2,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Modal from './common/Modal';
 import { Supplier, CriticalityLevel, Team, Ticket, TicketStatus, SupplierContract, BusinessService, ResourceContact } from '../types';
-import { FaShieldAlt, FaGlobe, FaFileContract, FaDownload, FaCopy, FaTicketAlt, FaCertificate, FaCalendarAlt, FaPlus, FaFileSignature, FaDoorOpen, FaUsers, FaUserTie, FaPhone, FaEnvelope, FaMagic, FaSave, FaInfoCircle, FaRobot } from 'react-icons/fa';
+// Add FaTimes to the imports from react-icons/fa
+import { FaShieldAlt, FaGlobe, FaFileContract, FaDownload, FaCopy, FaTicketAlt, FaCertificate, FaCalendarAlt, FaPlus, FaFileSignature, FaDoorOpen, FaUsers, FaUserTie, FaPhone, FaEnvelope, FaMagic, FaSave, FaInfoCircle, FaRobot, FaTimes } from 'react-icons/fa';
 import { SearchIcon, SpinnerIcon, FaTrash as DeleteIcon, PlusIcon, CheckIcon } from './common/Icons';
 import { ContactList } from './common/ContactList'; 
 import * as dataService from '../services/dataService';
@@ -38,7 +39,7 @@ const extractDomain = (url: string): string => {
     } catch { return ''; }
 };
 
-const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, supplierToEdit, teams = [], businessServices = [] }) => {
+const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, supplierToEdit, businessServices = [] }) => {
     const [activeTab, setActiveTab] = useState<'details' | 'contacts' | 'contracts'>('details');
     
     const [formData, setFormData] = useState<Partial<Supplier>>({
@@ -226,6 +227,17 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
         setNewContract({ ref_number: '', description: '', start_date: '', end_date: '', notice_period_days: 90, exit_strategy: '', supported_service_ids: [], is_active: true });
     };
 
+    const handleServiceToggle = (serviceId: string) => {
+        setNewContract(prev => {
+            const current = prev.supported_service_ids || [];
+            if (current.includes(serviceId)) {
+                return { ...prev, supported_service_ids: current.filter(id => id !== serviceId) };
+            } else {
+                return { ...prev, supported_service_ids: [...current, serviceId] };
+            }
+        });
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!validate()) return;
@@ -233,21 +245,21 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
         const dataToSave: any = { ...formData, attachments: attachments.map(({ name, dataUrl }) => ({ name, dataUrl })) };
         try {
             await onSave(dataToSave);
-            setSuccessMessage('Fornecedor gravado com sucesso! A monitorização hands-free está ativa.');
+            setSuccessMessage('Fornecedor gravado com sucesso!');
             setTimeout(() => setSuccessMessage(''), 3000);
         } finally { setIsSaving(false); }
     };
 
     return (
         <Modal title={supplierToEdit ? "Editar Fornecedor" : "Adicionar Fornecedor"} onClose={onClose} maxWidth="max-w-5xl">
-            <div className="flex flex-col">
+            <div className="flex flex-col h-[80vh]">
                 <div className="flex border-b border-gray-700 mb-6 overflow-x-auto whitespace-nowrap">
                     <button type="button" onClick={() => setActiveTab('details')} className={`px-6 py-2 text-sm font-bold border-b-2 transition-colors ${activeTab === 'details' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}>Detalhes Gerais</button>
                     <button type="button" onClick={() => setActiveTab('contacts')} className={`px-6 py-2 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'contacts' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}>Pessoas de Contacto</button>
                     <button type="button" onClick={() => setActiveTab('contracts')} className={`px-6 py-2 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'contracts' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}>Contratos & DORA</button>
                 </div>
 
-                <form onSubmit={handleSubmit} className="space-y-6">
+                <form onSubmit={handleSubmit} className="flex-grow overflow-y-auto custom-scrollbar pr-2 space-y-6">
                     {activeTab === 'details' && (
                     <div className="space-y-6 animate-fade-in">
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -265,52 +277,93 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="relative">
+                                <label className="block text-[10px] font-black text-gray-500 uppercase mb-1">Email Geral</label>
+                                <input type="email" name="contact_email" value={formData.contact_email} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm" />
+                                {emailSuggestion && (
+                                    <div className="absolute top-full left-0 mt-1 bg-gray-800 border border-gray-600 text-brand-secondary text-[10px] px-2 py-1 rounded cursor-pointer z-10" onClick={applyEmailSuggestion}>
+                                        <FaMagic className="inline mr-1"/> Sugestão: {emailSuggestion}
+                                    </div>
+                                )}
+                            </div>
                             <div>
                                 <label className="block text-[10px] font-black text-gray-500 uppercase mb-1">Website</label>
                                 <input type="text" name="website" value={formData.website} onChange={handleChange} placeholder="www.fornecedor.com" className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm" />
                             </div>
-                            <div>
-                                <label className="block text-[10px] font-black text-gray-500 uppercase mb-1">Nível de Risco (Supply Chain)</label>
-                                <select name="risk_level" value={formData.risk_level} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm">
-                                    {Object.values(CriticalityLevel).map(lvl => <option key={lvl} value={lvl}>{lvl}</option>)}
-                                </select>
-                            </div>
                         </div>
 
                         <div className="bg-gray-800/50 p-4 rounded-lg border border-gray-700">
-                            <h4 className="text-[10px] font-black text-brand-secondary uppercase mb-3 tracking-widest flex items-center gap-2"><FaShieldAlt/> Segurança & ISO</h4>
-                            <div className="flex items-center mb-4">
-                                <input type="checkbox" name="is_iso27001_certified" id="iso" checked={formData.is_iso27001_certified} onChange={handleChange} className="h-4 w-4 rounded bg-gray-700 text-brand-primary border-gray-600" />
-                                <label htmlFor="iso" className="ml-2 block text-sm font-bold text-white">Certificado ISO 27001 Ativo</label>
-                            </div>
-                            {formData.is_iso27001_certified && (
-                                <div className="ml-6 space-y-3 animate-fade-in">
-                                    <div>
-                                        <label className="block text-[10px] text-gray-400 uppercase mb-1">Data de Validade do Certificado</label>
-                                        <input type="date" name="iso_certificate_expiry" value={formData.iso_certificate_expiry} onChange={handleChange} className={`bg-gray-700 border text-white rounded p-2 text-sm ${errors.iso_certificate_expiry ? 'border-red-500' : 'border-gray-600'}`} />
-                                    </div>
-                                    <div className="bg-blue-900/10 p-3 rounded border border-blue-500/30 flex items-start gap-3">
-                                        <FaRobot className="text-brand-secondary mt-1 flex-shrink-0" />
-                                        <p className="text-[11px] text-blue-200">
-                                            <strong>Monitorização Hands-Free Ativa:</strong> O servidor criará automaticamente um ticket para a equipa de <strong>Triagem</strong> 30 dias antes da expiração deste certificado para solicitar as novas evidências.
-                                        </p>
-                                    </div>
+                            <h4 className="text-[10px] font-black text-brand-secondary uppercase mb-3 tracking-widest flex items-center gap-2"><FaShieldAlt/> Segurança & NIS2</h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                <div>
+                                    <label className="block text-[10px] text-gray-400 uppercase mb-1">Nível de Risco (Supply Chain)</label>
+                                    <select name="risk_level" value={formData.risk_level} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm">
+                                        {Object.values(CriticalityLevel).map(lvl => <option key={lvl} value={lvl}>{lvl}</option>)}
+                                    </select>
                                 </div>
-                            )}
+                                <div>
+                                    <label className="block text-[10px] text-gray-400 uppercase mb-1">Email de Segurança (PSIRT)</label>
+                                    <input type="email" name="security_contact_email" value={formData.security_contact_email} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm" placeholder="security@vendor.com" />
+                                </div>
+                            </div>
+
+                            <div className="bg-black/20 p-4 rounded border border-gray-700 mb-4">
+                                <div className="flex items-center mb-4">
+                                    <input type="checkbox" name="is_iso27001_certified" id="iso" checked={formData.is_iso27001_certified} onChange={handleChange} className="h-4 w-4 rounded bg-gray-700 text-brand-primary border-gray-600" />
+                                    <label htmlFor="iso" className="ml-2 block text-sm font-bold text-white">Certificado ISO 27001 Ativo</label>
+                                </div>
+                                {formData.is_iso27001_certified && (
+                                    <div className="ml-6 space-y-3 animate-fade-in">
+                                        <div className="max-w-xs">
+                                            <label className="block text-[10px] text-gray-400 uppercase mb-1">Validade do Certificado</label>
+                                            <input type="date" name="iso_certificate_expiry" value={formData.iso_certificate_expiry} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded p-2 text-sm ${errors.iso_certificate_expiry ? 'border-red-500' : 'border-gray-600'}`} />
+                                        </div>
+                                        <div className="bg-blue-900/10 p-3 rounded border border-blue-500/30 flex items-start gap-3">
+                                            <FaRobot className="text-brand-secondary mt-1 flex-shrink-0" />
+                                            <p className="text-[11px] text-blue-200">
+                                                <strong>Monitorização Automática:</strong> O sistema criará um ticket de renovação 30 dias antes da expiração.
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="bg-black/10 p-4 rounded border border-gray-700">
+                                <h5 className="text-[10px] font-black text-gray-400 uppercase mb-3 tracking-widest flex items-center gap-2"><FaCertificate className="text-yellow-500"/> Outras Certificações (SOC2, ISO 9001, etc)</h5>
+                                <div className="flex flex-wrap gap-2 mb-3">
+                                    {(formData.other_certifications || []).map((cert, idx) => (
+                                        <div key={idx} className="flex items-center gap-2 bg-gray-800 px-2 py-1 rounded text-[10px] border border-gray-600">
+                                            <span className="text-white font-bold">{cert.name}</span>
+                                            <span className="text-gray-500">| {cert.expiryDate || 'N/A'}</span>
+                                            <button type="button" onClick={() => setFormData(prev => ({...prev, other_certifications: prev.other_certifications?.filter((_, i) => i !== idx)}))} className="text-red-400 ml-1"><FaTimes size={10}/></button>
+                                        </div>
+                                    ))}
+                                </div>
+                                <div className="flex gap-2">
+                                    <input type="text" value={newCertName} onChange={e => setNewCertName(e.target.value)} placeholder="Nome do Certificado" className="flex-1 bg-gray-700 border border-gray-600 text-white rounded p-1.5 text-xs" />
+                                    <input type="date" value={newCertDate} onChange={e => setNewCertDate(e.target.value)} className="bg-gray-700 border border-gray-600 text-white rounded p-1.5 text-xs" />
+                                    <button type="button" onClick={handleAddCertificate} className="bg-gray-600 text-white px-3 rounded hover:bg-gray-500"><FaPlus/></button>
+                                </div>
+                            </div>
                         </div>
 
-                        <div className="space-y-4">
-                            <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest">Morada e Localização</label>
-                            <input type="text" name="address_line" value={formData.address_line} onChange={handleChange} placeholder="Rua, Edifício, Piso..." className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm" />
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                                <input type="text" name="postal_code" value={formData.postal_code} onChange={handlePostalCodeChange} placeholder="CP 0000-000" className="bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm" />
-                                <input type="text" name="city" value={formData.city} onChange={handleChange} placeholder="Cidade" className="bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm" />
-                                <input type="text" name="locality" value={formData.locality} onChange={handleChange} placeholder="Localidade" className="bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm" />
+                        <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-700">
+                            <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3">Morada e Localização</label>
+                            <div className="space-y-4">
+                                <input type="text" name="address_line" value={formData.address_line} onChange={handleChange} placeholder="Rua, Edifício, Piso..." className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm" />
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                    <div className="relative">
+                                        <input type="text" name="postal_code" value={formData.postal_code} onChange={handlePostalCodeChange} placeholder="CP 0000-000" className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm" />
+                                        {isFetchingCP && <SpinnerIcon className="absolute right-2 top-2 h-4 w-4"/>}
+                                    </div>
+                                    <input type="text" name="city" value={formData.city} onChange={handleChange} placeholder="Cidade" className="bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm" />
+                                    <input type="text" name="locality" value={formData.locality} onChange={handleChange} placeholder="Localidade" className="bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm" />
+                                </div>
                             </div>
                         </div>
 
                         <div>
-                            <label className="block text-[10px] font-black text-gray-500 uppercase mb-2 tracking-widest">Documentos e Certificados (PDF/JPG)</label>
+                            <label className="block text-[10px] font-black text-gray-500 uppercase mb-2">Anexos e Notas</label>
                             <div className="bg-gray-900/50 p-4 rounded border border-gray-700 border-dashed text-center">
                                 {attachments.length > 0 && (
                                     <ul className="space-y-2 mb-4 text-left">
@@ -323,8 +376,9 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
                                     </ul>
                                 )}
                                 <input type="file" multiple ref={fileInputRef} onChange={handleFileSelect} className="hidden" accept="image/*,application/pdf" />
-                                <button type="button" onClick={() => fileInputRef.current?.click()} className="px-6 py-2 text-xs font-bold bg-gray-700 hover:bg-gray-600 text-white rounded border border-gray-600 transition-all">+ Adicionar Ficheiros</button>
+                                <button type="button" onClick={() => fileInputRef.current?.click()} className="px-6 py-2 text-xs font-bold bg-gray-700 hover:bg-gray-600 text-white rounded border border-gray-600 transition-all">+ Adicionar Ficheiros ({attachments.length}/3)</button>
                             </div>
+                            <textarea name="notes" value={formData.notes} onChange={handleChange} placeholder="Notas internas..." rows={3} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm mt-4"></textarea>
                         </div>
                     </div>
                     )}
@@ -336,49 +390,79 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
                     )}
 
                     {activeTab === 'contracts' && (
-                        <div className="space-y-6 animate-fade-in">
-                            <div className="bg-gray-800 p-4 rounded-lg border border-gray-700 space-y-4">
-                                <h4 className="font-black text-white text-[10px] uppercase border-b border-gray-700 pb-2">Registar Novo Contrato (NIS2/DORA)</h4>
+                        <div className="space-y-8 animate-fade-in">
+                            <div className="bg-blue-900/10 border border-blue-500/30 p-4 rounded-lg">
+                                <h4 className="text-white font-bold text-sm mb-1 flex items-center gap-2"><FaFileSignature className="text-blue-400"/> Registo de Contratos DORA</h4>
+                                <p className="text-[11px] text-blue-200 opacity-80">Mapeie os contratos e garanta a conformidade com o Art. 28º (Estratégias de Saída e Dependências).</p>
+                            </div>
+
+                            <div className="bg-gray-800 p-5 rounded-lg border border-gray-700 space-y-4">
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <input type="text" value={newContract.ref_number} onChange={e => setNewContract({...newContract, ref_number: e.target.value})} className="bg-gray-700 border border-gray-600 rounded p-2 text-white text-sm" placeholder="Ref. Contrato" />
-                                    <input type="text" value={newContract.description} onChange={e => setNewContract({...newContract, description: e.target.value})} className="bg-gray-700 border border-gray-600 rounded p-2 text-white text-sm" placeholder="Descrição (ex: Cloud Office)" />
+                                    <input type="text" value={newContract.ref_number} onChange={e => setNewContract({...newContract, ref_number: e.target.value})} className="bg-gray-700 border border-gray-600 rounded p-2 text-white text-sm" placeholder="Ref. Contrato (ex: CTR-2024-01)" />
+                                    <input type="text" value={newContract.description} onChange={e => setNewContract({...newContract, description: e.target.value})} className="bg-gray-700 border border-gray-600 rounded p-2 text-white text-sm" placeholder="Descrição Curta" />
                                     <div>
-                                        <label className="block text-[10px] text-gray-500 mb-1">Data de Fim</label>
+                                        <label className="block text-[9px] text-gray-500 uppercase font-bold mb-1">Data de Fim</label>
                                         <input type="date" value={newContract.end_date} onChange={e => setNewContract({...newContract, end_date: e.target.value})} className="w-full bg-gray-700 border border-gray-600 rounded p-2 text-white text-sm" />
                                     </div>
                                     <div>
-                                        <label className="block text-[10px] text-gray-500 mb-1">Pré-Aviso (Dias)</label>
+                                        <label className="block text-[9px] text-gray-500 uppercase font-bold mb-1">Aviso Rescisão (Dias)</label>
                                         <input type="number" value={newContract.notice_period_days} onChange={e => setNewContract({...newContract, notice_period_days: parseInt(e.target.value)})} className="w-full bg-gray-700 border border-gray-600 rounded p-2 text-white text-sm" />
                                     </div>
                                 </div>
-                                <button type="button" onClick={handleAddContract} className="w-full bg-green-600 hover:bg-green-500 text-white py-2 rounded-md font-bold text-xs flex items-center justify-center gap-2"><FaPlus /> Adicionar Contrato à Ficha</button>
+                                
+                                <div>
+                                    <label className="block text-[10px] text-gray-400 uppercase font-bold mb-2">Serviços Críticos Suportados (BIA)</label>
+                                    <div className="flex flex-wrap gap-2">
+                                        {businessServices?.map(svc => (
+                                            <button 
+                                                key={svc.id}
+                                                type="button"
+                                                onClick={() => handleServiceToggle(svc.id)}
+                                                className={`px-3 py-1 rounded-full text-[10px] font-bold transition-all ${newContract.supported_service_ids?.includes(svc.id) ? 'bg-brand-primary text-white border-brand-secondary' : 'bg-gray-700 text-gray-500 border-transparent'} border`}
+                                            >
+                                                {svc.name}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="block text-[10px] text-gray-400 uppercase font-bold mb-1">Estratégia de Saída (DORA Requirement)</label>
+                                    <textarea value={newContract.exit_strategy} onChange={e => setNewContract({...newContract, exit_strategy: e.target.value})} rows={2} className="w-full bg-gray-700 border border-gray-600 rounded p-2 text-white text-xs" placeholder="Como mitigar riscos se este contrato terminar?"></textarea>
+                                </div>
+
+                                <button type="button" onClick={handleAddContract} className="w-full bg-green-600 hover:bg-green-500 text-white py-2 rounded-md font-bold text-xs flex items-center justify-center gap-2 transition-all"><FaPlus /> Registar Contrato na Ficha</button>
                             </div>
 
-                            <div className="space-y-2">
-                                <h4 className="font-bold text-gray-400 text-xs uppercase">Contratos Registados ({(formData.contracts || []).length})</h4>
-                                {(formData.contracts || []).map((contract: any, idx: number) => (
-                                    <div key={idx} className="bg-gray-800 p-3 rounded border border-gray-700 flex justify-between items-center group">
-                                        <div>
-                                            <p className="font-bold text-brand-secondary text-sm">{contract.ref_number}</p>
-                                            <p className="text-xs text-white">{contract.description}</p>
-                                            <p className="text-[10px] text-gray-500 mt-1">Expira em: {contract.end_date}</p>
+                            <div className="space-y-3">
+                                <h4 className="font-bold text-gray-400 text-[10px] uppercase tracking-widest border-b border-gray-700 pb-1">Contratos Ativos ({(formData.contracts || []).length})</h4>
+                                {(formData.contracts || []).map((contract, idx) => (
+                                    <div key={idx} className="bg-gray-800 p-4 rounded border border-gray-700 flex justify-between items-center group shadow-lg">
+                                        <div className="flex items-center gap-4">
+                                            <div className="p-2 bg-brand-primary/10 text-brand-secondary rounded"><FaFileContract/></div>
+                                            <div>
+                                                <p className="font-black text-white text-sm">{contract.ref_number}</p>
+                                                <p className="text-xs text-gray-400">{contract.description}</p>
+                                                <p className="text-[10px] text-brand-secondary font-bold mt-1">Expira em: {contract.end_date}</p>
+                                            </div>
                                         </div>
                                         <button type="button" onClick={() => setFormData(prev => ({...prev, contracts: prev.contracts?.filter((_, i) => i !== idx)}))} className="text-red-400 opacity-0 group-hover:opacity-100 p-2 hover:bg-red-900/20 rounded transition-all"><DeleteIcon/></button>
                                     </div>
                                 ))}
+                                {(!formData.contracts || formData.contracts.length === 0) && <p className="text-center py-6 text-gray-600 italic text-sm border border-dashed border-gray-800 rounded">Nenhum contrato registado.</p>}
                             </div>
                         </div>
                     )}
-
-                    {successMessage && <div className="p-3 bg-green-500/20 text-green-300 rounded border border-green-500/50 text-center font-bold text-xs animate-fade-in">{successMessage}</div>}
-
-                    <div className="flex justify-end gap-4 pt-6 border-t border-gray-700">
-                        <button type="button" onClick={onClose} className="px-6 py-2 bg-gray-600 text-white rounded font-bold text-sm hover:bg-gray-500 transition-colors">Cancelar</button>
-                        <button type="submit" disabled={isSaving} className="px-8 py-2 bg-brand-primary text-white rounded font-black uppercase tracking-widest hover:bg-brand-secondary shadow-xl flex items-center gap-2 disabled:opacity-50">
-                            {isSaving ? <SpinnerIcon /> : <FaSave />} {isSaving ? 'A Gravar...' : 'Salvar Fornecedor'}
-                        </button>
-                    </div>
                 </form>
+
+                {successMessage && <div className="p-3 bg-green-500/20 text-green-300 rounded border border-green-500/50 text-center font-bold text-xs animate-fade-in mt-4">{successMessage}</div>}
+
+                <div className="flex justify-end gap-4 pt-6 border-t border-gray-700 mt-auto">
+                    <button type="button" onClick={onClose} className="px-6 py-2 bg-gray-600 text-white rounded font-bold text-sm hover:bg-gray-500 transition-colors">Cancelar</button>
+                    <button type="submit" onClick={handleSubmit} disabled={isSaving} className="px-8 py-2 bg-brand-primary text-white rounded font-black uppercase tracking-widest hover:bg-brand-secondary shadow-xl flex items-center gap-2 disabled:opacity-50">
+                        {isSaving ? <SpinnerIcon /> : <FaSave />} {isSaving ? 'A Gravar...' : 'Salvar Fornecedor'}
+                    </button>
+                </div>
             </div>
         </Modal>
     );
