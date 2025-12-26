@@ -1,4 +1,3 @@
-
 import { getSupabase } from './supabaseClient';
 import { Equipment } from '../types';
 
