@@ -4,6 +4,8 @@ import { Entidade, Instituicao, EntidadeStatus } from '../types';
 import { SpinnerIcon, SearchIcon, CheckIcon } from './common/Icons';
 import { FaGlobe, FaPhone, FaEnvelope, FaBuilding, FaMapMarkerAlt, FaSearchLocation } from 'react-icons/fa';
 
+const NIF_API_KEY = '9393091ec69bd1564657157b9624809e';
+
 interface AddEntidadeModalProps {
     onClose: () => void;
     onSave: (entidade: any) => Promise<any>;
@@ -13,7 +15,7 @@ interface AddEntidadeModalProps {
 
 const AddEntidadeModal: React.FC<AddEntidadeModalProps> = ({ onClose, onSave, entidadeToEdit, instituicoes }) => {
     const [isSaving, setIsSaving] = useState(false);
-    const [isFetchingCP, setIsFetchingCP] = useState(false);
+    const [isFetchingNif, setIsFetchingNif] = useState(false);
     const [formData, setFormData] = useState<any>({
         instituicao_id: instituicoes[0]?.id || '',
         codigo: '',
@@ -35,38 +37,47 @@ const AddEntidadeModal: React.FC<AddEntidadeModalProps> = ({ onClose, onSave, en
         if (entidadeToEdit) setFormData({ ...entidadeToEdit });
     }, [entidadeToEdit]);
 
-    // Função de mapeamento robusto para os campos do CP
-    const mapCPData = (data: any) => {
-        setFormData((prev: any) => ({
-            ...prev,
-            city: data.concelho || data.Concelho || prev.city,
-            locality: data.freguesia || data.Freguesia || (data.part && data.part[0] ? data.part[0] : prev.locality),
-            address_line: !prev.address_line?.trim() ? (data.designacao || data.Designacao || prev.address_line) : prev.address_line
-        }));
-    };
-
-    const fetchCPData = async () => {
-        const cp = formData.postal_code?.trim() || '';
-        if (!/^\d{4}-\d{3}$/.test(cp)) {
-            alert("Introduza o Código Postal no formato 0000-000.");
+    const handleFetchNifData = async () => {
+        if (!formData.nif?.trim()) {
+            alert("Insira um NIF para pesquisar.");
             return;
         }
 
-        setIsFetchingCP(true);
+        const nif = formData.nif.trim().replace(/[^0-9]/g, '');
+        if (nif.length !== 9) {
+             alert("O NIF deve ter 9 dígitos.");
+             return;
+        }
+
+        setIsFetchingNif(true);
         try {
-            // Documentação sugere usar api.geoapi.pt com ?json=1 para maior estabilidade
-            const response = await fetch(`https://api.geoapi.pt/cp/${cp}?json=1`);
+            const targetUrl = `https://www.nif.pt/?json=1&q=${nif}&key=${NIF_API_KEY}`;
+            const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
+            const response = await fetch(proxyUrl);
+            
             if (response.ok) {
                 const data = await response.json();
-                mapCPData(data);
-            } else {
-                alert("Código Postal não encontrado.");
+                if (data.result === 'success' && data.records && data.records[nif]) {
+                    const record = data.records[nif];
+                    setFormData((prev: any) => ({
+                        ...prev,
+                        name: prev.name || record.title, 
+                        address_line: record.address || prev.address_line,
+                        postal_code: record.pc4 && record.pc3 ? `${record.pc4}-${record.pc3}` : prev.postal_code,
+                        city: record.city || prev.city,
+                        locality: record.city || prev.locality, 
+                        email: record.contacts?.email || prev.email,
+                        telefone: record.contacts?.phone || prev.telefone,
+                        website: record.website || prev.website
+                    }));
+                } else {
+                     alert("NIF não encontrado ou inválido.");
+                }
             }
         } catch (e) {
-            console.error("Erro ao consultar CP:", e);
-            alert("Falha na ligação ao serviço de moradas.");
+            console.error("Erro NIF.pt:", e);
         } finally {
-            setIsFetchingCP(false);
+            setIsFetchingNif(false);
         }
     };
 
@@ -76,28 +87,6 @@ const AddEntidadeModal: React.FC<AddEntidadeModalProps> = ({ onClose, onSave, en
         if (val.length > 8) val = val.slice(0, 8);
         setFormData((prev: any) => ({ ...prev, postal_code: val }));
     };
-
-    // Disparo automático ao completar CP
-    useEffect(() => {
-        const cp = formData.postal_code || '';
-        if (/^\d{4}-\d{3}$/.test(cp)) {
-            const fetchAutoCP = async () => {
-                setIsFetchingCP(true);
-                try {
-                    const response = await fetch(`https://api.geoapi.pt/cp/${cp}?json=1`);
-                    if (response.ok) {
-                        const data = await response.json();
-                        mapCPData(data);
-                    }
-                } catch (e) {
-                    console.error("Erro ao consultar CP automático:", e);
-                } finally {
-                    setIsFetchingCP(false);
-                }
-            };
-            fetchAutoCP();
-        }
-    }, [formData.postal_code]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -115,14 +104,23 @@ const AddEntidadeModal: React.FC<AddEntidadeModalProps> = ({ onClose, onSave, en
                 <div className="bg-gray-800/20 p-6 rounded-xl border border-gray-700 space-y-4">
                     <h3 className="text-[10px] font-black text-brand-secondary uppercase tracking-[0.2em] mb-4 flex items-center gap-2"><FaBuilding/> Identificação Estrutural</h3>
                     
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="md:col-span-1">
+                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">NIF da Entidade</label>
+                            <div className="flex">
+                                <input type="text" value={formData.nif} onChange={e => setFormData({...formData, nif: e.target.value})} className="flex-grow bg-gray-700 border border-gray-600 text-white rounded-l p-2 text-sm focus:border-brand-primary outline-none" placeholder="Lookup NIF..." />
+                                <button type="button" onClick={handleFetchNifData} className="bg-gray-600 px-3 rounded-r border-t border-b border-r border-gray-600 hover:bg-gray-500 text-white transition-colors">
+                                    {isFetchingNif ? <SpinnerIcon className="h-4 w-4"/> : <SearchIcon className="h-4 w-4"/>}
+                                </button>
+                            </div>
+                        </div>
+                        <div className="md:col-span-1">
                             <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Instituição Superior</label>
                             <select value={formData.instituicao_id} onChange={e => setFormData({...formData, instituicao_id: e.target.value})} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm focus:border-brand-primary outline-none">
                                 {instituicoes.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
                             </select>
                         </div>
-                        <div>
+                        <div className="md:col-span-1">
                             <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Código Interno</label>
                             <input type="text" value={formData.codigo} onChange={e => setFormData({...formData, codigo: e.target.value})} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm focus:border-brand-primary outline-none" required placeholder="Ex: DEP-TI, LOJA-01..." />
                         </div>
@@ -166,18 +164,7 @@ const AddEntidadeModal: React.FC<AddEntidadeModalProps> = ({ onClose, onSave, en
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
                                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Código Postal</label>
-                                <div className="relative">
-                                    <input type="text" value={formData.postal_code} onChange={handlePostalCodeChange} placeholder="0000-000" className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm outline-none focus:border-brand-primary" maxLength={8} />
-                                    <button 
-                                        type="button" 
-                                        onClick={fetchCPData} 
-                                        className="absolute right-2 top-2 p-1 text-gray-500 hover:text-brand-secondary transition-colors"
-                                        title="Pesquisar Morada"
-                                    >
-                                        <FaSearchLocation />
-                                    </button>
-                                    {isFetchingCP && <div className="absolute right-8 top-2"><SpinnerIcon className="h-4 w-4"/></div>}
-                                </div>
+                                <input type="text" value={formData.postal_code} onChange={handlePostalCodeChange} placeholder="0000-000" className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm outline-none focus:border-brand-primary" maxLength={8} />
                             </div>
                             <div>
                                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Cidade</label>

@@ -6,10 +6,11 @@ import { FaCamera, FaKey, FaUserShield, FaUserTie, FaBuilding, FaMapMarkerAlt, F
 import * as dataService from '../services/dataService';
 
 /**
- * ADD COLLABORATOR MODAL - V5.12 (Build Error Fix)
+ * ADD COLLABORATOR MODAL - V5.13 (Advanced CP Mapping & Build Fix)
  * -----------------------------------------------------------------------------
  * STATUS DE BLOQUEIO RIGOROSO (Freeze UI):
- * - PEDIDO 4: FIX NO ERRO DE BUILD (handleEntityChange missing).
+ * - PEDIDO 4: LUPA DO CP AGORA DISPARA PESQUISA MANUAL E PREENCHE TUDO.
+ * - PEDIDO 4: FIX NO ERRO DE BUILD (handleEntityChange).
  * -----------------------------------------------------------------------------
  */
 
@@ -125,9 +126,9 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
     const mapCPData = (data: any) => {
         setFormData((prev: any) => ({
             ...prev,
-            city: data.Concelho || data.concelho || prev.city,
-            locality: data.Freguesia || data.freguesia || (data.part && data.part[0] ? data.part[0] : prev.locality),
-            address_line: !prev.address_line?.trim() ? (data.Designacao || data.designacao || prev.address_line) : prev.address_line
+            city: data.concelho || data.Concelho || prev.city,
+            locality: data.freguesia || data.Freguesia || (data.part && data.part[0] ? data.part[0] : prev.locality),
+            address_line: !prev.address_line?.trim() ? (data.designacao || data.Designacao || prev.address_line) : prev.address_line
         }));
     };
 
@@ -140,7 +141,7 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
 
         setIsFetchingCP(true);
         try {
-            const response = await fetch(`https://json.geoapi.pt/cp/${cp}`);
+            const response = await fetch(`https://api.geoapi.pt/cp/${cp}?json=1`);
             if (response.ok) {
                 const data = await response.json();
                 mapCPData(data);
@@ -162,7 +163,7 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
             const fetchAutoCP = async () => {
                 setIsFetchingCP(true);
                 try {
-                    const response = await fetch(`https://json.geoapi.pt/cp/${cp}`);
+                    const response = await fetch(`https://api.geoapi.pt/cp/${cp}?json=1`);
                     if (response.ok) {
                         const data = await response.json();
                         mapCPData(data);
@@ -184,11 +185,10 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
         setFormData((prev: any) => ({ ...prev, postal_code: val }));
     };
 
-    // Pedido 4: Adicionada função faltante para troca de entidade
     const handleEntityChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const entId = e.target.value;
         const entity = entidades.find(ent => ent.id === entId);
-        setFormData(prev => ({
+        setFormData((prev: any) => ({
             ...prev,
             entidade_id: entId,
             instituicao_id: entity ? entity.instituicao_id : prev.instituicao_id
@@ -259,7 +259,6 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
     };
 
     const filteredRoles = useMemo(() => {
-        // PEDIDO 4: Permite que Admin apareça nos perfis selecionáveis dinamicamente
         const standardNames = ['Utilizador', 'Técnico', 'SuperAdmin'];
         return availableRoles.filter(role => !standardNames.includes(role.name));
     }, [availableRoles]);
