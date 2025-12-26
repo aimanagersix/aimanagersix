@@ -70,10 +70,15 @@ const cleanPayload = (data: any) => {
         'addressLine': 'address_line',
         'postalCode': 'postal_code',
         'osVersion': 'os_version',
+        'os_version': 'os_version',
         'firmwareVersion': 'firmware_version',
+        'firmware_version': 'firmware_version',
         'encryptionStatus': 'encryption_status',
+        'encryption_status': 'encryption_status',
         'expectedLifespanYears': 'expected_lifespan_years',
-        'installationLocation': 'installation_location'
+        'expected_lifespan_years': 'expected_lifespan_years',
+        'installationLocation': 'installation_location',
+        'installation_location': 'installation_location'
     };
 
     const blackList = ['contacts', 'contracts', 'attachments', 'preferences', 'simulatedTicket', 'isSimulating'];
