@@ -25,7 +25,7 @@ export type ModuleKey =
     | 'org_institutions' | 'org_entities' | 'org_collaborators' | 'org_suppliers'
     | 'notif_tickets' | 'notif_licenses' | 'notif_warranties'
     | 'msg_tickets' | 'msg_licenses' | 'msg_warranties'
-    | 'holidays' | 'vacation_schedule' | 'vacation_report'; // Pedido 4
+    | 'holidays' | 'vacation_schedule' | 'vacation_report'; 
 
 export type PermissionAction = 'view' | 'view_own' | 'create' | 'edit' | 'delete' | 'manage';
 
@@ -250,7 +250,6 @@ export interface Ticket {
     resolution_summary?: string;
     requester_supplier_id?: string;
     attachments?: { name: string; dataUrl: string }[];
-    // Pedido 4: Suporte a busca vetorial (Knowledge Base)
     embedding?: number[];
 }
 
@@ -284,6 +283,9 @@ export interface Team {
     name: string;
     description?: string;
     is_active: boolean;
+    // Pedido 3: Sugestão do Engenheiro - SLA Dinâmico
+    vacation_auto_reassign: boolean; 
+    sla_pause_on_absence: boolean;
 }
 
 export interface TeamMember {
@@ -703,13 +705,12 @@ export interface AuditLogEntry {
     details?: string;
 }
 
-// Pedido 3: Feriados e Ausências
 export interface Holiday {
     id: string;
     name: string;
-    date: string; // YYYY-MM-DD
+    date: string; 
     type: 'Holiday' | 'Vacation' | 'Bridge' | 'Other';
     is_recurring: boolean;
-    collaborator_id?: string; // Se for férias de alguém específico
-    instituicao_id?: string; // Se for feriado local
+    collaborator_id?: string; 
+    instituicao_id?: string; 
 }

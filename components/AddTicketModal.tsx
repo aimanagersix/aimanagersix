@@ -22,7 +22,7 @@ interface AddTicketModalProps {
     licenseAssignments: LicenseAssignment[];
     onViewEquipment?: (equipment: Equipment) => void;
     onViewLicense?: (license: SoftwareLicense) => void;
-    holidays?: Holiday[]; // Pedido 4
+    holidays?: Holiday[]; 
 }
 
 export const AddTicketModal: React.FC<AddTicketModalProps> = ({ 
@@ -63,7 +63,7 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
         }
     }, [ticketToEdit]);
 
-    // Pedido 4: Alerta de Férias do Técnico
+    // Pedido 3: Sugestão do Engenheiro - Alerta Dinâmico com leitura de política da equipa
     const technicianVacationAlert = useMemo(() => {
         if (!formData.technician_id || !holidays.length) return null;
         
@@ -77,10 +77,15 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
         );
 
         if (upcomingAbsence) {
-            return `Atenção: Este técnico tem uma ausência registada (${upcomingAbsence.name}) para o dia ${new Date(upcomingAbsence.date).toLocaleDateString()}. Considere outro técnico se o assunto for urgente.`;
+            const team = teams.find(t => t.id === formData.team_id);
+            const policyNote = team?.vacation_auto_reassign 
+                ? "Nota: Esta equipa reatribui tickets automaticamente durante ausências." 
+                : "Atenção: Esta equipa não tem reatribuição automática ativa. O ticket poderá ficar parado.";
+
+            return `O técnico selecionado entra de férias em breve (${new Date(upcomingAbsence.date).toLocaleDateString()}). ${policyNote}`;
         }
         return null;
-    }, [formData.technician_id, holidays]);
+    }, [formData.technician_id, formData.team_id, holidays, teams]);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const files = e.target.files;
@@ -223,7 +228,7 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
                         </div>
 
                         <div className="bg-blue-900/10 border border-blue-500/20 rounded-lg p-3">
-                            <h4 className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-2">Contexto Ativos</h4>
+                            <h4 className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-2">Ativos Requerente</h4>
                             <div className="space-y-1">
                                 {requesterAssets.equipment.slice(0,2).map(eq => <div key={eq.id} className="text-[10px] text-gray-400 flex justify-between"><span className="truncate">{eq.description}</span><span className="font-mono text-gray-600">{eq.serial_number}</span></div>)}
                             </div>
@@ -234,12 +239,12 @@ export const AddTicketModal: React.FC<AddTicketModalProps> = ({
                                 <div><label className="block text-xs font-bold text-gray-400 uppercase mb-1 flex items-center gap-2"><FaUsers className="text-blue-400" /> Equipa Técnica</label><select value={formData.team_id || ''} onChange={e => setFormData({...formData, team_id: e.target.value})} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm focus:border-brand-primary outline-none"><option value="">-- Selecione --</option>{teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}</select></div>
                                 <div>
                                     <label className="block text-xs font-bold text-gray-400 uppercase mb-1 flex items-center gap-2"><FaUserTie className="text-green-400" /> Técnico Atribuído</label>
-                                    <select value={formData.technician_id || ''} onChange={e => setFormData({...formData, technician_id: e.target.value})} className={`w-full bg-gray-700 border text-white rounded p-2 text-sm focus:border-brand-primary outline-none ${technicianVacationAlert ? 'border-orange-500' : 'border-gray-600'}`}>
+                                    <select value={formData.technician_id || ''} onChange={e => setFormData({...formData, technician_id: e.target.value})} className={`w-full bg-gray-700 border text-white rounded p-2 text-sm focus:border-brand-primary outline-none ${technicianVacationAlert ? 'border-orange-500 ring-1 ring-orange-500' : 'border-gray-600'}`}>
                                         <option value="">-- Não Atribuído --</option>
                                         {filteredTechnicians.map(c => <option key={c.id} value={c.id}>{c.full_name}</option>)}
                                     </select>
                                     {technicianVacationAlert && (
-                                        <div className="mt-2 p-2 bg-orange-900/30 border border-orange-500/50 rounded flex items-start gap-2 animate-pulse">
+                                        <div className="mt-2 p-2 bg-orange-900/30 border border-orange-500/50 rounded flex items-start gap-2 animate-fade-in shadow-inner">
                                             <FaExclamationTriangle className="text-orange-400 mt-0.5 flex-shrink-0" />
                                             <p className="text-[10px] text-orange-200 leading-tight font-bold">{technicianVacationAlert}</p>
                                         </div>

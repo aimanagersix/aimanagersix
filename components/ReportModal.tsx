@@ -19,7 +19,7 @@ interface ReportModalProps {
     licenseAssignments?: LicenseAssignment[];
     businessServices?: BusinessService[];
     serviceDependencies?: ServiceDependency[];
-    holidays?: Holiday[]; // Pedido 4
+    holidays?: Holiday[]; 
 }
 
 const ReportModal: React.FC<ReportModalProps> = ({ 
@@ -68,7 +68,7 @@ const ReportModal: React.FC<ReportModalProps> = ({
         let html = `<h1 style="color:#0D47A1; border-bottom:2px solid #0D47A1; padding-bottom:10px;">${type === 'ticket' ? 'Relatório de Suporte Técnico' : 'Mapa de Férias e Ausências'}</h1>`;
         html += `<p style="font-size:12px; color:#666;">Período: ${dateFrom || 'Início'} a ${dateTo || 'Hoje'}</p>`;
         
-        if (reportData.type === 'ticket') {
+        if (reportData.type === 'ticket' && reportData.tickets) {
             html += `<table style="width:100%; border-collapse:collapse; margin-top:20px; font-size:11px;">
                 <thead><tr style="background:#eee;">
                     <th style="border:1px solid #ddd; padding:8px;">Data</th>
@@ -88,7 +88,7 @@ const ReportModal: React.FC<ReportModalProps> = ({
             html += `</tbody></table>`;
         }
 
-        if (reportData.type === 'vacations') {
+        if (reportData.type === 'vacations' && reportData.items) {
             html += `<table style="width:100%; border-collapse:collapse; margin-top:20px; font-size:11px;">
                 <thead><tr style="background:#eee;">
                     <th style="border:1px solid #ddd; padding:8px;">Data Ausência</th>
