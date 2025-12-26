@@ -81,7 +81,9 @@ const cleanPayload = (data: any) => {
         'installation_location': 'installation_location'
     };
 
-    const blackList = ['contacts', 'contracts', 'attachments', 'preferences', 'simulatedTicket', 'isSimulating'];
+    // contacts e preferences são geridos por serviços separados ou lidos apenas.
+    // attachments, contracts e other_certifications são colunas JSONB reais.
+    const blackList = ['contacts', 'preferences', 'simulatedTicket', 'isSimulating', 'address']; 
     const numericFields = ['acquisition_cost', 'residual_value', 'unit_cost', 'total_seats', 'estimated_cost', 'quantity', 'expected_lifespan_years'];
 
     Object.keys(data).forEach(key => {

@@ -44,7 +44,6 @@ const extractDomain = (url: string): string => {
 const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, supplierToEdit, teams = [], onCreateTicket, businessServices = [] }) => {
     const [activeTab, setActiveTab] = useState<'details' | 'contacts' | 'contracts'>('details');
     
-    // FIX: Removed 'address' from formData to match Supplier interface in types.ts
     const [formData, setFormData] = useState<Partial<Supplier>>({
         name: '',
         contact_name: '',
@@ -104,7 +103,6 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
             setFormData({ 
                 ...supplierToEdit, 
                 iso_certificate_expiry: supplierToEdit.iso_certificate_expiry || '',
-                // FIX: Map address to address_line for consistency
                 address_line: supplierToEdit.address_line || (supplierToEdit as any).address || '',
                 postal_code: supplierToEdit.postal_code || '',
                 city: supplierToEdit.city || '',
@@ -184,7 +182,7 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
     
     const applyEmailSuggestion = () => {
         if (emailSuggestion) {
-            setFormData(prev => ({ ...prev, contact_email: (prev.contact_email || '') + emailSuggestion }));
+            setFormData((prev: any) => ({ ...prev, contact_email: (prev.contact_email || '') + emailSuggestion }));
             setEmailSuggestion('');
         }
     };
@@ -197,7 +195,7 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
         }
         if (val.length > 8) val = val.slice(0, 8);
 
-        setFormData(prev => ({ ...prev, postal_code: val }));
+        setFormData((prev: any) => ({ ...prev, postal_code: val }));
 
         if (/^\d{4}-\d{3}$/.test(val)) {
             setIsFetchingCP(true);
@@ -210,7 +208,7 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
                         if (data.Freguesia) loc = data.Freguesia;
                         else if (data.part && data.part.length > 0) loc = data.part[0];
 
-                        setFormData(prev => ({
+                        setFormData((prev: any) => ({
                             ...prev,
                             city: data.Concelho,
                             locality: loc
@@ -246,7 +244,6 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
         });
 
         try {
-            // Updated to use corsproxy.io for better reliability than allorigins
             const targetUrl = `https://www.nif.pt/?json=1&q=${nif}&key=${NIF_API_KEY}`;
             const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
             
@@ -395,19 +392,14 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
         setIsSaving(true);
         setSuccessMessage('');
 
-        const address = [formData.address_line, formData.postal_code, formData.city].filter(Boolean).join(', ');
         const dataToSave: any = {
             ...formData,
-            address,
             attachments: attachments.map(({ name, dataUrl }) => ({ name, dataUrl }))
         };
-        // DO NOT delete contacts here. Let the parent OrganizationManager handle the split.
-        // We pass everything so the parent has all the necessary data to save supplier AND sync contacts properly.
 
         try {
             let result;
             if (supplierToEdit) {
-                // Merge old with new
                 const payload = { ...supplierToEdit, ...dataToSave };
                 result = await onSave(payload);
             } else {
@@ -415,7 +407,6 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
             }
 
             if (result) {
-                // Ticket Creation Logic
                 if (createTicket && onCreateTicket && formData.is_iso27001_certified && formData.iso_certificate_expiry) {
                     let requestDate = customTicketDate;
                     if (reminderOffset !== 'custom') {
@@ -427,7 +418,6 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
                     const ticketPayload: Partial<Ticket> = {
                         title: `Renovação Certificado ISO 27001: ${formData.name}`,
                         description: `O certificado ISO 27001 do fornecedor ${formData.name} expira em ${formData.iso_certificate_expiry}. Por favor iniciar processo de renovação ou solicitar novo certificado.`,
-                        // FIX: Updated property name to snake_case
                         request_date: requestDate,
                         status: TicketStatus.Requested,
                         team_id: ticketTeamId,
@@ -438,7 +428,6 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
                 setSuccessMessage('Fornecedor gravado com sucesso!');
                 setTimeout(() => {
                     setSuccessMessage('');
-                    // Optionally close automatically or let user close
                 }, 3000);
             }
         } catch (error) {
@@ -451,7 +440,6 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
     
     const modalTitle = supplierToEdit ? "Editar Fornecedor" : "Adicionar Novo Fornecedor";
 
-    // Email Template Generator
     const generateEmailTemplate = () => {
         const subject = `Solicitação de Evidências de Segurança (NIS2) - ${formData.name}`;
         const body = `Exmos. Senhores,\n\n` +
@@ -496,7 +484,6 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
                 <form onSubmit={handleSubmit} className="flex-grow overflow-y-auto custom-scrollbar pr-2">
                     {activeTab === 'details' && (
                     <div className="space-y-4">
-                        {/* Header Info - Grid Layout Fixed */}
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div className="md:col-span-1">
                                 <label htmlFor="nif" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">NIF</label>
@@ -536,7 +523,6 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
                             </div>
                         </div>
 
-                        {/* Contact Info */}
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div>
                                 <label htmlFor="contact_name" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Nome de Contacto (Geral)</label>
@@ -571,7 +557,6 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
                             {errors.website && <p className="text-red-400 text-xs italic mt-1">{errors.website}</p>}
                         </div>
 
-                        {/* Address Section */}
                         <div className="bg-gray-900/30 p-3 rounded-lg border border-gray-700">
                             <h4 className="text-sm font-semibold text-white mb-2">Morada</h4>
                             <div className="space-y-3">
@@ -599,7 +584,6 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
                             </div>
                         </div>
 
-                        {/* Risk & Security Section */}
                         <div className="border-t border-gray-700 pt-4 mt-2">
                             <h3 className="text-lg font-bold text-white mb-3 flex items-center gap-2">
                                 <FaShieldAlt className="text-brand-secondary" />
@@ -649,7 +633,6 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
                                             {errors.iso_certificate_expiry && <p className="text-red-400 text-xs italic mt-1">{errors.iso_certificate_expiry}</p>}
                                         </div>
 
-                                        {/* Ticket Automation */}
                                         <div className="bg-brand-primary/10 p-3 rounded border border-brand-primary/30">
                                             <div className="flex items-center mb-2">
                                                 <input 
@@ -708,7 +691,6 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
                                 )}
                             </div>
 
-                            {/* Other Certifications */}
                             <div className="bg-gray-900/30 p-3 rounded-lg border border-gray-700 mb-4">
                                 <h4 className="text-sm font-semibold text-white mb-2 flex items-center gap-2">
                                     <FaCertificate className="text-yellow-500"/> Outras Certificações
@@ -765,7 +747,6 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
                             </div>
                         </div>
 
-                        {/* Attachments Section */}
                         <div className="bg-gray-900/30 p-3 rounded-lg border border-gray-700">
                             <label className="block text-sm font-medium text-white mb-2">Ficheiros e Documentos (PDF, Imagens)</label>
                             <div className="bg-gray-800 p-3 rounded border border-gray-600">
