@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { Ticket, Entidade, Collaborator, TicketStatus, Team, Equipment, EquipmentType, TicketCategoryItem, SecurityIncidentTypeItem, Supplier, ModuleKey, PermissionAction, ConfigItem, Instituicao, Holiday } from '../types';
-import { EditIcon, FaTasks, FaShieldAlt, FaClock, FaExclamationTriangle, FaSkull, FaUserSecret, FaBug, FaNetworkWired, FaLock, FaFileContract, PlusIcon, FaLandmark, FaTruck, FaUsers, FaUserTie, FaSync, FaCalendarAlt } from './common/Icons';
+import { EditIcon, FaTasks, FaShieldAlt, FaClock, FaExclamationTriangle, FaSkull, FaUserSecret, FaBug, FaNetworkWired, FaLock, FaFileContract, PlusIcon, FaLandmark, FaTruck, FaUsers, FaUserTie, FaSync, FaCalendarAlt, FaBalanceScale } from './common/Icons';
 import { FaPaperclip, FaChevronDown } from 'react-icons/fa';
 import Pagination from './common/Pagination';
 import * as dataService from '../services/dataService';
@@ -16,7 +16,7 @@ interface TicketDashboardProps {
   suppliers?: Supplier[]; 
   equipment: Equipment[];
   categories: TicketCategoryItem[];
-  holidays?: Holiday[]; // Pedido 3
+  holidays?: Holiday[]; 
   configTicketStatuses?: ConfigItem[];
   onCreate?: () => void;
   onEdit?: (ticket: Ticket) => void;
@@ -37,10 +37,9 @@ interface TicketDashboardProps {
   onSortChange?: (sort: { key: string, direction: 'ascending' | 'descending' }) => void;
 }
 
-// Fix: Support date ranges and use start_date instead of date
 const isHolidayOrWeekend = (date: Date, holidays: Holiday[] = []) => {
     const day = date.getDay();
-    if (day === 0 || day === 6) return true; // Fim de semana
+    if (day === 0 || day === 6) return true;
     const dateStr = date.toISOString().split('T')[0];
     return holidays.some(h => {
         const start = h.start_date;
@@ -63,15 +62,9 @@ const getBusinessDaysRemaining = (requestDateStr: string, slaDays: number, holid
     const requestDate = new Date(requestDateStr);
     const targetDate = addBusinessDays(requestDate, slaDays, holidays);
     const now = new Date();
-    
     const diffTime = targetDate.getTime() - now.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
-    return {
-        daysRemaining: diffDays,
-        targetDate: targetDate,
-        isOverdue: diffTime < 0
-    };
+    return { daysRemaining: diffDays, targetDate: targetDate, isOverdue: diffTime < 0 };
 };
 
 const TicketDashboard: React.FC<TicketDashboardProps> = ({ 
@@ -86,7 +79,6 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({
     
     const supplierMap = useMemo(() => new Map(suppliers.map(s => [s.id, s.name])), [suppliers]);
     const entidadeMap = useMemo(() => new Map(entidades.map(e => [e.id, e.name])), [entidades]);
-    const instituicaoMap = useMemo(() => new Map(instituicoes.map(i => [i.id, i.name])), [instituicoes]);
     const collaboratorMap = useMemo(() => new Map(collaborators.map(c => [c.id, c])), [collaborators]);
     const teamMap = useMemo(() => new Map(teams.map(t => [t.id, t.name])), [teams]);
     const categoryMap = useMemo(() => new Map(categories.map(c => [c.name, c])), [categories]);
@@ -100,34 +92,17 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({
         if (onPageChange) onPageChange(1);
     };
 
-    const handleResetFilters = () => {
-        const empty = { status: '', team_id: '', category: '', title: '' };
-        setFilters(empty);
-        if (onFilterChange) onFilterChange(empty);
-        if (onPageChange) onPageChange(1);
-    };
-
     const handleSortRequest = (key: string) => {
         if (!onSortChange) return;
         let direction: 'ascending' | 'descending' = 'ascending';
-        if (sortConfig.key === key && sortConfig.direction === 'ascending') {
-            direction = 'descending';
-        }
+        if (sortConfig.key === key && sortConfig.direction === 'ascending') direction = 'descending';
         onSortChange({ key, direction });
     };
 
     const getStatusStyle = (status: string) => {
         const config = statusConfigMap.get(status.toLowerCase());
-        if (config?.color) {
-            return { backgroundColor: `${config.color}25`, color: config.color, borderColor: `${config.color}40` };
-        }
-        switch (status) {
-            case 'Pedido': return { backgroundColor: 'rgba(234, 179, 8, 0.15)', color: '#fbbf24', borderColor: 'rgba(234, 179, 8, 0.3)' };
-            case 'Em progresso': return { backgroundColor: 'rgba(59, 130, 246, 0.15)', color: '#60a5fa', borderColor: 'rgba(59, 130, 246, 0.3)' };
-            case 'Finalizado': return { backgroundColor: 'rgba(34, 197, 94, 0.15)', color: '#4ade80', borderColor: 'rgba(34, 197, 94, 0.3)' };
-            case 'Cancelado': return { backgroundColor: 'rgba(239, 68, 68, 0.15)', color: '#f87171', borderColor: 'rgba(239, 68, 68, 0.3)' };
-            default: return { backgroundColor: 'rgba(156, 163, 175, 0.15)', color: '#9ca3af', borderColor: 'rgba(156, 163, 175, 0.3)' };
-        }
+        if (config?.color) return { backgroundColor: `${config.color}25`, color: config.color, borderColor: `${config.color}40` };
+        return { backgroundColor: 'rgba(156, 163, 175, 0.15)', color: '#9ca3af', borderColor: 'rgba(156, 163, 175, 0.3)' };
     };
 
     return (
@@ -138,26 +113,10 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({
                     <p className="text-xs text-gray-500 mt-1">Gestão de incidentes e conformidade regulatória.</p>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
-                    <button onClick={onCreate} className="px-4 py-2 bg-brand-primary text-white rounded-md font-bold shadow-lg flex items-center gap-2 hover:bg-brand-secondary transition-all">
-                        <PlusIcon /> Abrir Ticket
-                    </button>
-                    
+                    <button onClick={onCreate} className="px-4 py-2 bg-brand-primary text-white rounded-md font-bold shadow-lg flex items-center gap-2 hover:bg-brand-secondary transition-all"><PlusIcon /> Abrir Ticket</button>
                     <div className="flex bg-gray-800 rounded-md border border-gray-700 overflow-hidden items-center">
                         <input type="text" name="title" placeholder="Pesquisar..." value={filters.title} onChange={handleFilterChange} className="bg-transparent text-white px-3 py-1.5 text-sm focus:outline-none w-40 md:w-64"/>
-                        <select name="category" value={filters.category} onChange={handleFilterChange} className="bg-gray-700 text-gray-300 px-2 py-1.5 text-xs border-l border-gray-600 focus:outline-none">
-                            <option value="">Categorias</option>
-                            {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-                        </select>
-                        <select name="status" value={filters.status} onChange={handleFilterChange} className="bg-gray-700 text-gray-300 px-2 py-1.5 text-xs border-l border-gray-600 focus:outline-none">
-                            <option value="">Estados Ativos</option>
-                            <option value="Pedido">Pedido</option>
-                            <option value="Em progresso">Em progresso</option>
-                            <option value="Finalizado">Finalizado (Histórico)</option>
-                            <option value="Cancelado">Cancelado</option>
-                        </select>
-                        <button onClick={handleResetFilters} className="bg-gray-600 text-white px-3 py-1.5 hover:bg-gray-500 transition-colors border-l border-gray-600">
-                            <FaSync className={(filters.title || filters.category || filters.status) ? "text-brand-secondary" : "opacity-30"} />
-                        </button>
+                        <button onClick={() => setFilters({ status: '', team_id: '', category: '', title: '' })} className="bg-gray-600 text-white px-3 py-1.5 hover:bg-gray-500 transition-colors border-l border-gray-600"><FaSync className={(filters.title || filters.category || filters.status) ? "text-brand-secondary" : "opacity-30"} /></button>
                     </div>
                 </div>
             </div>
@@ -170,13 +129,12 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({
                         <thead className="text-xs text-on-surface-dark-secondary uppercase bg-gray-700/50">
                             <tr>
                                 <SortableHeader label="Criação" sortKey="request_date" currentSort={sortConfig} onSort={handleSortRequest} />
-                                <th className="px-6 py-3">Entidade / Local</th>
+                                <th className="px-6 py-3">Entidade</th>
                                 <th className="px-6 py-3">Requerente</th>
                                 <th className="px-6 py-3">Equipa</th>
                                 <SortableHeader label="Categoria" sortKey="category" currentSort={sortConfig} onSort={handleSortRequest} />
                                 <SortableHeader label="Assunto" sortKey="title" currentSort={sortConfig} onSort={handleSortRequest} />
-                                <th className="px-6 py-3 text-center">Prazo (D. Úteis)</th>
-                                <th className="px-6 py-3">Técnico</th>
+                                <th className="px-6 py-3 text-center">Prazo / NIS2</th>
                                 <SortableHeader label="Estado" sortKey="status" currentSort={sortConfig} onSort={handleSortRequest} />
                                 <th className="px-6 py-3 text-center">Ações</th>
                             </tr>
@@ -185,64 +143,46 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({
                             {tickets.length > 0 ? tickets.map((ticket) => {
                                 const requesterObj = ticket.collaborator_id ? collaboratorMap.get(ticket.collaborator_id) : undefined;
                                 const requesterName = ticket.requester_supplier_id ? supplierMap.get(ticket.requester_supplier_id) : requesterObj?.full_name;
-                                
-                                const resolvedEntidadeId = ticket.entidade_id || requesterObj?.entidade_id;
-                                const locationName = resolvedEntidadeId ? (entidadeMap.get(resolvedEntidadeId) || '—') : '—';
-                                
+                                const locationName = (ticket.entidade_id ? entidadeMap.get(ticket.entidade_id) : requesterObj?.entidade_id ? entidadeMap.get(requesterObj.entidade_id) : '—');
                                 const categoryObj = ticket.category ? categoryMap.get(ticket.category) : undefined;
-                                // Lógica de SLA cruzando com feriados
-                                const slaInfo = (ticket.status === 'Pedido' || ticket.status === 'Em progresso') && categoryObj?.sla_working_days 
-                                    ? getBusinessDaysRemaining(ticket.request_date, categoryObj.sla_working_days, holidays) 
-                                    : null;
+                                const slaInfo = (ticket.status === 'Pedido' || ticket.status === 'Em progresso') && categoryObj?.sla_working_days ? getBusinessDaysRemaining(ticket.request_date, categoryObj.sla_working_days, holidays) : null;
+                                
+                                const isNis2Active = ticket.regulatory_status && ticket.regulatory_status !== 'NotRequired';
 
                                 return (
                                     <tr key={ticket.id} className={`hover:bg-gray-800/40 transition-colors cursor-pointer ${slaInfo?.isOverdue ? 'bg-red-900/10' : ''}`} onClick={() => onOpenActivities?.(ticket)}>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="font-mono text-xs text-white">{new Date(ticket.request_date).toLocaleDateString()}</div>
-                                            <div className="text-[10px] text-gray-500">{new Date(ticket.request_date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
-                                        </td>
-                                        <td className="px-6 py-4"><div className="font-medium text-white">{locationName}</div></td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-xs text-white">{new Date(ticket.request_date).toLocaleDateString()}</td>
+                                        <td className="px-6 py-4 text-xs">{locationName}</td>
                                         <td className="px-6 py-4">
                                             <div className="text-white font-semibold flex items-center gap-2 whitespace-nowrap">
                                                 {ticket.requester_supplier_id ? <FaTruck className="text-yellow-500" /> : <FaUserTie className="text-gray-400" />}
                                                 {requesterName || 'Desconhecido'}
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4">
-                                            <span className="inline-flex items-center gap-1 bg-gray-900/50 border border-gray-700 px-2 py-1 rounded text-[10px] text-brand-secondary font-bold uppercase whitespace-nowrap">
-                                                <FaUsers /> {ticket.team_id ? teamMap.get(ticket.team_id) : 'Pendente'}
-                                            </span>
-                                        </td>
+                                        <td className="px-6 py-4"><span className="text-[10px] text-brand-secondary font-bold uppercase">{ticket.team_id ? teamMap.get(ticket.team_id) : 'Pendente'}</span></td>
                                         <td className="px-6 py-4 text-gray-300">{ticket.category}</td>
-                                        <td className="px-6 py-4 max-w-xs">
-                                            <div className="font-bold text-white mb-0.5 truncate">
-                                                {ticket.attachments && ticket.attachments.length > 0 && <FaPaperclip className="inline mr-1 text-brand-secondary" />}
-                                                {ticket.title}
-                                            </div>
+                                        <td className="px-6 py-4 max-w-xs truncate font-bold text-white">
+                                            {ticket.attachments && ticket.attachments.length > 0 && <FaPaperclip className="inline mr-1 text-brand-secondary" />}
+                                            {ticket.title}
                                         </td>
                                         <td className="px-6 py-4 text-center">
-                                            {slaInfo ? (
-                                                <div className={`px-2 py-1 rounded text-xs font-black inline-flex items-center gap-1 border shadow-sm ${slaInfo.isOverdue ? 'bg-red-600 text-white border-red-800 animate-pulse' : 'bg-gray-800 text-brand-secondary border-gray-600'}`}>
-                                                    <FaCalendarAlt /> {slaInfo.daysRemaining}d
-                                                </div>
-                                            ) : <span className="text-gray-600">-</span>}
+                                            <div className="flex flex-col items-center gap-1">
+                                                {slaInfo && <div className={`px-2 py-0.5 rounded text-[10px] font-black border ${slaInfo.isOverdue ? 'bg-red-600 text-white border-red-800 animate-pulse' : 'bg-gray-800 text-brand-secondary border-gray-600'}`}>SLA {slaInfo.daysRemaining}d</div>}
+                                                {isNis2Active && <div className="flex items-center gap-1 text-[9px] text-red-400 font-black animate-pulse uppercase"><FaBalanceScale/> NIS2</div>}
+                                            </div>
                                         </td>
-                                        <td className="px-6 py-4 text-xs text-gray-400 whitespace-nowrap">
-                                            {ticket.technician_id ? (collaboratorMap.get(ticket.technician_id)?.full_name || 'Técnico') : <span className="italic">Não Atribuído</span>}
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <span style={getStatusStyle(ticket.status)} className="px-2 py-1 rounded text-[10px] font-black uppercase border">{ticket.status}</span>
-                                        </td>
+                                        <td className="px-6 py-4"><span style={getStatusStyle(ticket.status)} className="px-2 py-1 rounded text-[10px] font-black uppercase border">{ticket.status}</span></td>
                                         <td className="px-6 py-4 text-center" onClick={e => e.stopPropagation()}>
                                             <div className="flex justify-center gap-3">
-                                                <button onClick={() => onOpenActivities?.(ticket)} className="text-teal-400 hover:text-teal-300" title="Ver Atividade"><FaTasks/></button>
+                                                <button onClick={() => onOpenActivities?.(ticket)} className="text-teal-400 hover:text-teal-300"><FaTasks/></button>
                                                 {onEdit && canEdit && <button onClick={() => onEdit(ticket)} className="text-blue-400 hover:text-blue-300"><EditIcon /></button>}
+                                                {isNis2Active && <button onClick={() => onGenerateSecurityReport?.(ticket)} className="text-red-400 hover:text-red-300"><FaShieldAlt/></button>}
                                             </div>
                                         </td>
                                     </tr>
                                 );
                             }) : (
-                                <tr><td colSpan={10} className="text-center py-20 text-gray-500 italic">Nenhum ticket encontrado.</td></tr>
+                                <tr><td colSpan={9} className="text-center py-20 text-gray-500 italic">Nenhum ticket encontrado.</td></tr>
                             )}
                         </tbody>
                     </table>

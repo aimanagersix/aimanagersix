@@ -253,6 +253,10 @@ export interface Ticket {
     requester_supplier_id?: string;
     attachments?: { name: string; dataUrl: string }[];
     embedding?: number[];
+    // Fix: Added missing regulatory fields for NIS2 compliance
+    regulatory_status?: string;
+    regulatory_24h_deadline?: string;
+    regulatory_72h_deadline?: string;
 }
 
 export interface SoftwareLicense {

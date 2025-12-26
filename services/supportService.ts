@@ -1,8 +1,9 @@
+
 import { getSupabase } from './supabaseClient';
 
 /**
- * Support Service - V1.4
- * Pedido 7: Propagação obrigatória de erros de base de dados para evitar falhas silenciosas.
+ * Support Service - V1.5
+ * Pedido 3: Mapeamento completo de campos regulatórios NIS2 e IA.
  */
 
 const sb = () => getSupabase();
@@ -22,13 +23,17 @@ const cleanPayload = (data: any) => {
         'impactCriticality': 'impact_criticality',
         'resolutionSummary': 'resolution_summary',
         'requesterSupplierId': 'requester_supplier_id',
+        'regulatoryStatus': 'regulatory_status',
+        'regulatory24hDeadline': 'regulatory_24h_deadline',
+        'regulatory72hDeadline': 'regulatory_72h_deadline',
         'ticketId': 'ticket_id',
         'startDate': 'start_date',
         'endDate': 'end_date',
         'isAllDay': 'is_all_day',
         'isPrivate': 'is_private',
         'createdBy': 'created_by',
-        'reminderMinutes': 'reminder_minutes'
+        'reminderMinutes': 'reminder_minutes',
+        'embedding': 'embedding'
     };
 
     Object.keys(data).forEach(key => {

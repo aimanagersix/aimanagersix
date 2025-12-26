@@ -17,7 +17,9 @@ import {
     FaSort, FaSortUp, FaSortDown, FaList, FaThLarge, FaToolbox, FaChevronRight, FaShoppingCart, 
     // Fix: Added FaCamera to imported icons from react-icons/fa
     FaShieldVirus, FaAddressBook, FaBars, 
-    FaMicrochip, FaMemory, FaHdd, FaLeaf, FaBolt, FaHeartbeat, FaTags, FaShapes, FaCompactDisc, FaCamera
+    FaMicrochip, FaMemory, FaHdd, FaLeaf, FaBolt, FaHeartbeat, FaTags, FaShapes, FaCompactDisc, FaCamera,
+    // Fix: Added FaBalanceScale
+    FaBalanceScale
 } from 'react-icons/fa';
 
 export { 
@@ -37,7 +39,9 @@ export {
     FaSort, FaSortUp, FaSortDown, FaList, FaThLarge, FaToolbox, FaChevronRight, FaShoppingCart, 
     // Fix: Added FaCamera to exported icons
     FaShieldVirus, FaAddressBook, FaBars,
-    FaMicrochip, FaMemory, FaHdd, FaLeaf, FaBolt, FaHeartbeat, FaTags, FaShapes, FaCompactDisc, FaCamera
+    FaMicrochip, FaMemory, FaHdd, FaLeaf, FaBolt, FaHeartbeat, FaTags, FaShapes, FaCompactDisc, FaCamera,
+    // Fix: Added FaBalanceScale
+    FaBalanceScale
 };
 
 export const PlusIcon: React.FC<{ className?: string }> = ({ className = "h-6 w-6" }) => (
