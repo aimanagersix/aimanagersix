@@ -65,10 +65,7 @@ const cleanPayload = (data: any) => {
         const targetKey = keyMap[key] || key;
         const val = data[key];
         
-        if (targetKey === 'availability' && (val === undefined || val === null || val === '')) {
-            return; 
-        }
-
+        // Garantir que campos de texto vazios são null
         if (typeof val === 'string' && val.trim() === '') {
             cleaned[targetKey] = null;
         } else if (numericFields.includes(targetKey)) {
