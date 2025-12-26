@@ -68,11 +68,16 @@ const cleanPayload = (data: any) => {
         'securityContactEmail': 'security_contact_email',
         'riskLevel': 'risk_level',
         'addressLine': 'address_line',
-        'postalCode': 'postal_code'
+        'postalCode': 'postal_code',
+        'osVersion': 'os_version',
+        'firmwareVersion': 'firmware_version',
+        'encryptionStatus': 'encryption_status',
+        'expectedLifespanYears': 'expected_lifespan_years',
+        'installationLocation': 'installation_location'
     };
 
     const blackList = ['contacts', 'contracts', 'attachments', 'preferences', 'simulatedTicket', 'isSimulating'];
-    const numericFields = ['acquisition_cost', 'residual_value', 'unit_cost', 'total_seats', 'estimated_cost', 'quantity'];
+    const numericFields = ['acquisition_cost', 'residual_value', 'unit_cost', 'total_seats', 'estimated_cost', 'quantity', 'expected_lifespan_years'];
 
     Object.keys(data).forEach(key => {
         if (blackList.includes(key)) return;

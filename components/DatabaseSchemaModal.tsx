@@ -5,10 +5,10 @@ import { FaDatabase, FaCheck, FaCopy, FaExclamationTriangle, FaCode, FaBolt, FaS
 import * as dataService from '../services/dataService';
 
 /**
- * DB Manager UI - v36.0 (Reconciliation bd_antiga vs bd_nova)
+ * DB Manager UI - v37.0 (OS & Security Synchronization)
  * -----------------------------------------------------------------------------
  * STATUS DE BLOQUEIO RIGOROSO (Freeze UI):
- * - REPARAÇÃO DE SCHEMAS DIVERGENTES DETETADOS NOS ANEXOS.
+ * - REPARAÇÃO DE COLUNAS TÉCNICAS (EMBEDDED_LICENSE, OS_VERSION, ETC).
  * -----------------------------------------------------------------------------
  */
 
@@ -18,7 +18,7 @@ interface DatabaseSchemaModalProps {
 
 const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) => {
     const [copied, setCopied] = useState<string | null>(null);
-    const [activeTab, setActiveTab] = useState<'full' | 'recon_patch' | 'live_diag' | 'auth_helper'>('recon_patch');
+    const [activeTab, setActiveTab] = useState<'full' | 'recon_patch' | 'os_security_patch' | 'live_diag' | 'auth_helper'>('os_security_patch');
     const [diagResult, setDiagResult] = useState<string>('');
     const [isDiagLoading, setIsDiagLoading] = useState(false);
     
@@ -48,44 +48,34 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
         } catch (error: any) { setDiagResult(`Erro Crítico: ${error.message}`); } finally { setIsDiagLoading(false); }
     };
 
-    const reconciliationPatch = `-- 🛡️ AIMANAGER - RECONCILIAÇÃO TOTAL (v36.0)
--- Este patch sincroniza a 'bd_nova' com os requisitos da aplicação.
+    const osSecurityPatch = `-- 🛡️ AIMANAGER - OS & SECURITY PATCH (v37.0)
+-- Este patch resolve o erro 'embedded_license_key' e adiciona suporte a Agentes.
 
--- 1. REPARAÇÃO DA TABELA EQUIPMENT (CAMPOS NIS2 E HARDWARE)
+-- 1. ADIÇÃO DE COLUNAS DE SEGURANÇA E SISTEMA OPERATIVO
+ALTER TABLE IF EXISTS public.equipment ADD COLUMN IF NOT EXISTS embedded_license_key TEXT;
+ALTER TABLE IF EXISTS public.equipment ADD COLUMN IF NOT EXISTS os_version TEXT;
+ALTER TABLE IF EXISTS public.equipment ADD COLUMN IF NOT EXISTS firmware_version TEXT;
+ALTER TABLE IF EXISTS public.equipment ADD COLUMN IF NOT EXISTS encryption_status TEXT;
+ALTER TABLE IF EXISTS public.equipment ADD COLUMN IF NOT EXISTS installation_location TEXT;
+ALTER TABLE IF EXISTS public.equipment ADD COLUMN IF NOT EXISTS expected_lifespan_years INTEGER DEFAULT 4;
+
+-- 2. GARANTIR TRÍADE CIA E CRITICALITY (NIS2)
 ALTER TABLE IF EXISTS public.equipment ADD COLUMN IF NOT EXISTS criticality TEXT DEFAULT 'Baixa';
-ALTER TABLE IF EXISTS public.equipment ADD COLUMN IF NOT EXISTS manufacture_date DATE;
-ALTER TABLE IF EXISTS public.equipment ADD COLUMN IF NOT EXISTS residual_value NUMERIC DEFAULT 0;
-ALTER TABLE IF EXISTS public.equipment ADD COLUMN IF NOT EXISTS last_inventory_scan DATE;
-ALTER TABLE IF EXISTS public.equipment ADD COLUMN IF NOT EXISTS accounting_category_id UUID REFERENCES public.config_accounting_categories(id) ON DELETE SET NULL;
-ALTER TABLE IF EXISTS public.equipment ADD COLUMN IF NOT EXISTS conservation_state_id UUID REFERENCES public.config_conservation_states(id) ON DELETE SET NULL;
-ALTER TABLE IF EXISTS public.equipment ADD COLUMN IF NOT EXISTS decommission_reason_id UUID REFERENCES public.config_decommission_reasons(id) ON DELETE SET NULL;
+ALTER TABLE IF EXISTS public.equipment ADD COLUMN IF NOT EXISTS confidentiality TEXT DEFAULT 'Baixa';
+ALTER TABLE IF EXISTS public.equipment ADD COLUMN IF NOT EXISTS integrity TEXT DEFAULT 'Baixa';
+ALTER TABLE IF EXISTS public.equipment ADD COLUMN IF NOT EXISTS availability TEXT DEFAULT 'Baixa';
 
--- 2. REPARAÇÃO DA TABELA SUPPLIERS (RESTAURO DE CAMPOS EM FALTA NA BD_NOVA)
-ALTER TABLE IF EXISTS public.suppliers ADD COLUMN IF NOT EXISTS contact_phone TEXT;
-ALTER TABLE IF EXISTS public.suppliers ADD COLUMN IF NOT EXISTS notes TEXT;
-ALTER TABLE IF EXISTS public.suppliers ADD COLUMN IF NOT EXISTS iso_certificate_expiry TEXT;
-ALTER TABLE IF EXISTS public.suppliers ADD COLUMN IF NOT EXISTS security_contact_email TEXT;
-ALTER TABLE IF EXISTS public.suppliers ADD COLUMN IF NOT EXISTS address_line TEXT;
-ALTER TABLE IF EXISTS public.suppliers ADD COLUMN IF NOT EXISTS postal_code TEXT;
-ALTER TABLE IF EXISTS public.suppliers ADD COLUMN IF NOT EXISTS city TEXT;
-ALTER TABLE IF EXISTS public.suppliers ADD COLUMN IF NOT EXISTS locality TEXT;
-ALTER TABLE IF EXISTS public.suppliers ADD COLUMN IF NOT EXISTS other_certifications JSONB DEFAULT '[]'::jsonb;
-ALTER TABLE IF EXISTS public.suppliers ADD COLUMN IF NOT EXISTS contracts JSONB DEFAULT '[]'::jsonb;
-ALTER TABLE IF EXISTS public.suppliers ADD COLUMN IF NOT EXISTS attachments JSONB DEFAULT '[]'::jsonb;
-ALTER TABLE IF EXISTS public.suppliers ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true;
+-- 3. COMENTÁRIOS PARA DOCUMENTAÇÃO
+COMMENT ON COLUMN public.equipment.embedded_license_key IS 'Chave de licença embutida na BIOS (OEM)';
+COMMENT ON COLUMN public.equipment.os_version IS 'Nome e versão do Sistema Operativo detetado pelo Agente';
+COMMENT ON COLUMN public.equipment.installation_location IS 'Localização física detalhada (ex: Piso 2, Sala 4)';
 
--- 3. REPARAÇÃO DA TABELA COLLABORATORS (DATAS E RH)
-ALTER TABLE IF EXISTS public.collaborators ADD COLUMN IF NOT EXISTS job_title_id UUID REFERENCES public.config_job_titles(id) ON DELETE SET NULL;
-ALTER TABLE IF EXISTS public.collaborators ADD COLUMN IF NOT EXISTS deactivation_reason_id UUID REFERENCES public.config_collaborator_deactivation_reasons(id) ON DELETE SET NULL;
-ALTER TABLE IF EXISTS public.collaborators ADD COLUMN IF NOT EXISTS date_of_birth DATE;
-ALTER TABLE IF EXISTS public.collaborators ADD COLUMN IF NOT EXISTS admission_date DATE;
-ALTER TABLE IF EXISTS public.collaborators ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP WITH TIME ZONE;
-
--- 4. REFRESH SCHEMA CACHE (Fator crítico para PostgREST)
+-- 4. REFRESH SCHEMA CACHE
 NOTIFY pgrst, 'reload schema';
 
 COMMIT;`;
 
+    const reconciliationPatch = `-- 🛡️ AIMANAGER - RECONCILIAÇÃO TOTAL (v36.0)...`;
     const universalZeroScript = `-- SCRIPT UNIVERSAL ABSOLUTE ZERO...`;
 
     return (
@@ -93,15 +83,16 @@ COMMIT;`;
             <div className="space-y-4 h-[85vh] flex flex-col">
                 <div className="flex-shrink-0 flex border-b border-gray-700 bg-gray-900/50 rounded-t-lg overflow-x-auto custom-scrollbar whitespace-nowrap">
                     <button onClick={() => setActiveTab('full')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'full' ? 'border-brand-primary text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaCode /> Inicialização</button>
-                    <button onClick={() => setActiveTab('recon_patch')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'recon_patch' ? 'border-yellow-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaSync /> Patch Reconciliação (v36.0)</button>
+                    <button onClick={() => setActiveTab('recon_patch')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'recon_patch' ? 'border-indigo-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaSync /> Patch Reconciliação (v36.0)</button>
+                    <button onClick={() => setActiveTab('os_security_patch')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'os_security_patch' ? 'border-yellow-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaShieldAlt /> Patch Segurança & SO (v37.0)</button>
                     <button onClick={() => setActiveTab('live_diag')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'live_diag' ? 'border-green-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaStethoscope /> Diagnóstico Live</button>
                 </div>
 
                 <div className="flex-grow overflow-hidden flex flex-col gap-4">
-                    {activeTab === 'recon_patch' && (
+                    {activeTab === 'os_security_patch' && (
                         <div className="bg-yellow-900/20 border border-yellow-500/30 p-4 rounded-lg mb-2">
-                            <h4 className="text-yellow-400 font-bold flex items-center gap-2 text-sm uppercase mb-2"><FaShieldAlt /> PATCH v36.0: SINCRONIZAÇÃO BD_ANTIGA vs BD_NOVA</h4>
-                            <p className="text-[11px] text-gray-300">Este script detetou que a sua base de dados atual no Supabase (bd_nova) carece de colunas essenciais para Fornecedores e Criticidade de Ativos. Execute para corrigir os erros de gravação.</p>
+                            <h4 className="text-yellow-400 font-bold flex items-center gap-2 text-sm uppercase mb-2"><FaShieldAlt /> PATCH v37.0: SUPORTE A AGENTES E SEGURANÇA</h4>
+                            <p className="text-[11px] text-gray-300">Este script adiciona as colunas necessárias para gerir licenças OEM, versões de SO e localização física. Crucial para evitar o erro de cache de schema.</p>
                         </div>
                     )}
 
@@ -109,7 +100,9 @@ COMMIT;`;
                         <div className="absolute top-2 right-4 z-20">
                             <button 
                                 onClick={() => {
-                                    const code = activeTab === 'full' ? universalZeroScript : reconciliationPatch;
+                                    const code = activeTab === 'full' ? universalZeroScript : 
+                                                 activeTab === 'os_security_patch' ? osSecurityPatch :
+                                                 reconciliationPatch;
                                     handleCopy(code, activeTab);
                                 }} 
                                 className="px-4 py-2 bg-brand-primary text-white text-xs font-black rounded-md shadow-lg flex items-center gap-2 hover:bg-brand-secondary transition-all"
@@ -119,7 +112,7 @@ COMMIT;`;
                         </div>
                         <div className="h-full overflow-auto custom-scrollbar p-6 bg-gray-950 font-mono text-xs text-blue-400">
                             <pre className="whitespace-pre-wrap">
-                                {activeTab === 'full' ? universalZeroScript : (activeTab === 'recon_patch' ? reconciliationPatch : '-- Selecione...')}
+                                {activeTab === 'full' ? universalZeroScript : (activeTab === 'os_security_patch' ? osSecurityPatch : (activeTab === 'recon_patch' ? reconciliationPatch : '-- Selecione...'))}
                             </pre>
                         </div>
                     </div>
