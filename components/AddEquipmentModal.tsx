@@ -322,7 +322,6 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
                 const match = eq.nome_na_rede.match(regex);
                 if (match && match[1]) {
                     const num = parseInt(match[1], 10);
-                    // Fix: Fixed incorrect assignment from 'num = num' to 'maxNum = num'
                     if (num > maxNum) maxNum = num;
                 }
             }
