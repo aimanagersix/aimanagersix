@@ -5,10 +5,11 @@ import { FaDatabase, FaCheck, FaCopy, FaExclamationTriangle, FaCode, FaBolt, FaS
 import * as dataService from '../services/dataService';
 
 /**
- * DB Manager UI - v40.0 (NIS2 & Vector Search Engine)
+ * DB Manager UI - v40.1 (Integrity & NIS2 Patch)
  * -----------------------------------------------------------------------------
  * STATUS DE BLOQUEIO RIGOROSO (Freeze UI):
  * - ATIVAÇÃO DE PGVECTOR E CAMPOS REGULATÓRIOS NIS2.
+ * - ADIÇÃO DE UNIQUE CONSTRAINT NO NIF DE FORNECEDORES.
  * -----------------------------------------------------------------------------
  */
 
@@ -48,7 +49,7 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
         } catch (error: any) { setDiagResult(`Erro Crítico: ${error.message}`); } finally { setIsDiagLoading(false); }
     };
 
-    const nis2VectorPatch = `-- ⚖️ AIMANAGER - NIS2 & IA VECTOR SEARCH PATCH (v40.0)
+    const nis2VectorPatch = `-- ⚖️ AIMANAGER - NIS2, IA & INTEGRITY PATCH (v40.1)
 -- Este patch garante que a pesquisa inteligente e o reporte regulatório funcionam a 100%.
 
 -- 1. ATIVAR EXTENSÃO DE VETORES (Para Pesquisa Inteligente de Tickets)
@@ -63,7 +64,6 @@ ALTER TABLE IF EXISTS public.tickets ADD COLUMN IF NOT EXISTS finish_date TIMEST
 ALTER TABLE IF EXISTS public.tickets ADD COLUMN IF NOT EXISTS resolution_summary TEXT;
 
 -- 3. GARANTIR COLUNA DE EMBEDDING (Requer pgvector ativa no passo 1)
--- Se a coluna existir como 'USER-DEFINED', tentamos convertê-la para o tipo 'vector(768)'
 DO $$ 
 BEGIN 
     BEGIN
@@ -73,8 +73,16 @@ BEGIN
     END;
 END $$;
 
--- 4. ÍNDICE PARA PESQUISA RÁPIDA DE IA (HNSW)
--- CREATE INDEX IF NOT EXISTS tickets_embedding_idx ON public.tickets USING hnsw (embedding vector_cosine_ops);
+-- 4. INTEGRIDADE DE FORNECEDORES (Sugestão do Engenheiro)
+-- Impede a criação de duplicados por NIF
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'suppliers_nif_unique') THEN
+        ALTER TABLE public.suppliers ADD CONSTRAINT suppliers_nif_unique UNIQUE (nif);
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    RAISE NOTICE 'Não foi possível aplicar UNIQUE no NIF. Verifique se existem duplicados antes de aplicar.';
+END $$;
 
 -- 5. REFRESH SCHEMA CACHE
 NOTIFY pgrst, 'reload schema';
@@ -90,7 +98,7 @@ COMMIT;`;
         <Modal title="Gestão de Infraestrutura (Enterprise)" onClose={onClose} maxWidth="max-w-6xl">
             <div className="space-y-4 h-[85vh] flex flex-col">
                 <div className="flex-shrink-0 flex border-b border-gray-700 bg-gray-900/50 rounded-t-lg overflow-x-auto custom-scrollbar whitespace-nowrap">
-                    <button onClick={() => setActiveTab('nis2_vector_patch')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'nis2_vector_patch' ? 'border-brand-secondary text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaBalanceScale /> Patch NIS2 & IA (v40.0)</button>
+                    <button onClick={() => setActiveTab('nis2_vector_patch')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'nis2_vector_patch' ? 'border-brand-secondary text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaBalanceScale /> Patch NIS2 & IA (v40.1)</button>
                     <button onClick={() => setActiveTab('final_sync_patch')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'final_sync_patch' ? 'border-brand-primary text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaBolt /> Patch v39.0</button>
                     <button onClick={() => setActiveTab('harmo_patch')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'harmo_patch' ? 'border-green-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaCheck /> Patch v38.0</button>
                     <button onClick={() => setActiveTab('full')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'full' ? 'border-indigo-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaCode /> Inicialização</button>
@@ -100,8 +108,8 @@ COMMIT;`;
                 <div className="flex-grow overflow-hidden flex flex-col gap-4">
                     {activeTab === 'nis2_vector_patch' && (
                         <div className="bg-brand-primary/10 border border-brand-primary/30 p-4 rounded-lg mb-2">
-                            <h4 className="text-brand-secondary font-bold flex items-center gap-2 text-sm uppercase mb-2"><FaBalanceScale /> PATCH v40.0: COMPLIANCE E INTELIGÊNCIA</h4>
-                            <p className="text-[11px] text-gray-300">Este script ativa a capacidade de pesquisa por vetores (IA) e garante que os campos de prazos regulatórios (24h/72h) estão presentes para conformidade com a diretiva NIS2.</p>
+                            <h4 className="text-brand-secondary font-bold flex items-center gap-2 text-sm uppercase mb-2"><FaBalanceScale /> PATCH v40.1: COMPLIANCE E INTEGRIDADE</h4>
+                            <p className="text-[11px] text-gray-300">Este script ativa a pesquisa por vetores (IA), garante prazos NIS2 e **bloqueia duplicados de NIF nos fornecedores**.</p>
                         </div>
                     )}
 
