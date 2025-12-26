@@ -1,4 +1,3 @@
-
 export enum UserRole {
     SuperAdmin = 'SuperAdmin',
     Admin = 'Admin',
@@ -85,7 +84,6 @@ export interface EquipmentType {
     requires_mac_wifi: boolean;
     requires_mac_cabo: boolean;
     requires_inventory_number: boolean;
-    default_team_id?: string;
     requires_backup_test: boolean;
     requires_location: boolean;
     is_maintenance: boolean;
@@ -97,6 +95,8 @@ export interface EquipmentType {
     requires_cpu_info: boolean;
     requires_manufacture_date: boolean;
     requires_ip: boolean;
+    /* FIX: Added default_team_id to EquipmentType interface to support team-based maintenance grouping in TeamDashboard */
+    default_team_id?: string;
 }
 
 export interface Collaborator {

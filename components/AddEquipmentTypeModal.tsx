@@ -11,13 +11,13 @@ interface AddEquipmentTypeModalProps {
 }
 
 const AddEquipmentTypeModal: React.FC<AddEquipmentTypeModalProps> = ({ onClose, onSave, typeToEdit, teams, existingTypes = [] }) => {
+    /* FIX: Added default_team_id to form state to support maintenance team associations */
     const [formData, setFormData] = useState({
         name: '',
         requires_nome_na_rede: false,
         requires_mac_wifi: false,
         requires_mac_cabo: false,
         requires_inventory_number: false,
-        default_team_id: '',
         requires_backup_test: false,
         requires_location: false,
         is_maintenance: false,
@@ -29,18 +29,19 @@ const AddEquipmentTypeModal: React.FC<AddEquipmentTypeModalProps> = ({ onClose, 
         requires_cpu_info: false,
         requires_manufacture_date: false,
         requires_ip: false,
+        default_team_id: ''
     });
     const [error, setError] = useState('');
 
     useEffect(() => {
         if (typeToEdit) {
+            /* FIX: Hydrate form state with existing default_team_id when editing */
             setFormData({
                 name: typeToEdit.name || '',
                 requires_nome_na_rede: !!typeToEdit.requires_nome_na_rede,
                 requires_mac_wifi: !!typeToEdit.requires_mac_wifi,
                 requires_mac_cabo: !!typeToEdit.requires_mac_cabo,
                 requires_inventory_number: !!typeToEdit.requires_inventory_number,
-                default_team_id: typeToEdit.default_team_id || '',
                 requires_backup_test: !!typeToEdit.requires_backup_test,
                 requires_location: !!typeToEdit.requires_location,
                 is_maintenance: !!typeToEdit.is_maintenance,
@@ -52,6 +53,7 @@ const AddEquipmentTypeModal: React.FC<AddEquipmentTypeModalProps> = ({ onClose, 
                 requires_cpu_info: !!typeToEdit.requires_cpu_info,
                 requires_manufacture_date: !!typeToEdit.requires_manufacture_date,
                 requires_ip: !!typeToEdit.requires_ip,
+                default_team_id: typeToEdit.default_team_id || ''
             });
         }
     }, [typeToEdit]);
@@ -85,10 +87,11 @@ const AddEquipmentTypeModal: React.FC<AddEquipmentTypeModalProps> = ({ onClose, 
             return;
         }
         
+        /* FIX: Correctly map default_team_id to undefined if empty for database constraints */
         const dataToSave = {
             ...formData,
             name,
-            default_team_id: formData.default_team_id || null,
+            default_team_id: formData.default_team_id || undefined
         };
 
         try {
@@ -122,22 +125,22 @@ const AddEquipmentTypeModal: React.FC<AddEquipmentTypeModalProps> = ({ onClose, 
                     {error && <p className="text-red-400 text-xs italic mt-1">{error}</p>}
                 </div>
 
-                <div>
-                    <label htmlFor="default_team_id" className="block text-sm font-bold text-gray-400 mb-1 uppercase tracking-widest text-[10px]">Equipa de Suporte Padrão (Triagem Automática)</label>
-                     <select 
-                        name="default_team_id" 
-                        id="default_team_id" 
-                        value={formData.default_team_id} 
-                        onChange={handleChange} 
-                        className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm outline-none focus:border-brand-primary"
-                    >
-                        <option value="">Nenhuma (Fica Pendente)</option>
-                        {teams.map(team => (
-                            <option key={team.id} value={team.id}>{team.name}</option>
-                        ))}
-                    </select>
+                {/* FIX: Render default_team_id dropdown in the EquipmentType modal */}
+                <div className="border-t border-gray-700 pt-4">
+                    <h3 className="text-[10px] font-black text-brand-secondary uppercase tracking-widest mb-4">Configurações de Suporte</h3>
+                    <div>
+                        <label className="block text-xs text-gray-400 mb-1">Equipa de Suporte Padrão</label>
+                        <select 
+                            name="default_team_id" 
+                            value={formData.default_team_id} 
+                            onChange={handleChange} 
+                            className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm focus:border-brand-primary outline-none"
+                        >
+                            <option value="">Nenhuma (Manual)</option>
+                            {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                        </select>
+                    </div>
                 </div>
-
 
                 <div className="border-t border-gray-700 pt-4">
                     <h3 className="text-[10px] font-black text-brand-secondary uppercase tracking-widest mb-4">Campos Requeridos no Inventário</h3>
@@ -177,6 +180,22 @@ const AddEquipmentTypeModal: React.FC<AddEquipmentTypeModalProps> = ({ onClose, 
                         <label className="flex items-center cursor-pointer group">
                             <input type="checkbox" name="requires_cpu_info" checked={formData.requires_cpu_info} onChange={handleChange} className="h-4 w-4 rounded border-gray-500 bg-gray-700 text-brand-primary focus:ring-brand-secondary" />
                             <span className="ml-2 text-sm text-gray-300 group-hover:text-white transition-colors">Processador (CPU)</span>
+                        </label>
+                        <label className="flex items-center cursor-pointer group">
+                            <input type="checkbox" name="requires_wwan_address" checked={formData.requires_wwan_address} onChange={handleChange} className="h-4 w-4 rounded border-gray-500 bg-gray-700 text-brand-primary focus:ring-brand-secondary" />
+                            <span className="ml-2 text-sm text-gray-300 group-hover:text-white transition-colors">Endereço IMEI/WWAN</span>
+                        </label>
+                        <label className="flex items-center cursor-pointer group">
+                            <input type="checkbox" name="requires_bluetooth_address" checked={formData.requires_bluetooth_address} onChange={handleChange} className="h-4 w-4 rounded border-gray-500 bg-gray-700 text-brand-primary focus:ring-brand-secondary" />
+                            <span className="ml-2 text-sm text-gray-300 group-hover:text-white transition-colors">Endereço Bluetooth</span>
+                        </label>
+                        <label className="flex items-center cursor-pointer group">
+                            <input type="checkbox" name="requires_usb_thunderbolt_address" checked={formData.requires_usb_thunderbolt_address} onChange={handleChange} className="h-4 w-4 rounded border-gray-500 bg-gray-700 text-brand-primary focus:ring-brand-secondary" />
+                            <span className="ml-2 text-sm text-gray-300 group-hover:text-white transition-colors">Endereço USB/TB</span>
+                        </label>
+                        <label className="flex items-center cursor-pointer group">
+                            <input type="checkbox" name="requires_manufacture_date" checked={formData.requires_manufacture_date} onChange={handleChange} className="h-4 w-4 rounded border-gray-500 bg-gray-700 text-brand-primary focus:ring-brand-secondary" />
+                            <span className="ml-2 text-sm text-gray-300 group-hover:text-white transition-colors">Data de Fabrico</span>
                         </label>
                         <label className="flex items-center cursor-pointer group sm:col-span-2 bg-indigo-900/10 p-2 rounded border border-indigo-500/20">
                             <input type="checkbox" name="requires_backup_test" checked={formData.requires_backup_test} onChange={handleChange} className="h-4 w-4 rounded border-gray-500 bg-gray-700 text-brand-primary focus:ring-brand-secondary" />

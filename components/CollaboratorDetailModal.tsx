@@ -6,11 +6,11 @@ import { FaLaptop, FaTicketAlt, FaHistory, FaComment, FaEnvelope, FaPhone, FaMob
 import * as dataService from '../services/dataService';
 
 /**
- * COLLABORATOR DETAIL MODAL - V5.2 (Print Ready)
+ * COLLABORATOR DETAIL MODAL - V5.3 (Title/Trato Header)
  * -----------------------------------------------------------------------------
  * STATUS DE BLOQUEIO RIGOROSO (Freeze UI):
  * - PEDIDO 8: RESTAURADO HISTÓRICO DE TICKETS, HARDWARE E SOFTWARE.
- * - PEDIDO 4: ADICIONADO BOTÃO DE IMPRESSÃO COM BRANDING.
+ * - PEDIDO 4: ADICIONADO TRATO (TITLE) NO CABEÇALHO.
  * -----------------------------------------------------------------------------
  */
 
@@ -121,7 +121,7 @@ export const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = (
                 <div class="header">
                     ${logoBase64 ? `<img src="${logoBase64}" class="logo" />` : '<h1>AIManager</h1>'}
                     <div style="text-align: right">
-                        <h2 style="margin:0">${collaborator.full_name}</h2>
+                        <h2 style="margin:0">${(collaborator.title ? collaborator.title + ' ' : '') + collaborator.full_name}</h2>
                         <p style="margin:5px 0">${collaborator.role}</p>
                     </div>
                 </div>
@@ -161,7 +161,7 @@ export const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = (
                         )}
                     </div>
                     <div className="flex-grow">
-                        <h2 className="text-2xl font-bold text-white">{collaborator.full_name}</h2>
+                        <h2 className="text-2xl font-bold text-white">{(collaborator.title ? collaborator.title + ' ' : '') + collaborator.full_name}</h2>
                         <p className="text-sm text-brand-secondary font-bold uppercase tracking-widest">{collaborator.role}</p>
                         <div className="flex flex-wrap gap-x-6 gap-y-2 text-xs text-gray-300 mt-3 bg-black/20 p-3 rounded border border-gray-800">
                             <span className="flex items-center gap-2"><FaEnvelope className="text-gray-500"/>{collaborator.email}</span>

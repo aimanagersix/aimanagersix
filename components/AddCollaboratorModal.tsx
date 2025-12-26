@@ -6,11 +6,10 @@ import { FaCamera, FaKey, FaUserShield, FaUserTie, FaBuilding, FaMapMarkerAlt, F
 import * as dataService from '../services/dataService';
 
 /**
- * ADD COLLABORATOR MODAL - V5.13 (Advanced CP Mapping & Build Fix)
+ * ADD COLLABORATOR MODAL - V5.14 (Title/Trato Support)
  * -----------------------------------------------------------------------------
  * STATUS DE BLOQUEIO RIGOROSO (Freeze UI):
- * - PEDIDO 4: LUPA DO CP AGORA DISPARA PESQUISA MANUAL E PREENCHE TUDO.
- * - PEDIDO 4: FIX NO ERRO DE BUILD (handleEntityChange).
+ * - PEDIDO 4: INCLUSÃO DO CAMPO TRATO (Sr., Dr., etc).
  * -----------------------------------------------------------------------------
  */
 
@@ -277,7 +276,19 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({ onClose, on
                     </div>
                     
                     <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
-                        <div className="md:col-span-2">
+                        <div className="md:col-span-1">
+                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Trato (Título)</label>
+                            <select value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} className="w-full bg-gray-800 border border-gray-700 text-white rounded p-2 text-sm focus:border-brand-primary outline-none">
+                                <option value="">Sem Título</option>
+                                <option value="Sr.">Sr.</option>
+                                <option value="Sra.">Sra.</option>
+                                <option value="Dr.">Dr.</option>
+                                <option value="Dra.">Dra.</option>
+                                <option value="Eng.">Eng.</option>
+                                <option value="Prof.">Prof.</option>
+                            </select>
+                        </div>
+                        <div className="md:col-span-1">
                             <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Nome Completo</label>
                             <div className="relative">
                                 <FaUserTie className="absolute left-3 top-3 text-gray-500" />

@@ -211,7 +211,7 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
 
         const content = (
             <div className="text-xs leading-tight space-y-1">
-                {cfg.show_collab_name && <p className="font-bold text-white">{col.full_name}</p>}
+                {cfg.show_collab_name && <p className="font-bold text-white">{(col.title ? col.title + ' ' : '') + col.full_name}</p>}
                 {cfg.show_collab_job && <p><strong className="text-gray-400">Função:</strong> <span className="text-white">{displayJob}</span></p>}
                 {cfg.show_collab_entity && <p><strong className="text-gray-400">Associação:</strong> <span className="text-white">{entityName}</span></p>}
                 {cfg.show_collab_contact && (
@@ -268,7 +268,7 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
         <div className="space-y-4 mb-6 bg-gray-900/50 p-4 rounded-lg border border-gray-700">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div>
-                    <label className="block text-xs text-gray-400 mb-1">Pesquisar</label>
+                    <label className="block text-xs font-medium text-gray-400 mb-1">Pesquisar</label>
                     <div className="relative">
                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                           <SearchIcon className="h-4 w-4 text-gray-500" />
@@ -284,7 +284,7 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
                     </div>
                 </div>
                 <div>
-                    <label className="block text-xs text-gray-400 mb-1">Entidade</label>
+                    <label className="block text-xs font-medium text-gray-400 mb-1">Entidade</label>
                     <select
                         name="entidadeId"
                         value={filters.entidadeId}
@@ -297,7 +297,7 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                     <div>
-                        <label className="block text-xs text-gray-400 mb-1">Perfil</label>
+                        <label className="block text-xs font-medium text-gray-400 mb-1">Perfil</label>
                         <select
                             name="role"
                             value={filters.role}
@@ -309,7 +309,7 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
                         </select>
                     </div>
                      <div>
-                        <label className="block text-xs text-gray-400 mb-1">Status</label>
+                        <label className="block text-xs font-medium text-gray-400 mb-1">Status</label>
                          <select
                             name="status"
                             value={filters.status}
@@ -345,8 +345,6 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
                 const isSuperAdmin = col.role === UserRole.SuperAdmin;
                 const isProtectedUser = col.email === PROTECTED_EMAIL;
                 const isDeleteDisabled = dependencies.length > 0 || isSuperAdmin || currentUser?.id === col.id || isProtectedUser;
-                
-                // Pedido 4: Correção na resolução do cargo para listagem mobile
                 const resolvedJobTitle = col.job_title_name || (col.job_title_id ? jobTitleMap.get(col.job_title_id) : null);
 
                 return (
@@ -361,7 +359,7 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
                                     </div>
                                 )}
                                 <div className="min-w-0">
-                                    <h3 className="font-bold text-white text-base truncate">{col.full_name}</h3>
+                                    <h3 className="font-bold text-white text-base truncate">{(col.title ? col.title + ' ' : '') + col.full_name}</h3>
                                     <p className="text-xs text-brand-secondary truncate">{resolvedJobTitle || col.role}</p>
                                 </div>
                             </div>
@@ -463,7 +461,6 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
                  else if (isCurrentUser) deleteTooltip = "Não pode apagar o seu próprio utilizador";
                  else if (dependencies.length > 0) deleteTooltip = `Impossível excluir: Associado a registos (Tickets, Atribuições)`;
                  
-                 // Pedido 4: Correção na resolução do cargo para listagem desktop
                  const resolvedJobTitle = col.job_title_name || (col.job_title_id ? jobTitleMap.get(col.job_title_id) : null);
 
                 return (
@@ -486,7 +483,7 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
                         </div>
                     )}
                     <div>
-                        <span className="text-white font-semibold">{col.full_name}</span>
+                        <span className="text-white font-semibold">{(col.title ? col.title + ' ' : '') + col.full_name}</span>
                         {isOnboarding && <span className="ml-2 text-[10px] uppercase bg-blue-900/50 text-blue-300 px-1 rounded border border-blue-500/30 flex items-center w-fit gap-1 mt-0.5"><FaPlaneArrival/> Novo</span>}
                         {equipmentCount > 0 && <div className="text-xs text-brand-secondary mt-1 font-normal">{equipmentCount} equipamento(s) atribuído(s)</div>}
                     </div>
@@ -535,7 +532,7 @@ const CollaboratorDashboard: React.FC<CollaboratorDashboardProps> = ({
                         {onDelete && !isSuperAdmin && (
                             <button 
                                 onClick={(e) => { e.stopPropagation(); if (!isDeleteDisabled) onDelete(col.id); }} 
-                                className={`p-1 rounded hover:bg-gray-700 ${isDeleteDisabled ? "text-gray-600 opacity-30 cursor-not-allowed" : "text-red-400 hover:text-red-300"}`}
+                                className={`p-1 rounded hover:bg-gray-700 ${isDeleteDisabled ? "text-gray-600 opacity-50 cursor-not-allowed" : "text-red-400 hover:text-red-300"}`}
                                 disabled={isDeleteDisabled}
                                 title={deleteTooltip}
                             >

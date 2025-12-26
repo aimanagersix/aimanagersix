@@ -44,7 +44,10 @@ const cleanPayload = (data: any) => {
         'categoryId': 'category_id',
         'supplier_id': 'supplier_id',
         'supplierId': 'supplier_id',
-        'externalProviderId': 'external_provider_id'
+        'externalProviderId': 'external_provider_id',
+        /* FIX: Added default_team_id to cleanPayload keyMap to ensure correct database column mapping */
+        'defaultTeamId': 'default_team_id',
+        'default_team_id': 'default_team_id'
     };
 
     const numericFields = ['acquisition_cost', 'residual_value', 'unit_cost', 'total_seats', 'estimated_cost', 'quantity'];
@@ -77,6 +80,7 @@ export const fetchInventoryData = async () => {
         sb().from('config_software_products').select('*'),
         sb().from('suppliers').select('*'),
         sb().from('config_equipment_statuses').select('*'),
+        sb().from('config_ticket_statuses').select('*'),
         sb().from('config_license_statuses').select('*'),
         sb().from('config_cpus').select('*'),
         sb().from('config_ram_sizes').select('*'),
@@ -100,15 +104,16 @@ export const fetchInventoryData = async () => {
         softwareProducts: results[8].data || [],
         suppliers: results[9].data || [], 
         configEquipmentStatuses: results[10].data || [],
-        configLicenseStatuses: results[11].data || [],
-        configCpus: results[12].data || [], 
-        configRamSizes: results[13].data || [], 
-        configStorageTypes: results[14].data || [],
-        configAccountingCategories: results[15].data || [], 
-        configConservationStates: results[16].data || [],
-        configDecommissionReasons: results[17].data || [],
-        configJobTitles: results[18].data || [],
-        configCollaboratorDeactivationReasons: results[19].data || []
+        configTicketStatuses: results[11].data || [],
+        configLicenseStatuses: results[12].data || [],
+        configCpus: results[13].data || [], 
+        configRamSizes: results[14].data || [], 
+        configStorageTypes: results[15].data || [],
+        configAccountingCategories: results[16].data || [], 
+        configConservationStates: results[17].data || [],
+        configDecommissionReasons: results[18].data || [],
+        configJobTitles: results[19].data || [],
+        configCollaboratorDeactivationReasons: results[20].data || []
     };
 };
 
