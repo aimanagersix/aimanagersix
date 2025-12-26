@@ -60,7 +60,15 @@ const cleanPayload = (data: any) => {
         'criticality': 'criticality',
         'confidentiality': 'confidentiality',
         'integrity': 'integrity',
-        'availability': 'availability'
+        'availability': 'availability',
+        'contactName': 'contact_name',
+        'contactEmail': 'contact_email',
+        'contactPhone': 'contact_phone',
+        'isoCertificateExpiry': 'iso_certificate_expiry',
+        'securityContactEmail': 'security_contact_email',
+        'riskLevel': 'risk_level',
+        'addressLine': 'address_line',
+        'postalCode': 'postal_code'
     };
 
     const blackList = ['contacts', 'contracts', 'attachments', 'preferences', 'simulatedTicket', 'isSimulating'];
@@ -81,7 +89,6 @@ const cleanPayload = (data: any) => {
             cleaned[targetKey] = val === undefined ? null : val;
         }
     });
-
     return cleaned;
 };
 
