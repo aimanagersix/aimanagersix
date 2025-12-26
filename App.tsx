@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import Header from './Header';
 import Sidebar from './Sidebar';
@@ -206,24 +205,35 @@ export const App: React.FC = () => {
         const initSession = async () => {
             const { data: { session: curSess } } = await supabase.auth.getSession();
             setSession(curSess);
-            if (curSess?.user) {
-                // Otimização: se os colaboradores ainda não carregaram, esperamos um pouco
-                // mas definimos um timeout para não prender o utilizador no splash para sempre
-                const timeout = setTimeout(() => {
-                   if (!currentUser) setIsAppLoading(false);
-                }, 5000);
+            
+            // Safety timeout: Se a sincronização falhar ou demorar demais, libertamos o ecrã.
+            const safetyTimeout = setTimeout(() => {
+                if (isAppLoading) {
+                    console.warn("[App] Safety timeout atingido. Libertando interface...");
+                    setIsAppLoading(false);
+                }
+            }, 5000);
 
-                if (org.data.collaborators.length > 0) {
-                    const user = org.data.collaborators.find(c => c.email === curSess.user.email);
-                    if (user) { 
-                        setCurrentUser(user); 
-                        clearTimeout(timeout);
-                        setIsAppLoading(false); 
-                    }
+            if (curSess?.user) {
+                // Tenta encontrar o utilizador localmente.
+                // Se a lista org.data.collaborators ainda não carregou, o refresh() ativado pelos hooks tratará disso.
+                const user = org.data.collaborators.find(c => c.email === curSess.user.email);
+                if (user) { 
+                    setCurrentUser(user); 
+                    clearTimeout(safetyTimeout);
+                    setIsAppLoading(false); 
+                } else if (org.data.collaborators.length > 0) {
+                    // Lista carregada mas utilizador não encontrado (ex: Novo utilizador ou erro RLS)
+                    clearTimeout(safetyTimeout);
+                    setIsAppLoading(false);
                 }
             } else {
+                // Sem sessão, vai para o login direto
+                clearTimeout(safetyTimeout);
                 setIsAppLoading(false);
             }
+            
+            return () => clearTimeout(safetyTimeout);
         };
         initSession();
         
@@ -274,12 +284,12 @@ export const App: React.FC = () => {
 
     if (!isConfigured) return <ConfigurationSetup onConfigured={() => setIsConfigured(true)} />;
     
-    // Splash Screen Fix: Só bloqueia se houver sessão ativa mas o fetch de dados organizacionais ainda estiver pendente
+    // Splash Screen: Bloqueia apenas enquanto isAppLoading for true OU houver sessão mas o utilizador ainda não foi resolvido e os dados estão a chegar.
     if (isAppLoading || (session && !currentUser && org.data.collaborators.length === 0)) {
         return (
             <div className="min-h-screen bg-background-dark flex flex-col items-center justify-center text-white">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-secondary mb-4"></div>
-                <p className="font-bold tracking-widest text-gray-500 uppercase text-xs">Sincronizando Sistema...</p>
+                <p className="font-bold tracking-widest text-gray-500 uppercase text-xs animate-pulse">Sincronizando Sistema...</p>
             </div>
         );
     }
