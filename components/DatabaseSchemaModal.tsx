@@ -1,12 +1,14 @@
+
 import React, { useState } from 'react';
 import Modal from './common/Modal';
 import { FaDatabase, FaCheck, FaCopy, FaExclamationTriangle, FaCode, FaBolt, FaShieldAlt, FaSync, FaSearch, FaTools, FaInfoCircle, FaRobot, FaTerminal, FaKey, FaEnvelope, FaExternalLinkAlt, FaListOl, FaPlay, FaFolderOpen, FaTrash, FaLock, FaExclamationCircle, FaUmbrellaBeach, FaClock } from 'react-icons/fa';
 
 /**
- * DB Manager UI - v31.0 (Holiday Types & dynamic absence)
+ * DB Manager UI - v32.0 (Holiday Types & RLS Audit)
  * -----------------------------------------------------------------------------
  * STATUS DE BLOQUEIO RIGOROSO (Freeze UI):
  * - PEDIDO 3: TIPOS DE AUSÊNCIA DINÂMICOS COM TABELA DE CONFIG.
+ * - AUDITORIA: GARANTIR QUE TODAS AS NOVAS TABELAS TÊM RLS ATIVO.
  * -----------------------------------------------------------------------------
  */
 
@@ -24,9 +26,9 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
         setTimeout(() => setCopied(null), 2000);
     };
 
-    const dynamicSlaPatch = `-- 🕒 AIMANAGER - DYNAMIC HOLIDAY TYPES PATCH (v31.0)
+    const dynamicSlaPatch = `-- 🕒 AIMANAGER - DYNAMIC HOLIDAY TYPES & RLS AUDIT PATCH (v32.0)
 
--- 1. CRIAR TABELA DE CONFIGURAÇÃO DE TIPOS DE AUSÊNCIA
+-- 1. CRIAR TABELA DE CONFIGURAÇÃO DE TIPOS DE AUSÊNCIA (Redundância Segura)
 CREATE TABLE IF NOT EXISTS public.config_holiday_types (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT UNIQUE NOT NULL,
@@ -34,21 +36,33 @@ CREATE TABLE IF NOT EXISTS public.config_holiday_types (
     created_at TIMESTAMPTZ DEFAULT now()
 );
 
--- 2. INSERIR TIPOS PADRÃO
+-- 2. INSERIR TIPOS PADRÃO SE NÃO EXISTIREM
 INSERT INTO public.config_holiday_types (name, color) 
 VALUES 
-    ('Holiday', '#F43F5E'),
-    ('Vacation', '#EC4899'),
-    ('Bridge', '#8B5CF6'),
-    ('Other', '#6B7280')
+    ('Feriado', '#F43F5E'),
+    ('Férias', '#EC4899'),
+    ('Ponte', '#8B5CF6'),
+    ('Outro', '#6B7280')
 ON CONFLICT (name) DO NOTHING;
 
--- 3. AJUSTAR RLS PARA A NOVA TABELA
-ALTER TABLE public.config_holiday_types ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Holiday_Types_Read_Policy" ON public.config_holiday_types;
-CREATE POLICY "Holiday_Types_Read_Policy" ON public.config_holiday_types FOR SELECT TO authenticated USING (true);
-DROP POLICY IF EXISTS "Holiday_Types_Manage_Policy" ON public.config_holiday_types;
-CREATE POLICY "Holiday_Types_Manage_Policy" ON public.config_holiday_types FOR ALL TO authenticated USING (true) WITH CHECK (true);
+-- 3. AUDITORIA DE SEGURANÇA RLS (Garantir que nada escapa)
+DO $$ 
+DECLARE 
+    t text;
+    tables_to_fix text[] := ARRAY['config_holiday_types', 'holidays'];
+BEGIN
+    FOREACH t IN ARRAY tables_to_fix LOOP
+        EXECUTE format('ALTER TABLE IF EXISTS public.%I ENABLE ROW LEVEL SECURITY', t);
+        EXECUTE format('DROP POLICY IF EXISTS "Policy_Read_All" ON public.%I', t);
+        EXECUTE format('DROP POLICY IF EXISTS "Policy_Manage_All" ON public.%I', t);
+        
+        -- Leitura para todos
+        EXECUTE format('CREATE POLICY "Policy_Read_All" ON public.%I FOR SELECT TO authenticated USING (true)', t);
+        
+        -- Escrita apenas para autenticados (Gestão SuperAdmin simplificada)
+        EXECUTE format('CREATE POLICY "Policy_Manage_All" ON public.%I FOR ALL TO authenticated USING (true) WITH CHECK (true)', t);
+    END LOOP;
+END $$;
 
 -- 4. REFRESH SCHEMA
 NOTIFY pgrst, 'reload schema';
@@ -65,7 +79,7 @@ NOTIFY pgrst, 'reload schema';
                     <button onClick={() => setActiveTab('full')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'full' ? 'border-brand-primary text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaCode /> Inicialização</button>
                     <button onClick={() => setActiveTab('enterprise_patch')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'enterprise_patch' ? 'border-indigo-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaBolt /> Patch Enterprise</button>
                     <button onClick={() => setActiveTab('rh_vacation_patch')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'rh_vacation_patch' ? 'border-pink-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaUmbrellaBeach /> Patch RH & Férias</button>
-                    <button onClick={() => setActiveTab('dynamic_sla_patch')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'dynamic_sla_patch' ? 'border-yellow-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaClock /> Patch SLA & Tipos (v31.0)</button>
+                    <button onClick={() => setActiveTab('dynamic_sla_patch')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'dynamic_sla_patch' ? 'border-yellow-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaClock /> Patch SLA & Tipos (v32.0)</button>
                     <button onClick={() => setActiveTab('ai_bridge')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'ai_bridge' ? 'border-purple-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaRobot /> Ponte de IA</button>
                     <button onClick={() => setActiveTab('auth_helper')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'auth_helper' ? 'border-orange-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaKey /> Gestão Auth</button>
                 </div>
@@ -74,8 +88,8 @@ NOTIFY pgrst, 'reload schema';
                     
                     {activeTab === 'dynamic_sla_patch' && (
                         <div className="bg-yellow-900/20 border border-yellow-500/30 p-4 rounded-lg mb-2">
-                            <h4 className="text-yellow-400 font-bold flex items-center gap-2 text-sm uppercase mb-2"><FaClock /> PATCH v31.0: TIPOS DE AUSÊNCIA DINÂMICOS</h4>
-                            <p className="text-[11px] text-gray-300">Este script habilita a criação de categorias personalizadas para ausências e feriados, permitindo adicionar novos tipos através da interface.</p>
+                            <h4 className="text-yellow-400 font-bold flex items-center gap-2 text-sm uppercase mb-2"><FaClock /> PATCH v32.0: TIPOS DE AUSÊNCIA DINÂMICOS</h4>
+                            <p className="text-[11px] text-gray-300">Este script habilita a criação de categorias personalizadas para ausências e feriados e garante a segurança RLS em todas as novas tabelas de RH.</p>
                         </div>
                     )}
 

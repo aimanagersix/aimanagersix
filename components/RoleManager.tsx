@@ -1,13 +1,14 @@
+
 import React, { useState, useEffect } from 'react';
 import { CustomRole, ModuleKey, PermissionAction } from '../types';
 import * as dataService from '../services/dataService';
 import { FaShieldAlt, FaSave, FaPlus, FaTrash, FaCheck, FaTimes, FaLock, FaUserShield, FaCheckDouble, FaSpinner, FaUserCheck, FaUserTie, FaComments, FaBullhorn, FaBell, FaExclamationTriangle, FaCode } from 'react-icons/fa';
 
 /**
- * RoleManager V2.3 (Admin Edit Access)
+ * RoleManager V2.3 (Holiday Config Enable)
  * -----------------------------------------------------------------------------
  * NOTA: Este componente gere os perfis personalizados na tabela config_custom_roles.
- * PEDIDO 4: LIBERADA EDIÇÃO DO PERFIL ADMIN. APENAS SUPERADMIN BLOQUEADO.
+ * PEDIDO 3: INCLUSÃO DE TIPOS DE AUSÊNCIA NO RBAC.
  * -----------------------------------------------------------------------------
  */
 
@@ -108,6 +109,8 @@ const PERMISSION_GROUPS: PermissionGroup[] = [
             { key: 'settings', label: 'Config: Definições Globais e APIs' },
             { key: 'config_custom_roles', label: 'Segurança: Gestão de Perfis (RBAC)' },
             { key: 'config_automation', label: 'Sistema: Regras de Automação' },
+            { key: 'holidays', label: 'Config: Calendário (Feriados/Férias)' },
+            { key: 'config_holiday_types', label: 'Config: Tipos de Ausência', isSimpleAccess: false } // Pedido 3
         ]
     }
 ];
@@ -127,7 +130,6 @@ const RoleManager: React.FC<RoleManagerProps> = ({ roles, onRefresh }) => {
     const [error, setError] = useState<string | null>(null);
 
     const selectedRole = roles.find(r => r.id === selectedRoleId);
-    // PEDIDO 4: Apenas SuperAdmin é imutável via UI para segurança da consola DB
     const isSuperAdminRole = selectedRole?.name === 'SuperAdmin';
 
     useEffect(() => {

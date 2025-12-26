@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { 
     FaHeartbeat, FaTags, FaShapes, FaList, FaShieldAlt, FaTicketAlt, FaServer, 
@@ -63,7 +64,8 @@ const SettingsSidebar: React.FC<SettingsSidebarProps> = ({ selectedMenuId, onSel
             items: [
                 { id: 'config_job_titles', label: 'Cargos / Funções', icon: <FaUserTie /> },
                 { id: 'config_collaborator_deactivation_reasons', label: 'Motivos de Saída', icon: <FaUserSlash /> },
-                { id: 'holidays', label: 'Feriados & Ausências', icon: <FaCalendarAlt /> }, // Pedido 3
+                { id: 'holidays', label: 'Feriados & Ausências', icon: <FaCalendarAlt /> }, 
+                { id: 'config_holiday_types', label: 'Tipos de Ausência', icon: <FaTags /> }, // Pedido 3
                 { id: 'contact_roles', label: 'Papéis Contacto', icon: <FaUserTag /> },
                 { id: 'contact_titles', label: 'Tratos / Títulos', icon: <FaUserTag /> },
             ]

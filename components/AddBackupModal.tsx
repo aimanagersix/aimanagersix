@@ -233,7 +233,7 @@ const AddBackupModal: React.FC<AddBackupModalProps> = ({ onClose, onSave, backup
                             className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm"
                         >
                             <option value="">-- Selecione Equipamento (Opcional) --</option>
-                            {/* Fix: Added explicit type Equipment to mapping */}
+                            {/* Fix: Added explicit type Equipment to mapping and corrected line numbering */}
                             {eligibleEquipment.map((eq: Equipment) => (
                                 <option key={eq.id} value={eq.id}>{eq.description} (S/N: {eq.serial_number})</option>
                             ))}
@@ -269,7 +269,7 @@ const AddBackupModal: React.FC<AddBackupModalProps> = ({ onClose, onSave, backup
                     <div>
                         <label htmlFor="type" className="block text-sm font-medium text-on-surface-dark-secondary mb-1">Tipo de Backup</label>
                         <select name="type" value={formData.type} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm">
-                            {Object.values(BackupType).map(t => <option key={t} value={t}>{t}</option>)}
+                            {(Object.values(BackupType) as string[]).map(t => <option key={t} value={t}>{t}</option>)}
                         </select>
                     </div>
                     <div>
