@@ -284,7 +284,7 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
                 <form onSubmit={handleSubmit} className="flex-grow overflow-y-auto custom-scrollbar pr-2 space-y-6">
                     {activeTab === 'details' && (
                     <div className="space-y-6 animate-fade-in">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                             <div>
                                 <label className="block text-[10px] font-black text-gray-500 uppercase mb-1">NIF</label>
                                 <div className="flex">
@@ -292,13 +292,13 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
                                     <button type="button" onClick={handleFetchNifData} className="bg-gray-600 px-3 rounded-r border-gray-600 hover:bg-gray-500 text-white transition-colors">{isFetchingNif ? <SpinnerIcon /> : <SearchIcon />}</button>
                                 </div>
                             </div>
-                            <div className="md:col-span-2">
-                                <label className="block text-[10px] font-black text-gray-500 uppercase mb-1">Nome Comercial</label>
+                            <div className="md:col-span-3">
+                                <label className="block text-[10px] font-black text-gray-500 uppercase mb-1">Nome Comercial do Fornecedor</label>
                                 <input type="text" name="name" value={formData.name} onChange={handleChange} className={`w-full bg-gray-700 border text-white rounded p-2 text-sm focus:border-brand-primary outline-none ${errors.name ? 'border-red-500' : 'border-gray-600'}`} />
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div className="relative">
                                 <label className="block text-[10px] font-black text-gray-500 uppercase mb-1">Email Geral</label>
                                 <input type="email" name="contact_email" value={formData.contact_email} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm" />
@@ -307,6 +307,10 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
                                         <FaMagic className="inline mr-1"/> Sugestão: {emailSuggestion}
                                     </div>
                                 )}
+                            </div>
+                            <div>
+                                <label className="block text-[10px] font-black text-gray-500 uppercase mb-1">Telefone Geral</label>
+                                <input type="tel" name="contact_phone" value={formData.contact_phone} onChange={handleChange} placeholder="Ex: 210000000" className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm" />
                             </div>
                             <div>
                                 <label className="block text-[10px] font-black text-gray-500 uppercase mb-1">Website</label>
@@ -401,7 +405,7 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
                         </div>
 
                         <div>
-                            <label className="block text-[10px] font-black text-gray-500 uppercase mb-2">Anexos e Notas</label>
+                            <label className="block text-[10px] font-black text-gray-500 uppercase mb-2">Observações e Notas Gerais</label>
                             <div className="bg-gray-900/50 p-4 rounded border border-gray-700 border-dashed text-center">
                                 {attachments.length > 0 && (
                                     <ul className="space-y-2 mb-4 text-left">
@@ -414,9 +418,9 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
                                     </ul>
                                 )}
                                 <input type="file" multiple ref={fileInputRef} onChange={handleFileSelect} className="hidden" accept="image/*,application/pdf" />
-                                <button type="button" onClick={() => fileInputRef.current?.click()} className="px-6 py-2 text-xs font-bold bg-gray-700 hover:bg-gray-600 text-white rounded border border-gray-600 transition-all">+ Adicionar Ficheiros ({attachments.length}/3)</button>
+                                <button type="button" onClick={() => fileInputRef.current?.click()} className="px-6 py-2 text-xs font-bold bg-gray-700 hover:bg-gray-600 text-white rounded border border-gray-600 transition-all mb-4">+ Adicionar Ficheiros de Evidência ({attachments.length}/3)</button>
+                                <textarea name="notes" value={formData.notes} onChange={handleChange} placeholder="Inserir aqui notas gerais, histórico de relacionamento ou informações contratuais relevantes..." rows={4} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-3 text-sm focus:border-brand-primary outline-none"></textarea>
                             </div>
-                            <textarea name="notes" value={formData.notes} onChange={handleChange} placeholder="Notas internas..." rows={3} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm mt-4"></textarea>
                         </div>
                     </div>
                     )}
