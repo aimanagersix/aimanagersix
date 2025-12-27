@@ -11,7 +11,8 @@
 - **Entrada em Massa**: Adicionada a funcionalidade de colar uma lista de S/N diretamente no modal de receção.
 - **Scan Contínuo**: Implementado um motor de câmara que permite "bipar" vários equipamentos sequencialmente.
 
-## 🛍️ Otimização de Compras (Pedido 3.7 - v4.0)
+## 🛍️ Otimização de Compras (Pedido 3.7 - v4.1)
+- **Correção Crítica (Schema Cache)**: Resolvido o erro `Could not find column...` ao gravar aquisições. O sistema agora isola corretamente o array de itens antes de submeter o pedido principal à base de dados.
 - **Revelação Progressiva**: O formulário de aquisições foi simplificado. Agora, primeiro escolhes a Marca e o Tipo, e a IA do frontend sugere a descrição.
 - **Grelha de Itens**: Implementada uma lista compacta para os itens já adicionados. Isto remove o "scroll infinito" e permite gerir compras complexas com dezenas de itens de forma organizada.
 - **Validação Inteligente**: Corrigido o erro de gravação onde o sistema exigia dados repetitivos. Títulos e Justificações são herdados do cabeçalho se não forem especificados no item.

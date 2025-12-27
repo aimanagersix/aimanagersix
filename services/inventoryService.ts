@@ -83,7 +83,8 @@ const cleanPayload = (data: any) => {
         'procurement_request_id': 'procurement_request_id'
     };
 
-    const blackList = ['contacts', 'preferences', 'simulatedTicket', 'isSimulating', 'address', 'items']; 
+    // FIX: Adicionada a blacklist para chaves de relação Master-Detail para evitar erro de "coluna não encontrada" no insert
+    const blackList = ['contacts', 'preferences', 'simulatedTicket', 'isSimulating', 'address', 'items', 'procurement_items']; 
     const numericFields = ['acquisition_cost', 'residual_value', 'unit_cost', 'total_seats', 'estimated_cost', 'quantity', 'expected_lifespan_years'];
 
     Object.keys(data).forEach(key => {
@@ -318,12 +319,7 @@ export const addProcurement = async (p: any) => {
     if (procErr) throw procErr;
 
     if (items.length > 0) {
-        // Garantir que todos os itens têm o ID do pedido pai e o título preenchido (mesmo que herdado)
-        const itemPayloads = items.map((i: any) => ({ 
-            ...cleanPayload(i), 
-            procurement_id: proc.id,
-            title: i.title || p.title // Fallback para título global se faltar no item
-        }));
+        const itemPayloads = items.map((i: any) => ({ ...cleanPayload(i), procurement_id: proc.id }));
         const { error: itemsErr } = await sb().from('procurement_items').insert(itemPayloads);
         if (itemsErr) throw itemsErr;
     }
@@ -342,11 +338,7 @@ export const updateProcurement = async (id: string, updates: any) => {
     if (delErr) throw delErr;
 
     if (items.length > 0) {
-        const itemPayloads = items.map((i: any) => ({ 
-            ...cleanPayload(i), 
-            procurement_id: id,
-            title: i.title || updates.title // Fallback
-        }));
+        const itemPayloads = items.map((i: any) => ({ ...cleanPayload(i), procurement_id: id }));
         const { error: itemsErr } = await sb().from('procurement_items').insert(itemPayloads);
         if (itemsErr) throw itemsErr;
     }
