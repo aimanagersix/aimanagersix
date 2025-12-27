@@ -1,8 +1,6 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import Modal from './common/Modal';
 import { Supplier, CriticalityLevel, Team, Ticket, TicketStatus, SupplierContract, BusinessService, ResourceContact } from '../types';
-// Add FaTimes to the imports from react-icons/fa
 import { FaShieldAlt, FaGlobe, FaFileContract, FaDownload, FaCopy, FaTicketAlt, FaCertificate, FaCalendarAlt, FaPlus, FaFileSignature, FaDoorOpen, FaUsers, FaUserTie, FaPhone, FaEnvelope, FaMagic, FaSave, FaInfoCircle, FaRobot, FaTimes } from 'react-icons/fa';
 import { SearchIcon, SpinnerIcon, FaTrash as DeleteIcon, PlusIcon, CheckIcon } from './common/Icons';
 import { ContactList } from './common/ContactList'; 
@@ -292,6 +290,21 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
                             </div>
                         </div>
 
+                        <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-700">
+                            <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3">Morada e Localização</label>
+                            <div className="space-y-4">
+                                <input type="text" name="address_line" value={formData.address_line} onChange={handleChange} placeholder="Rua, Edifício, Piso..." className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm" />
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                    <div className="relative">
+                                        <input type="text" name="postal_code" value={formData.postal_code} onChange={handlePostalCodeChange} placeholder="CP 0000-000" className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm" />
+                                        {isFetchingCP && <SpinnerIcon className="absolute right-2 top-2 h-4 w-4"/>}
+                                    </div>
+                                    <input type="text" name="city" value={formData.city} onChange={handleChange} placeholder="Cidade" className="bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm" />
+                                    <input type="text" name="locality" value={formData.locality} onChange={handleChange} placeholder="Localidade" className="bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm" />
+                                </div>
+                            </div>
+                        </div>
+
                         <div className="bg-gray-800/50 p-4 rounded-lg border border-gray-700">
                             <h4 className="text-[10px] font-black text-brand-secondary uppercase mb-3 tracking-widest flex items-center gap-2"><FaShieldAlt/> Segurança & NIS2</h4>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -343,21 +356,6 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
                                     <input type="text" value={newCertName} onChange={e => setNewCertName(e.target.value)} placeholder="Nome do Certificado" className="flex-1 bg-gray-700 border border-gray-600 text-white rounded p-1.5 text-xs" />
                                     <input type="date" value={newCertDate} onChange={e => setNewCertDate(e.target.value)} className="bg-gray-700 border border-gray-600 text-white rounded p-1.5 text-xs" />
                                     <button type="button" onClick={handleAddCertificate} className="bg-gray-600 text-white px-3 rounded hover:bg-gray-500"><FaPlus/></button>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-700">
-                            <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3">Morada e Localização</label>
-                            <div className="space-y-4">
-                                <input type="text" name="address_line" value={formData.address_line} onChange={handleChange} placeholder="Rua, Edifício, Piso..." className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm" />
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                                    <div className="relative">
-                                        <input type="text" name="postal_code" value={formData.postal_code} onChange={handlePostalCodeChange} placeholder="CP 0000-000" className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm" />
-                                        {isFetchingCP && <SpinnerIcon className="absolute right-2 top-2 h-4 w-4"/>}
-                                    </div>
-                                    <input type="text" name="city" value={formData.city} onChange={handleChange} placeholder="Cidade" className="bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm" />
-                                    <input type="text" name="locality" value={formData.locality} onChange={handleChange} placeholder="Localidade" className="bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm" />
                                 </div>
                             </div>
                         </div>
