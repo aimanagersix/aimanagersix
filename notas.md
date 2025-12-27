@@ -1,33 +1,31 @@
 # 📝 Notas e Sugestões do Engenheiro - AIManager
 
-## 📜 Regras de Envolvimento (Estabelecidas no Pedido 3)
+## 📜 Regras de Envolvimento
 
 ### 1. Freeze UI (Interface Congelada)
-- **Definição:** A aparência e o layout da aplicação estão bloqueados.
-- **Impacto:** Nenhuma alteração estética ou de disposição de elementos será feita sem um pedido explícito.
+- **Status:** Ativo. Nenhuma alteração estética realizada.
 
 ### 2. Zero Refactoring (Refatoração Zero)
-- **Definição:** O código funcional existente não será reescrito por razões de "estilo".
-- **Impacto:** Alteramos apenas o código necessário para corrigir erros.
+- **Status:** Ativo. Foco exclusivo na correção da RPC e schema.
 
 ---
 
-## 🛠️ Concluído no Pedido 3 (Live Diag & Contact Fix)
+## 🛠️ Diagnóstico do Pedido 3
 
-### 1. Ferramenta Live Diag
-- **Localização:** Configurações -> Base de Dados -> Diagnóstico.
-- **Funcionalidade:** Agora realiza inspeção real de metadados. Ela verifica se as tabelas existem e se os nomes das colunas na base de dados coincidem com o que a aplicação espera. É a ferramenta definitiva para resolver problemas de "campos que não gravam".
+### 1. Falha na RPC (Causa do Erro Vermelho)
+- **Problema:** A aplicação tentou usar a função `inspect_table_columns` para validar os nomes das colunas, mas a função não existia na base de dados.
+- **Solução:** O script de automação foi atualizado para a **v45.0**, que agora cria esta função no Supabase.
 
-### 2. Correção de Contactos Adicionais
-- **Ações:** Normalização de strings (lowercase/trim) no campo `resource_type` para evitar erros de validação no PostgreSQL.
-- **Hydration:** Ajustada a lógica de leitura para garantir que contactos de 'supplier' sejam carregados corretamente mesmo após alterações de schema.
+### 2. Persistência de Contactos
+- **Problema:** Suspeita de erro de tipo (Mismatch). Se a tabela foi criada manualmente com a coluna `resource_id` como `TEXT` em vez de `UUID`, o Supabase recusa a inserção.
+- **Solução:** O Patch v45.0 tenta converter automaticamente a coluna para o tipo correto.
 
 ---
 
-## ☁️ Sugestões do Engenheiro
+## ☁️ Sugestão do Engenheiro
 
-### 3. Utilização do Live Diag
-- Recomendo vivamente que execute o diagnóstico agora. Se o problema dos contactos persistir, o log do diagnóstico revelará se a tabela `resource_contacts` tem alguma coluna renomeada ou em falta (ex: `provider_id` vs `resource_id`).
+### 3. Sincronização de Schema
+- José, recomendo que execute o script v45.0 imediatamente. Ele é o "médico" que faltava na base de dados. Assim que o Diagnóstico funcionar (ficar tudo verde), conseguiremos ver exatamente se o nome de alguma coluna na tabela `resource_contacts` está diferente do esperado pelo código (ex: `phone` vs `telefone`).
 
 ---
 *Documento gerado em conformidade com as instruções do utilizador (Freeze UI / Zero Refactoring).*

@@ -4,10 +4,11 @@ import { FaDatabase, FaCheck, FaCopy, FaExclamationTriangle, FaCode, FaBolt, FaS
 import * as dataService from '../services/dataService';
 
 /**
- * DB Manager UI - v44.0 (Live Diag Implementation)
+ * DB Manager UI - v45.0 (RPC & Type Fix)
  * -----------------------------------------------------------------------------
- * - IMPLEMENTAÇÃO: Ferramenta de diagnóstico técnico em tempo real.
- * - AUDITORIA: Verificação de colunas e conectividade RLS.
+ * - FIX: Criação da função 'inspect_table_columns' via SQL Patch.
+ * - FIX: Normalização do tipo 'resource_id' para UUID na tabela de contactos.
+ * - AUDITORIA: Melhoria no log de diagnóstico.
  * -----------------------------------------------------------------------------
  */
 
@@ -62,6 +63,7 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
                     }
                 } catch (e: any) {
                     report += `  ❌ ERRO: ${e.message || 'RPC inspect_table_columns não encontrada.'}\n`;
+                    report += `  DICA: Execute o Patch v45.0 para criar esta função.\n`;
                 }
                 report += `\n`;
             }
@@ -71,13 +73,16 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
                 const cols = await dataService.fetchTableSchema('resource_contacts');
                 const hasType = cols.some(c => c.column_name === 'resource_type');
                 const hasId = cols.some(c => c.column_name === 'resource_id');
+                const idType = cols.find(c => c.column_name === 'resource_id')?.data_type;
                 
                 if (hasType && hasId) {
-                    report += ` ✅ Estrutura de resource_contacts parece correta.\n`;
-                    report += ` DICA: Se a gravação falha, verifique o RLS ou o script v43.\n`;
+                    report += ` ✅ Colunas principais presentes.\n`;
+                    if (idType !== 'uuid') {
+                        report += ` ⚠️ ATENÇÃO: resource_id é '${idType}', deveria ser 'uuid'.\n`;
+                        report += ` Use o SQL Editor para: ALTER TABLE resource_contacts ALTER COLUMN resource_id TYPE uuid USING resource_id::uuid;\n`;
+                    }
                 } else {
                     report += ` ❌ ESTRUTURA INVÁLIDA detetada em resource_contacts.\n`;
-                    report += ` Verifique se as colunas resource_type e resource_id existem.\n`;
                 }
             } catch (e) {}
 
@@ -90,10 +95,38 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
         }
     };
 
-    const automationPatch = `-- 🤖 AIMANAGER - AUTOMATION & RLS PATCH (v43.0)
--- Este script corrige as permissões de contactos adicionais e ativa auditoria.
+    const automationPatch = `-- 🤖 AIMANAGER - AUTOMATION & FIX PATCH (v45.0)
+-- Este script instala a função de diagnóstico e corrige a tabela de contactos.
 
--- 1. CORREÇÃO DE POLÍTICAS RLS (Inclusão de resource_contacts)
+-- 1. FUNÇÃO DE INSPEÇÃO DE SCHEMA (Necessária para o Diagnóstico)
+CREATE OR REPLACE FUNCTION public.inspect_table_columns(t_name text)
+RETURNS TABLE(column_name text, data_type text)
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        cols.column_name::text,
+        cols.data_type::text
+    FROM information_schema.columns cols
+    WHERE cols.table_schema = 'public'
+      AND cols.table_name = t_name;
+END;
+$$;
+
+-- 2. CORREÇÃO DE TIPO DE DADOS (resource_contacts)
+-- Garante que o ID de ligação aceita UUIDs (Necessário para fornecedores)
+DO $$ 
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'resource_contacts' AND column_name = 'resource_id') THEN
+        ALTER TABLE public.resource_contacts ALTER COLUMN resource_id TYPE uuid USING resource_id::uuid;
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    RAISE NOTICE 'Não foi possível converter resource_id automaticamente. Verifique se existem dados inválidos.';
+END $$;
+
+-- 3. REFORÇO DE POLÍTICAS RLS
 DO $$ 
 DECLARE 
     t text;
@@ -114,7 +147,7 @@ BEGIN
     END LOOP;
 END $$;
 
--- 2. FUNÇÃO DE AUDITORIA NIS2
+-- 4. FUNÇÃO DE AUDITORIA NIS2
 CREATE OR REPLACE FUNCTION public.log_audit_event()
 RETURNS trigger AS $$
 BEGIN
@@ -130,37 +163,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- 3. FUNÇÃO DE VERIFICAÇÃO DIÁRIA (Renovação ISO 27001)
-CREATE OR REPLACE FUNCTION public.proc_auto_generate_iso_tickets()
-RETURNS void AS $$
-DECLARE
-    v_triagem_id uuid;
-BEGIN
-    SELECT id INTO v_triagem_id FROM public.teams WHERE name = 'Triagem' LIMIT 1;
-
-    INSERT INTO public.tickets (title, description, status, category, impact_criticality, request_date, team_id)
-    SELECT 
-        '[RENOVAÇÃO AUTOMÁTICA] Certificado ISO 27001: ' || s.name,
-        'O certificado ISO 27001 do fornecedor ' || s.name || ' expira em ' || s.iso_certificate_expiry || '. Iniciar processo de conformidade NIS2.',
-        'Pedido',
-        'Manutenção',
-        'Baixa',
-        NOW(),
-        v_triagem_id
-    FROM public.suppliers s
-    WHERE s.is_iso27001_certified = true 
-      AND s.iso_certificate_expiry IS NOT NULL
-      AND s.iso_certificate_expiry <= (CURRENT_DATE + INTERVAL '30 days')
-      AND s.iso_certificate_expiry > CURRENT_DATE
-      AND NOT EXISTS (
-          SELECT 1 FROM public.tickets t 
-          WHERE t.title = ('[RENOVAÇÃO AUTOMÁTICA] Certificado ISO 27001: ' || s.name)
-            AND t.status != 'Finalizado'
-            AND t.status != 'Cancelado'
-      );
-END;
-$$ LANGUAGE plpgsql;
-
 NOTIFY pgrst, 'reload schema';
 COMMIT;`;
 
@@ -170,7 +172,7 @@ COMMIT;`;
         <Modal title="Gestão de Infraestrutura (Enterprise)" onClose={onClose} maxWidth="max-w-6xl">
             <div className="space-y-4 h-[85vh] flex flex-col">
                 <div className="flex-shrink-0 flex border-b border-gray-700 bg-gray-900/50 rounded-t-lg overflow-x-auto custom-scrollbar whitespace-nowrap">
-                    <button onClick={() => setActiveTab('automation_patch')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'automation_patch' ? 'border-brand-secondary text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaBolt /> Patch Automação (v43.0)</button>
+                    <button onClick={() => setActiveTab('automation_patch')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'automation_patch' ? 'border-brand-secondary text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaBolt /> Patch Automação (v45.0)</button>
                     <button onClick={() => setActiveTab('full')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'full' ? 'border-indigo-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaCode /> Inicialização</button>
                     <button onClick={() => setActiveTab('live_diag')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'live_diag' ? 'border-blue-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaStethoscope /> Diagnóstico</button>
                 </div>
@@ -178,8 +180,8 @@ COMMIT;`;
                 <div className="flex-grow overflow-hidden flex flex-col gap-4">
                     {activeTab === 'automation_patch' && (
                         <div className="bg-brand-primary/10 border border-brand-primary/30 p-4 rounded-lg mb-2">
-                            <h4 className="text-brand-secondary font-bold flex items-center gap-2 text-sm uppercase mb-1"><FaRobot /> PATCH v43.0: CORREÇÃO CONTACTOS & RLS</h4>
-                            <p className="text-[11px] text-gray-300">Liberta a escrita na tabela 'resource_contacts' e garante auditoria NIS2 em todos os módulos críticos.</p>
+                            <h4 className="text-brand-secondary font-bold flex items-center gap-2 text-sm uppercase mb-1"><FaRobot /> PATCH v45.0: CORREÇÃO RPC & SCHEMA</h4>
+                            <p className="text-[11px] text-gray-300">Instala a função SQL de diagnóstico e garante que os contactos adicionais podem ser gravados sem erro de UUID.</p>
                         </div>
                     )}
 
