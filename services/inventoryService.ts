@@ -1,4 +1,3 @@
-
 import { getSupabase } from './supabaseClient';
 import { Equipment } from '../types';
 
@@ -81,8 +80,6 @@ const cleanPayload = (data: any) => {
         'installation_location': 'installation_location'
     };
 
-    // contacts e preferences são geridos por serviços separados ou lidos apenas.
-    // attachments, contracts e other_certifications são colunas JSONB reais.
     const blackList = ['contacts', 'preferences', 'simulatedTicket', 'isSimulating', 'address']; 
     const numericFields = ['acquisition_cost', 'residual_value', 'unit_cost', 'total_seats', 'estimated_cost', 'quantity', 'expected_lifespan_years'];
 
@@ -128,11 +125,9 @@ export const fetchInventoryData = async () => {
         sb().from('config_job_titles').select('*'),
         sb().from('config_collaborator_deactivation_reasons').select('*'),
         sb().from('config_holiday_types').select('*'),
-        // Adição: Buscar contactos para fornecedores
         sb().from('resource_contacts').select('*').eq('resource_type', 'supplier')
     ]);
     
-    // Hidratação de fornecedores com os seus contactos
     const rawSuppliers = results[9].data || [];
     const supplierContacts = results[22].data || [];
     const hydratedSuppliers = rawSuppliers.map((s: any) => ({

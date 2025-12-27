@@ -1,15 +1,14 @@
-
 import React, { useState } from 'react';
 import Modal from './common/Modal';
 import { FaDatabase, FaCheck, FaCopy, FaExclamationTriangle, FaCode, FaBolt, FaShieldAlt, FaSync, FaSearch, FaTools, FaInfoCircle, FaRobot, FaTerminal, FaKey, FaEnvelope, FaExternalLinkAlt, FaListOl, FaPlay, FaFolderOpen, FaTrash, FaLock, FaExclamationCircle, FaUmbrellaBeach, FaClock, FaStethoscope, FaSpinner, FaBalanceScale } from 'react-icons/fa';
 import * as dataService from '../services/dataService';
 
 /**
- * DB Manager UI - v41.0 (Automation & Attachments Fix)
+ * DB Manager UI - v42.0 (ISO Automation & English Table Names)
  * -----------------------------------------------------------------------------
- * - CORREÇÃO: Adição da coluna 'attachments' em tickets.
+ * - CORREÇÃO: Alinhamento com tabelas 'institutions' e 'entities'.
  * - AUTOMAÇÃO: SQL Procedure para renovação ISO 27001 30 dias antes.
- * - AGENDAMENTO: pg_cron setup.
+ * - AUDITORIA: Trigger de auditoria NIS2 para ativos críticos.
  * -----------------------------------------------------------------------------
  */
 
@@ -49,11 +48,28 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
         } catch (error: any) { setDiagResult(`Erro Crítico: ${error.message}`); } finally { setIsDiagLoading(false); }
     };
 
-    const automationPatch = `-- 🤖 AIMANAGER - AUTOMATION & FIX PATCH (v41.0)
--- Este script corrige a coluna de anexos e ativa a criação proativa de tickets.
+    const automationPatch = `-- 🤖 AIMANAGER - AUTOMATION & NIS2 PATCH (v42.0)
+-- Este script ativa a criação proativa de tickets e a auditoria de alterações.
 
--- 1. CORREÇÃO DE SCHEMA (Anexos em Tickets)
-ALTER TABLE IF EXISTS public.tickets ADD COLUMN IF NOT EXISTS attachments jsonb DEFAULT '[]'::jsonb;
+-- 1. FUNÇÃO DE AUDITORIA NIS2 (Log de Alterações em Ativos)
+CREATE OR REPLACE FUNCTION public.log_audit_event()
+RETURNS trigger AS $$
+BEGIN
+    INSERT INTO public.audit_log (action, resource_type, resource_id, user_email, details)
+    VALUES (
+        TG_OP,
+        TG_TABLE_NAME,
+        CASE WHEN TG_OP = 'DELETE' THEN OLD.id ELSE NEW.id END,
+        auth.email(),
+        json_build_object('old', row_to_json(OLD), 'new', row_to_json(NEW))::text
+    );
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Aplicar a equipamentos e tickets
+DROP TRIGGER IF EXISTS trigger_audit_equipment ON public.equipment;
+CREATE TRIGGER trigger_audit_equipment AFTER INSERT OR UPDATE OR DELETE ON public.equipment FOR EACH ROW EXECUTE FUNCTION log_audit_event();
 
 -- 2. FUNÇÃO DE VERIFICAÇÃO DIÁRIA (Renovação ISO 27001)
 CREATE OR REPLACE FUNCTION public.proc_auto_generate_iso_tickets()
@@ -87,20 +103,20 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- 3. ATIVAÇÃO DO AGENDAMENTO (Requer pg_cron ativa no Supabase)
--- Nota: Execute isto apenas se tiver a extensão pg_cron ativa.
--- SELECT cron.schedule('auto-iso-tickets', '0 0 * * *', 'SELECT public.proc_auto_generate_iso_tickets()');
+-- 3. ATIVAÇÃO DO AGENDAMENTO (pg_cron)
+-- Execute isto se tiver a extensão pg_cron ativa.
+-- SELECT cron.schedule('auto-iso-tickets', '0 9 * * *', 'SELECT public.proc_auto_generate_iso_tickets()');
 
 NOTIFY pgrst, 'reload schema';
 COMMIT;`;
 
-    const universalZeroScript = `-- SCRIPT UNIVERSAL...`;
+    const universalZeroScript = `-- SCRIPT UNIVERSAL DE INICIALIZAÇÃO... (Para reposição completa)`;
 
     return (
         <Modal title="Gestão de Infraestrutura (Enterprise)" onClose={onClose} maxWidth="max-w-6xl">
             <div className="space-y-4 h-[85vh] flex flex-col">
                 <div className="flex-shrink-0 flex border-b border-gray-700 bg-gray-900/50 rounded-t-lg overflow-x-auto custom-scrollbar whitespace-nowrap">
-                    <button onClick={() => setActiveTab('automation_patch')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'automation_patch' ? 'border-brand-secondary text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaBolt /> Patch Automação (v41.0)</button>
+                    <button onClick={() => setActiveTab('automation_patch')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'automation_patch' ? 'border-brand-secondary text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaBolt /> Patch Automação (v42.0)</button>
                     <button onClick={() => setActiveTab('full')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'full' ? 'border-indigo-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaCode /> Inicialização</button>
                     <button onClick={() => setActiveTab('live_diag')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'live_diag' ? 'border-blue-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaStethoscope /> Diagnóstico</button>
                 </div>
@@ -108,8 +124,8 @@ COMMIT;`;
                 <div className="flex-grow overflow-hidden flex flex-col gap-4">
                     {activeTab === 'automation_patch' && (
                         <div className="bg-brand-primary/10 border border-brand-primary/30 p-4 rounded-lg mb-2">
-                            <h4 className="text-brand-secondary font-bold flex items-center gap-2 text-sm uppercase mb-1"><FaRobot /> PATCH v41.0: AUTOMAÇÃO MÃOS-LIVRES</h4>
-                            <p className="text-[11px] text-gray-300">Corrige erro de anexos e cria rotina diária no servidor para renovação de certificados ISO.</p>
+                            <h4 className="text-brand-secondary font-bold flex items-center gap-2 text-sm uppercase mb-1"><FaRobot /> PATCH v42.0: COMPLIANCE NIS2 & IDIOMA</h4>
+                            <p className="text-[11px] text-gray-300">Alinha as automações com as tabelas em Inglês e ativa a auditoria de alterações.</p>
                         </div>
                     )}
 

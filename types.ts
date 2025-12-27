@@ -1,4 +1,3 @@
-
 export enum UserRole {
     SuperAdmin = 'SuperAdmin',
     Admin = 'Admin',
@@ -27,7 +26,7 @@ export type ModuleKey =
     | 'notif_tickets' | 'notif_licenses' | 'notif_warranties'
     | 'msg_tickets' | 'msg_licenses' | 'msg_warranties'
     | 'holidays' | 'vacation_schedule' | 'vacation_report'
-    | 'config_holiday_types'; // Pedido 3
+    | 'config_holiday_types';
 
 export type PermissionAction = 'view' | 'view_own' | 'create' | 'edit' | 'delete' | 'manage';
 
@@ -253,7 +252,6 @@ export interface Ticket {
     requester_supplier_id?: string;
     attachments?: { name: string; dataUrl: string }[];
     embedding?: number[];
-    // Fix: Added missing regulatory fields for NIS2 compliance
     regulatory_status?: string;
     regulatory_24h_deadline?: string;
     regulatory_72h_deadline?: string;
@@ -640,8 +638,6 @@ export interface Holiday {
 }
 
 export interface HolidayType extends ConfigItem {}
-
-// Fix for missing types reported in errors
 
 export enum BackupType {
     Full = 'Full',
