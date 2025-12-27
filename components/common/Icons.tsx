@@ -1,4 +1,3 @@
-
 import React, { FC } from 'react';
 import { 
     FaChartBar, FaEye, FaSync, FaFileImport, FaBoxes, FaMagic, FaTasks, FaComment, FaPaperPlane, 
@@ -15,8 +14,8 @@ import {
     FaMapMarkedAlt, FaMousePointer, FaInfoCircle, FaBuilding, FaUnlink, FaChartLine, FaStopwatch, 
     FaEuroSign, FaChevronDown, FaListAlt, FaIdCard, FaUserSlash, FaBroom, FaPlay, FaSeedling, 
     FaSort, FaSortUp, FaSortDown, FaList, FaThLarge, FaToolbox, FaChevronRight, FaShoppingCart, 
-    // Fix: Added FaCamera to imported icons from react-icons/fa
-    FaShieldVirus, FaAddressBook, FaBars, 
+    // Fix: Added FaArrowRight to imported icons from react-icons/fa
+    FaShieldVirus, FaAddressBook, FaBars, FaArrowRight,
     FaMicrochip, FaMemory, FaHdd, FaLeaf, FaBolt, FaHeartbeat, FaTags, FaShapes, FaCompactDisc, FaCamera,
     // Fix: Added FaBalanceScale
     FaBalanceScale
@@ -37,8 +36,8 @@ export {
     FaMapMarkedAlt, FaMousePointer, FaInfoCircle, FaBuilding, FaUnlink, FaChartLine, FaStopwatch, 
     FaEuroSign, FaChevronDown, FaListAlt, FaIdCard, FaUserSlash, FaBroom, FaPlay, FaSeedling, 
     FaSort, FaSortUp, FaSortDown, FaList, FaThLarge, FaToolbox, FaChevronRight, FaShoppingCart, 
-    // Fix: Added FaCamera to exported icons
-    FaShieldVirus, FaAddressBook, FaBars,
+    // Fix: Added FaArrowRight to exported icons
+    FaShieldVirus, FaAddressBook, FaBars, FaArrowRight,
     FaMicrochip, FaMemory, FaHdd, FaLeaf, FaBolt, FaHeartbeat, FaTags, FaShapes, FaCompactDisc, FaCamera,
     // Fix: Added FaBalanceScale
     FaBalanceScale

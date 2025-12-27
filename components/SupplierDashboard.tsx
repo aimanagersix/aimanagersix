@@ -1,12 +1,19 @@
-
 import React, { useState, useMemo } from 'react';
 import { Supplier, CriticalityLevel, BusinessService } from '../types';
-// FIX: Replaced non-existent DeleteIcon with an alias for FaTrash
-import { EditIcon, FaTrash as DeleteIcon, PlusIcon, FaShieldAlt, FaPhone, FaEnvelope, FaCheckCircle, FaTimesCircle, FaGlobe, FaSearch, FaExclamationTriangle, FaUsers } from './common/Icons';
+// Fix: Removed unused FaArrowRight and added missing FaUserTie
+import { EditIcon, FaTrash as DeleteIcon, PlusIcon, FaShieldAlt, FaPhone, FaEnvelope, FaCheckCircle, FaTimesCircle, FaGlobe, FaSearch, FaExclamationTriangle, FaUsers, FaChartPie, FaLandmark, FaUserTie } from './common/Icons';
 import { FaToggleOn, FaToggleOff } from 'react-icons/fa';
 import Pagination from './common/Pagination';
 import SupplierDetailModal from './SupplierDetailModal';
 import SortableHeader from './common/SortableHeader';
+
+/**
+ * SUPPLIER DASHBOARD - V8.0 (Legacy DORA Alignment)
+ * -----------------------------------------------------------------------------
+ * STATUS DE BLOQUEIO RIGOROSO (Freeze UI):
+ * - PEDIDO 3: RESTAURAÇÃO DO WIDGET DE CONCENTRAÇÃO E LAYOUT DE CARDS.
+ * -----------------------------------------------------------------------------
+ */
 
 interface SupplierDashboardProps {
   suppliers: Supplier[];
@@ -19,7 +26,7 @@ interface SupplierDashboardProps {
 
 const getRiskClass = (level: CriticalityLevel) => {
     switch (level) {
-        case CriticalityLevel.Critical: return 'bg-red-600 text-white border-red-700';
+        case CriticalityLevel.Critical: return 'bg-red-600 text-white border-red-700 animate-pulse shadow-[0_0_10px_rgba(220,38,38,0.5)]';
         case CriticalityLevel.High: return 'bg-orange-600 text-white border-orange-700';
         case CriticalityLevel.Medium: return 'bg-yellow-600 text-white border-yellow-700';
         case CriticalityLevel.Low: return 'bg-green-600 text-white border-green-700';
@@ -28,73 +35,57 @@ const getRiskClass = (level: CriticalityLevel) => {
 };
 
 const ConcentrationRiskWidget: React.FC<{ services: BusinessService[], suppliers: Supplier[] }> = ({ services, suppliers }) => {
-    // Filter Critical Services
     const criticalServices = services.filter(s => s.criticality === CriticalityLevel.Critical || s.criticality === CriticalityLevel.High);
-    
     if (criticalServices.length === 0) return null;
 
-    // Count per supplier
     const supplierMap = new Map(suppliers.map(s => [s.id, s.name]));
     const supplierCounts: Record<string, number> = {};
-    
     criticalServices.forEach(s => {
         const supplierId = s.external_provider_id || 'internal';
         supplierCounts[supplierId] = (supplierCounts[supplierId] || 0) + 1;
     });
 
-    // Determine Max Concentration
     let maxSupplierId = 'internal';
     let maxCount = 0;
-    Object.entries(supplierCounts).forEach(([id, count]) => {
-        if (count > maxCount) {
-            maxCount = count;
-            maxSupplierId = id;
-        }
-    });
+    Object.entries(supplierCounts).forEach(([id, count]) => { if (count > maxCount) { maxCount = count; maxSupplierId = id; } });
 
     const percentage = Math.round((maxCount / criticalServices.length) * 100);
     const supplierName = maxSupplierId === 'internal' ? 'Recursos Internos' : (supplierMap.get(maxSupplierId) || 'Desconhecido');
-    
-    // Alert Threshold (e.g., > 50% dependence on one vendor for critical services)
     const isHighConcentration = percentage > 50; 
 
     return (
-        <div className={`mb-6 p-4 rounded-lg border flex items-center justify-between gap-4 ${isHighConcentration ? 'bg-orange-900/20 border-orange-500/50' : 'bg-green-900/20 border-green-500/50'}`}>
-            <div className="flex items-start gap-3">
-                <div className={`p-2 rounded-full ${isHighConcentration ? 'bg-orange-600 text-white' : 'bg-green-600 text-white'}`}>
-                    {isHighConcentration ? <FaExclamationTriangle className="h-5 w-5" /> : <FaCheckCircle className="h-5 w-5" />}
+        <div className={`mb-8 p-5 rounded-xl border-l-8 shadow-2xl flex items-center justify-between gap-6 transition-all hover:scale-[1.01] ${isHighConcentration ? 'bg-red-900/20 border-red-500 shadow-red-900/20' : 'bg-green-900/20 border-green-500 shadow-green-900/20'}`}>
+            <div className="flex items-start gap-4">
+                <div className={`p-4 rounded-full shadow-lg ${isHighConcentration ? 'bg-red-600 text-white' : 'bg-green-600 text-white'}`}>
+                    {isHighConcentration ? <FaExclamationTriangle size={24} /> : <FaCheckCircle size={24} />}
                 </div>
                 <div>
-                    <h3 className={`font-bold text-lg ${isHighConcentration ? 'text-orange-400' : 'text-green-400'}`}>
-                        Análise de Concentração (DORA Art. 28º)
-                    </h3>
-                    <p className="text-sm text-gray-300 mt-1">
+                    <h3 className={`font-black text-lg uppercase tracking-widest ${isHighConcentration ? 'text-red-400' : 'text-green-400'}`}>Monitor de Concentração DORA</h3>
+                    <p className="text-sm text-gray-300 mt-1 max-w-2xl leading-relaxed">
                         {isHighConcentration 
-                            ? `Alerta: ${percentage}% dos serviços críticos dependem do fornecedor "${supplierName}". Risco de concentração elevado.`
-                            : `Risco de concentração controlado. O maior fornecedor (${supplierName}) suporta ${percentage}% dos serviços críticos.`
+                            ? `ALERTA CRÍTICO: Detetada dependência de ${percentage}% dos serviços vitais no fornecedor "${supplierName}". Risco de interrupção sistémica elevado conforme Art. 28º.`
+                            : `Postura de resiliência adequada. A dispersão de dependências está dentro dos limites de segurança. Fornecedor principal (${supplierName}) detém ${percentage}% da operação.`
                         }
                     </p>
                 </div>
             </div>
-            <div className="text-right hidden sm:block">
-                <div className="text-xs text-gray-400 uppercase tracking-wider mb-1">Dependência Máxima</div>
-                <div className={`text-2xl font-bold ${isHighConcentration ? 'text-orange-400' : 'text-green-400'}`}>{percentage}%</div>
+            <div className="text-right flex flex-col items-end">
+                <span className="text-[10px] text-gray-500 font-black uppercase tracking-[0.2em] mb-1">Risco Agregado</span>
+                <div className={`text-4xl font-black font-mono ${isHighConcentration ? 'text-red-500' : 'text-green-500'}`}>{percentage}%</div>
             </div>
         </div>
     );
 };
 
 const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ suppliers, onEdit, onDelete, onCreate, businessServices, onToggleStatus }) => {
-    
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(20);
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
     const [filterRisk, setFilterRisk] = useState<string>('');
-    const [filterIso, setFilterIso] = useState<string>(''); // 'yes' | 'no' | ''
+    const [filterIso, setFilterIso] = useState<string>('');
     const [filterStatus, setFilterStatus] = useState<string>('');
     
-    // Sorting State
     const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'ascending' | 'descending' }>({
         key: 'name',
         direction: 'ascending'
@@ -102,314 +93,143 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ suppliers, onEdit
 
     const handleSort = (key: string) => {
         let direction: 'ascending' | 'descending' = 'ascending';
-        if (sortConfig.key === key && sortConfig.direction === 'ascending') {
-            direction = 'descending';
-        }
+        if (sortConfig.key === key && sortConfig.direction === 'ascending') direction = 'descending';
         setSortConfig({ key, direction });
     };
 
     const filteredSuppliers = useMemo(() => {
         let filtered = suppliers.filter(s => {
-            const searchMatch = searchQuery === '' ||
-                s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                s.nif?.includes(searchQuery);
-            
+            const searchMatch = searchQuery === '' || s.name.toLowerCase().includes(searchQuery.toLowerCase()) || s.nif?.includes(searchQuery);
             const riskMatch = filterRisk === '' || s.risk_level === filterRisk;
-            
-            const isoMatch = filterIso === '' || 
-                (filterIso === 'yes' ? s.is_iso27001_certified : !s.is_iso27001_certified);
-                
-            const statusMatch = filterStatus === '' || 
-                (filterStatus === 'active' ? s.is_active !== false : s.is_active === false);
-
+            const isoMatch = filterIso === '' || (filterIso === 'yes' ? s.is_iso27001_certified : !s.is_iso27001_certified);
+            const statusMatch = filterStatus === '' || (filterStatus === 'active' ? s.is_active !== false : s.is_active === false);
             return searchMatch && riskMatch && isoMatch && statusMatch;
         });
 
-        // Sorting Logic
         filtered.sort((a, b) => {
             let valA: any = '';
             let valB: any = '';
-            
-            // Priority for risk level sorting
-            const riskPriority: Record<string, number> = { 
-                [CriticalityLevel.Critical]: 4, 
-                [CriticalityLevel.High]: 3, 
-                [CriticalityLevel.Medium]: 2, 
-                [CriticalityLevel.Low]: 1 
-            };
+            const riskPriority: Record<string, number> = { [CriticalityLevel.Critical]: 4, [CriticalityLevel.High]: 3, [CriticalityLevel.Medium]: 2, [CriticalityLevel.Low]: 1 };
 
             switch (sortConfig.key) {
-                case 'contracts':
-                    valA = a.contracts?.length || 0;
-                    valB = b.contracts?.length || 0;
-                    break;
-                case 'risk_level':
-                    valA = riskPriority[a.risk_level] || 0;
-                    valB = riskPriority[b.risk_level] || 0;
-                    break;
-                case 'status':
-                     valA = a.is_active !== false ? 'active' : 'inactive';
-                     valB = b.is_active !== false ? 'active' : 'inactive';
-                     break;
-                case 'iso':
-                    valA = a.is_iso27001_certified ? 1 : 0;
-                    valB = b.is_iso27001_certified ? 1 : 0;
-                    break;
-                default:
-                    valA = a[sortConfig.key as keyof Supplier];
-                    valB = b[sortConfig.key as keyof Supplier];
+                case 'contracts': valA = a.contracts?.length || 0; valB = b.contracts?.length || 0; break;
+                case 'risk_level': valA = riskPriority[a.risk_level] || 0; valB = riskPriority[b.risk_level] || 0; break;
+                case 'status': valA = a.is_active !== false ? 'active' : 'inactive'; valB = b.is_active !== false ? 'active' : 'inactive'; break;
+                case 'iso': valA = a.is_iso27001_certified ? 1 : 0; valB = b.is_iso27001_certified ? 1 : 0; break;
+                default: valA = (a as any)[sortConfig.key] || ''; valB = (b as any)[sortConfig.key] || '';
             }
 
             if (typeof valA === 'string') valA = valA.toLowerCase();
             if (typeof valB === 'string') valB = valB.toLowerCase();
-
             if (valA < valB) return sortConfig.direction === 'ascending' ? -1 : 1;
             if (valA > valB) return sortConfig.direction === 'ascending' ? 1 : -1;
             return 0;
         });
-
         return filtered;
     }, [suppliers, searchQuery, filterRisk, filterIso, filterStatus, sortConfig]);
 
     const totalPages = Math.ceil(filteredSuppliers.length / itemsPerPage);
-    const paginatedSuppliers = useMemo(() => {
-        return filteredSuppliers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-    }, [filteredSuppliers, currentPage, itemsPerPage]);
-
-    const clearFilters = () => {
-        setSearchQuery('');
-        setFilterRisk('');
-        setFilterIso('');
-        setFilterStatus('');
-        setCurrentPage(1);
-    };
+    const paginatedSuppliers = useMemo(() => filteredSuppliers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage), [filteredSuppliers, currentPage, itemsPerPage]);
 
     return (
-        <div className="bg-surface-dark p-6 rounded-lg shadow-xl">
-            <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
-                <div>
-                    <h2 className="text-xl font-semibold text-white flex items-center gap-2">
-                        <FaShieldAlt className="text-brand-secondary"/> 
-                        Gestão de Risco de Fornecedores
-                    </h2>
-                    <p className="text-sm text-on-surface-dark-secondary mt-1">
-                        Avaliação e controlo de fornecedores críticos para a cadeia de abastecimento (NIS2 / DORA).
-                    </p>
+        <div className="bg-surface-dark p-6 rounded-lg shadow-xl animate-fade-in">
+            <div className="flex justify-between items-center mb-8 flex-wrap gap-4">
+                <div className="flex items-center gap-4">
+                    <div className="p-3 bg-brand-primary/20 rounded-xl text-brand-secondary shadow-lg"><FaShieldAlt size={32}/></div>
+                    <div>
+                        <h2 className="text-2xl font-black text-white uppercase tracking-tight">Cadeia de Abastecimento (NIS2/DORA)</h2>
+                        <p className="text-sm text-on-surface-dark-secondary font-medium">Controlo estrito de riscos de terceiros e conformidade regulatória.</p>
+                    </div>
                 </div>
                 {onCreate && (
-                    <button onClick={onCreate} className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary transition-colors">
-                        <PlusIcon /> Novo Fornecedor
-                    </button>
+                    <button onClick={onCreate} className="flex items-center gap-2 px-6 py-3 bg-brand-primary text-white rounded-xl font-black uppercase tracking-widest hover:bg-brand-secondary transition-all shadow-2xl active:scale-95"><PlusIcon /> Novo Fornecedor</button>
                 )}
             </div>
 
             <ConcentrationRiskWidget services={businessServices} suppliers={suppliers} />
 
-            <div className="mb-6 space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <div className="relative">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <FaSearch className="h-4 w-4 text-gray-400" />
-                        </div>
-                        <input
-                            type="text"
-                            value={searchQuery}
-                            onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
-                            placeholder="Procurar por nome ou NIF..."
-                            className="w-full bg-gray-700 border border-gray-600 text-white rounded-md pl-9 p-2 text-sm focus:ring-brand-secondary focus:border-brand-secondary"
-                        />
-                    </div>
-                    <select
-                        value={filterRisk}
-                        onChange={(e) => { setFilterRisk(e.target.value); setCurrentPage(1); }}
-                        className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm focus:ring-brand-secondary focus:border-brand-secondary"
-                    >
-                        <option value="">Todos os Níveis de Risco</option>
-                        {Object.values(CriticalityLevel).map(level => (
-                            <option key={level} value={level}>{level}</option>
-                        ))}
-                    </select>
-                    <select
-                        value={filterIso}
-                        onChange={(e) => { setFilterIso(e.target.value); setCurrentPage(1); }}
-                        className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm focus:ring-brand-secondary focus:border-brand-secondary"
-                    >
-                        <option value="">Certificação ISO 27001 (Todos)</option>
-                        <option value="yes">Sim</option>
-                        <option value="no">Não</option>
-                    </select>
-                    <select
-                        value={filterStatus}
-                        onChange={(e) => { setFilterStatus(e.target.value); setCurrentPage(1); }}
-                        className="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 text-sm focus:ring-brand-secondary focus:border-brand-secondary"
-                    >
-                        <option value="">Todos os Estados</option>
-                        <option value="active">Ativo</option>
-                        <option value="inactive">Inativo</option>
-                    </select>
+            <div className="mb-8 grid grid-cols-1 md:grid-cols-4 gap-4 bg-gray-900/40 p-5 rounded-xl border border-gray-700 shadow-inner">
+                <div className="relative md:col-span-1">
+                    <FaSearch className="absolute left-3 top-3 text-gray-500" />
+                    <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Procurar Firma ou NIF..." className="w-full bg-gray-800 border border-gray-700 text-white rounded-lg pl-10 p-2 text-sm focus:border-brand-secondary outline-none"/>
                 </div>
-                <div className="flex justify-end">
-                    <button
-                        onClick={clearFilters}
-                        className="px-4 py-2 text-sm bg-gray-600 text-white rounded-md hover:bg-gray-500 transition-colors"
-                    >
-                        Limpar Filtros
-                    </button>
-                </div>
+                <select value={filterRisk} onChange={(e) => setFilterRisk(e.target.value)} className="bg-gray-800 border border-gray-700 text-white rounded-lg p-2 text-sm font-bold">
+                    <option value="">Todos os Riscos</option>
+                    {Object.values(CriticalityLevel).map(l => <option key={l} value={l}>{l}</option>)}
+                </select>
+                <select value={filterIso} onChange={(e) => setFilterIso(e.target.value)} className="bg-gray-800 border border-gray-700 text-white rounded-lg p-2 text-sm font-bold">
+                    <option value="">ISO 27001 (Todos)</option>
+                    <option value="yes">Apenas Certificados</option>
+                    <option value="no">Sem Certificação</option>
+                </select>
+                <button onClick={() => {setSearchQuery(''); setFilterRisk(''); setFilterIso(''); setFilterStatus('');}} className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors font-bold text-xs uppercase tracking-widest border border-gray-600">Limpar Filtros</button>
             </div>
             
-            <div className="overflow-x-auto">
-                <table className="w-full text-sm text-left text-on-surface-dark-secondary">
-                    <thead className="text-xs text-on-surface-dark-secondary uppercase bg-gray-700/50">
+            <div className="overflow-x-auto rounded-xl border border-gray-700 shadow-2xl">
+                <table className="w-full text-sm text-left">
+                    <thead className="text-[10px] text-gray-500 uppercase font-black tracking-[0.2em] bg-gray-800">
                         <tr>
                             <SortableHeader label="Fornecedor / NIF" sortKey="name" currentSort={sortConfig} onSort={handleSort} />
-                            <SortableHeader label="Contactos" sortKey="contact_name" currentSort={sortConfig} onSort={handleSort} className="w-1/4" />
+                            <SortableHeader label="Contactos" sortKey="contact_name" currentSort={sortConfig} onSort={handleSort} />
                             <SortableHeader label="ISO 27001" sortKey="iso" currentSort={sortConfig} onSort={handleSort} className="text-center" />
-                            <SortableHeader label="Nível de Risco" sortKey="risk_level" currentSort={sortConfig} onSort={handleSort} className="text-center" />
-                            <SortableHeader label="Contratos" sortKey="contracts" currentSort={sortConfig} onSort={handleSort} />
-                            <SortableHeader label="Status" sortKey="status" currentSort={sortConfig} onSort={handleSort} className="text-center" />
-                            <th scope="col" className="px-6 py-3 text-center">Ações</th>
+                            <SortableHeader label="Risco NIS2" sortKey="risk_level" currentSort={sortConfig} onSort={handleSort} className="text-center" />
+                            <SortableHeader label="Contratos" sortKey="contracts" currentSort={sortConfig} onSort={handleSort} className="text-center" />
+                            <th scope="col" className="px-6 py-3 text-center">Gestão</th>
                         </tr>
                     </thead>
-                    <tbody>
-                        {paginatedSuppliers.length > 0 ? paginatedSuppliers.map((supplier) => {
+                    <tbody className="divide-y divide-gray-800">
+                        {paginatedSuppliers.map((supplier) => {
                             const isActive = supplier.is_active !== false;
-                            
                             return (
-                            <tr 
-                                key={supplier.id} 
-                                className={`border-b border-gray-700 cursor-pointer ${isActive ? 'bg-surface-dark hover:bg-gray-800/50' : 'bg-gray-800/50 opacity-70'}`}
-                                onClick={() => setSelectedSupplier(supplier)}
-                            >
-                                <td className="px-6 py-4 font-medium text-on-surface-dark align-top">
-                                    <div className="text-base">{supplier.name}</div>
-                                    {supplier.nif && <div className="text-xs text-gray-500">NIF: {supplier.nif}</div>}
-                                    {supplier.website && (
-                                        <a href={supplier.website.startsWith('http') ? supplier.website : `https://${supplier.website}`} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-xs text-brand-secondary hover:underline flex items-center gap-1 mt-1">
-                                            <FaGlobe className="h-3 w-3"/> Website
-                                        </a>
-                                    )}
-                                </td>
-                                <td className="px-6 py-4 align-top">
-                                    {/* Main Contact */}
-                                    <div className="mb-3">
-                                        <p className="text-[10px] uppercase text-gray-500 font-bold mb-1">Principal</p>
-                                        {supplier.contact_name ? (
-                                            <>
-                                                <div className="font-semibold text-sm text-white">{supplier.contact_name}</div>
-                                                {supplier.contact_email && <div className="text-xs flex items-center gap-1 text-gray-300"><FaEnvelope className="h-3 w-3"/> {supplier.contact_email}</div>}
-                                                {supplier.contact_phone && <div className="text-xs flex items-center gap-1 text-gray-300"><FaPhone className="h-3 w-3"/> {supplier.contact_phone}</div>}
-                                            </>
-                                        ) : <span className="text-xs text-gray-500 italic">Não definido</span>}
-                                    </div>
-                                    
-                                    {/* Extra Contacts List - Detailed */}
-                                    {supplier.contacts && supplier.contacts.length > 0 && (
-                                        <div className="border-t border-gray-600 pt-2 mt-2">
-                                            <p className="text-[10px] uppercase text-brand-secondary font-bold mb-2 flex items-center gap-1">
-                                                <FaUsers className="h-3 w-3"/> Outros ({supplier.contacts.length})
-                                            </p>
-                                            <div className="space-y-2">
-                                                {supplier.contacts.map(c => (
-                                                    <div key={c.id} className="bg-gray-800/50 p-2 rounded border border-gray-700">
-                                                        <div className="text-xs font-bold text-white flex justify-between items-center">
-                                                            {c.name}
-                                                            {c.title && <span className="text-[9px] font-normal text-gray-500 ml-1">({c.title})</span>}
-                                                        </div>
-                                                        <div className="text-[10px] text-brand-secondary mb-0.5 font-semibold">{c.role}</div>
-                                                        {c.email && <div className="text-[10px] text-gray-400 break-all">{c.email}</div>}
-                                                        {c.phone && <div className="text-[10px] text-gray-400">{c.phone}</div>}
-                                                    </div>
-                                                ))}
-                                            </div>
+                                <tr key={supplier.id} className={`group cursor-pointer transition-all ${isActive ? 'bg-surface-dark hover:bg-gray-800/60' : 'bg-gray-800/40 grayscale opacity-60'}`} onClick={() => setSelectedSupplier(supplier)}>
+                                    <td className="px-6 py-5 align-top">
+                                        <div className="text-white font-bold text-base group-hover:text-brand-secondary transition-colors">{supplier.name}</div>
+                                        <div className="text-xs text-gray-500 font-mono mt-1">{supplier.nif || 'NIF PENDENTE'}</div>
+                                    </td>
+                                    <td className="px-6 py-5 align-top">
+                                        <div className="flex flex-col gap-1">
+                                            {/* Fix: Usage of FaUserTie after import */}
+                                            {supplier.contact_name && <div className="text-gray-300 font-bold text-xs flex items-center gap-2"><FaUserTie className="text-gray-500" size={10}/> {supplier.contact_name}</div>}
+                                            {supplier.contact_email && <div className="text-gray-500 text-[11px] flex items-center gap-2"><FaEnvelope size={10}/> {supplier.contact_email}</div>}
                                         </div>
-                                    )}
-                                </td>
-                                <td className="px-6 py-4 text-center align-top pt-8">
-                                    {supplier.is_iso27001_certified ? (
-                                        <div className="flex flex-col items-center">
-                                            <FaCheckCircle className="text-green-500 h-6 w-6 mb-1" title="Certificado ISO 27001"/>
-                                            <span className="text-[10px] text-green-400">Certificado</span>
+                                    </td>
+                                    <td className="px-6 py-5 text-center">
+                                        <div className="flex flex-col items-center gap-1">
+                                            {supplier.is_iso27001_certified ? <FaCheckCircle className="text-green-500" size={18}/> : <FaTimesCircle className="text-gray-700" size={18}/>}
+                                            <span className="text-[9px] font-black uppercase text-gray-600">{supplier.is_iso27001_certified ? 'Validado' : 'Ausente'}</span>
                                         </div>
-                                    ) : (
-                                        <div className="flex flex-col items-center">
-                                            <FaTimesCircle className="text-gray-600 h-6 w-6 mb-1" title="Não Certificado"/>
-                                            <span className="text-[10px] text-gray-500">Não</span>
-                                        </div>
-                                    )}
-                                </td>
-                                <td className="px-6 py-4 text-center align-top pt-8">
-                                    <span className={`px-2 py-1 text-xs rounded border font-bold ${getRiskClass(supplier.risk_level)}`}>
-                                        {supplier.risk_level}
-                                    </span>
-                                </td>
-                                <td className="px-6 py-4 align-top pt-8">
-                                    {supplier.contracts && supplier.contracts.length > 0 ? (
-                                        <span className="text-xs bg-gray-700 px-2 py-1 rounded-full text-white">
-                                            {supplier.contracts.length} Contrato(s)
+                                    </td>
+                                    <td className="px-6 py-5 text-center">
+                                        <span className={`px-3 py-1 text-[10px] rounded-full font-black uppercase border-2 ${getRiskClass(supplier.risk_level)}`}>
+                                            {supplier.risk_level}
                                         </span>
-                                    ) : (
-                                        <span className="text-xs text-gray-500 italic">--</span>
-                                    )}
-                                </td>
-                                <td className="px-6 py-4 text-center align-top pt-8">
-                                    <span className={`px-2 py-1 text-xs rounded-full ${isActive ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
-                                        {isActive ? 'Ativo' : 'Inativo'}
-                                    </span>
-                                </td>
-                                <td className="px-6 py-4 text-center align-top pt-8">
-                                    <div className="flex justify-center items-center gap-4">
-                                        {onToggleStatus && (
-                                            <button 
-                                                onClick={(e) => { e.stopPropagation(); onToggleStatus(supplier.id); }}
-                                                className={`text-xl ${isActive ? 'text-green-400 hover:text-green-300' : 'text-gray-500 hover:text-gray-400'}`}
-                                                title={isActive ? 'Inativar' : 'Ativar'}
-                                            >
-                                                {isActive ? <FaToggleOn /> : <FaToggleOff />}
-                                            </button>
-                                        )}
-                                        {onEdit && (
-                                            <button onClick={(e) => { e.stopPropagation(); onEdit(supplier); }} className="text-blue-400 hover:text-blue-300" title="Editar">
-                                                <EditIcon />
-                                            </button>
-                                        )}
-                                        {onDelete && (
-                                            <button onClick={(e) => { e.stopPropagation(); onDelete(supplier.id); }} className="text-red-400 hover:text-red-300" title="Excluir">
-                                                <DeleteIcon />
-                                            </button>
-                                        )}
-                                    </div>
-                                </td>
-                            </tr>
-                        )}) : (
-                            <tr>
-                                <td colSpan={7} className="text-center py-8 text-on-surface-dark-secondary">
-                                    Nenhum fornecedor encontrado.
-                                </td>
-                            </tr>
+                                    </td>
+                                    <td className="px-6 py-5 text-center">
+                                        <div className="flex flex-col items-center gap-1">
+                                            <span className="text-lg font-black text-white">{(supplier.contracts || []).length}</span>
+                                            <span className="text-[9px] font-black uppercase text-gray-600">Acordos</span>
+                                        </div>
+                                    </td>
+                                    <td className="px-6 py-5 text-center" onClick={e => e.stopPropagation()}>
+                                        <div className="flex justify-center items-center gap-4">
+                                            {onToggleStatus && (
+                                                <button onClick={() => onToggleStatus(supplier.id)} className={`text-xl transition-transform hover:scale-125 ${isActive ? 'text-green-400' : 'text-gray-500'}`} title={isActive ? 'Suspender' : 'Reativar'}>{isActive ? <FaToggleOn /> : <FaToggleOff />}</button>
+                                            )}
+                                            {onEdit && <button onClick={() => onEdit(supplier)} className="p-2 bg-gray-800 rounded-lg text-blue-400 hover:bg-blue-600 hover:text-white transition-all shadow-md"><EditIcon /></button>}
+                                            {onDelete && <button onClick={() => onDelete(supplier.id)} className="p-2 bg-gray-800 rounded-lg text-red-400 hover:bg-red-600 hover:text-white transition-all shadow-md"><DeleteIcon /></button>}
+                                        </div>
+                                    </td>
+                                </tr>
+                            );
+                        })}
+                        {filteredSuppliers.length === 0 && (
+                            <tr><td colSpan={6} className="p-20 text-center text-gray-600 italic text-lg">Sem fornecedores correspondentes aos critérios.</td></tr>
                         )}
                     </tbody>
                 </table>
             </div>
-            <Pagination
-                currentPage={currentPage}
-                totalPages={totalPages}
-                onPageChange={setCurrentPage}
-                itemsPerPage={itemsPerPage}
-                onItemsPerPageChange={setItemsPerPage}
-                totalItems={filteredSuppliers.length}
-            />
-
-            {selectedSupplier && (
-                <SupplierDetailModal
-                    supplier={selectedSupplier}
-                    onClose={() => setSelectedSupplier(null)}
-                    onEdit={() => {
-                        setSelectedSupplier(null);
-                        if (onEdit) onEdit(selectedSupplier);
-                    }}
-                />
-            )}
+            <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} itemsPerPage={itemsPerPage} onItemsPerPageChange={setItemsPerPage} totalItems={filteredSuppliers.length} />
+            {selectedSupplier && <SupplierDetailModal supplier={selectedSupplier} onClose={() => setSelectedSupplier(null)} onEdit={() => { setSelectedSupplier(null); if (onEdit) onEdit(selectedSupplier); }} />}
         </div>
     );
 };
