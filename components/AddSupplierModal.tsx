@@ -72,6 +72,9 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
     const [emailSuggestion, setEmailSuggestion] = useState('');
     const [newCertName, setNewCertName] = useState('');
     const [newCertDate, setNewCertDate] = useState('');
+    
+    // Sugestão do Engenheiro: Revelação Progressiva
+    const [showExtraCerts, setShowExtraCerts] = useState(false);
 
     const [newContract, setNewContract] = useState<Partial<SupplierContract>>({
         ref_number: '',
@@ -99,6 +102,10 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
             });
             if (supplierToEdit.attachments) {
                 setAttachments(supplierToEdit.attachments.map(a => ({ ...a, size: 0 })));
+            }
+            // Expandir certs se já existirem
+            if (supplierToEdit.other_certifications && supplierToEdit.other_certifications.length > 0) {
+                setShowExtraCerts(true);
             }
         }
     }, [supplierToEdit]);
@@ -251,10 +258,27 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
     return (
         <Modal title={supplierToEdit ? "Editar Fornecedor" : "Adicionar Fornecedor"} onClose={onClose} maxWidth="max-w-5xl">
             <div className="flex flex-col h-[80vh]">
-                <div className="flex border-b border-gray-700 mb-6 overflow-x-auto whitespace-nowrap">
-                    <button type="button" onClick={() => setActiveTab('details')} className={`px-6 py-2 text-sm font-bold border-b-2 transition-colors ${activeTab === 'details' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}>Detalhes Gerais</button>
-                    <button type="button" onClick={() => setActiveTab('contacts')} className={`px-6 py-2 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'contacts' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}>Pessoas de Contacto</button>
-                    <button type="button" onClick={() => setActiveTab('contracts')} className={`px-6 py-2 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'contracts' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}>Contratos & DORA</button>
+                
+                {/* Sugestão do Engenheiro: Abas Responsivas */}
+                {/* Mobile Selector */}
+                <div className="sm:hidden mb-4">
+                    <label className="block text-[10px] font-black text-gray-500 uppercase mb-2 tracking-widest">Secção do Formulário</label>
+                    <select 
+                        value={activeTab} 
+                        onChange={(e) => setActiveTab(e.target.value as any)}
+                        className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm font-bold focus:border-brand-secondary outline-none"
+                    >
+                        <option value="details">Detalhes Gerais</option>
+                        <option value="contacts">Pessoas de Contacto</option>
+                        <option value="contracts">Contratos & DORA</option>
+                    </select>
+                </div>
+
+                {/* Desktop Tabs */}
+                <div className="hidden sm:flex border-b border-gray-700 mb-6 overflow-x-auto whitespace-nowrap scrollbar-hide">
+                    <button type="button" onClick={() => setActiveTab('details')} className={`px-6 py-2 text-sm font-bold border-b-2 transition-colors flex-shrink-0 min-w-fit ${activeTab === 'details' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}>Detalhes Gerais</button>
+                    <button type="button" onClick={() => setActiveTab('contacts')} className={`px-6 py-2 text-sm font-bold border-b-2 transition-colors flex-shrink-0 min-w-fit flex items-center gap-2 ${activeTab === 'contacts' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}>Pessoas de Contacto</button>
+                    <button type="button" onClick={() => setActiveTab('contracts')} className={`px-6 py-2 text-sm font-bold border-b-2 transition-colors flex-shrink-0 min-w-fit flex items-center gap-2 ${activeTab === 'contracts' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}>Contratos & DORA</button>
                 </div>
 
                 <form onSubmit={handleSubmit} className="flex-grow overflow-y-auto custom-scrollbar pr-2 space-y-6">
@@ -341,22 +365,38 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
                                 )}
                             </div>
 
+                            {/* Sugestão do Engenheiro: Revelação Progressiva */}
                             <div className="bg-black/10 p-4 rounded border border-gray-700">
-                                <h5 className="text-[10px] font-black text-gray-400 uppercase mb-3 tracking-widest flex items-center gap-2"><FaCertificate className="text-yellow-500"/> Outras Certificações (SOC2, ISO 9001, etc)</h5>
-                                <div className="flex flex-wrap gap-2 mb-3">
-                                    {(formData.other_certifications || []).map((cert, idx) => (
-                                        <div key={idx} className="flex items-center gap-2 bg-gray-800 px-2 py-1 rounded text-[10px] border border-gray-600">
-                                            <span className="text-white font-bold">{cert.name}</span>
-                                            <span className="text-gray-500">| {cert.expiryDate || 'N/A'}</span>
-                                            <button type="button" onClick={() => setFormData(prev => ({...prev, other_certifications: prev.other_certifications?.filter((_, i) => i !== idx)}))} className="text-red-400 ml-1"><FaTimes size={10}/></button>
+                                <label className="flex items-center cursor-pointer mb-3">
+                                    <input 
+                                        type="checkbox" 
+                                        checked={showExtraCerts} 
+                                        onChange={(e) => setShowExtraCerts(e.target.checked)}
+                                        className="h-4 w-4 rounded bg-gray-700 text-brand-primary border-gray-600"
+                                    />
+                                    <span className="ml-2 text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                                        <FaCertificate className="text-yellow-500"/> Possui Certificações Adicionais (SOC2, ISO 9001...)
+                                    </span>
+                                </label>
+
+                                {showExtraCerts && (
+                                    <div className="animate-fade-in">
+                                        <div className="flex flex-wrap gap-2 mb-3">
+                                            {(formData.other_certifications || []).map((cert, idx) => (
+                                                <div key={idx} className="flex items-center gap-2 bg-gray-800 px-2 py-1 rounded text-[10px] border border-gray-600">
+                                                    <span className="text-white font-bold">{cert.name}</span>
+                                                    <span className="text-gray-500">| {cert.expiryDate || 'N/A'}</span>
+                                                    <button type="button" onClick={() => setFormData(prev => ({...prev, other_certifications: prev.other_certifications?.filter((_, i) => i !== idx)}))} className="text-red-400 ml-1"><FaTimes size={10}/></button>
+                                                </div>
+                                            ))}
                                         </div>
-                                    ))}
-                                </div>
-                                <div className="flex gap-2">
-                                    <input type="text" value={newCertName} onChange={e => setNewCertName(e.target.value)} placeholder="Nome do Certificado" className="flex-1 bg-gray-700 border border-gray-600 text-white rounded p-1.5 text-xs" />
-                                    <input type="date" value={newCertDate} onChange={e => setNewCertDate(e.target.value)} className="bg-gray-700 border border-gray-600 text-white rounded p-1.5 text-xs" />
-                                    <button type="button" onClick={handleAddCertificate} className="bg-gray-600 text-white px-3 rounded hover:bg-gray-500"><FaPlus/></button>
-                                </div>
+                                        <div className="flex gap-2">
+                                            <input type="text" value={newCertName} onChange={e => setNewCertName(e.target.value)} placeholder="Nome do Certificado" className="flex-1 bg-gray-700 border border-gray-600 text-white rounded p-1.5 text-xs" />
+                                            <input type="date" value={newCertDate} onChange={e => setNewCertDate(e.target.value)} className="bg-gray-700 border border-gray-600 text-white rounded p-1.5 text-xs" />
+                                            <button type="button" onClick={handleAddCertificate} className="bg-gray-600 text-white px-3 rounded hover:bg-gray-500"><FaPlus/></button>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
 

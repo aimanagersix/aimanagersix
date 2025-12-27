@@ -6,11 +6,12 @@ import { FaLaptop, FaTicketAlt, FaHistory, FaComment, FaEnvelope, FaPhone, FaMob
 import * as dataService from '../services/dataService';
 
 /**
- * COLLABORATOR DETAIL MODAL - V5.3 (Title/Trato Header)
+ * COLLABORATOR DETAIL MODAL - V5.4 (Responsive Tabs Applied)
  * -----------------------------------------------------------------------------
  * STATUS DE BLOQUEIO RIGOROSO (Freeze UI):
  * - PEDIDO 8: RESTAURADO HISTÓRICO DE TICKETS, HARDWARE E SOFTWARE.
  * - PEDIDO 4: ADICIONADO TRATO (TITLE) NO CABEÇALHO.
+ * - PEDIDO 3: APLICADO RESPONSIVE TABS EM MOBILE.
  * -----------------------------------------------------------------------------
  */
 
@@ -191,8 +192,22 @@ export const CollaboratorDetailModal: React.FC<CollaboratorDetailModalProps> = (
                     </div>
                 </div>
 
-                {/* Navegação Interna */}
-                <div className="flex border-b border-gray-700 mb-6 flex-shrink-0">
+                {/* Mobile Selector */}
+                <div className="sm:hidden mb-4 px-2">
+                    <label className="block text-[10px] font-black text-gray-500 uppercase mb-2 tracking-widest">Navegação da Ficha</label>
+                    <select 
+                        value={activeTab} 
+                        onChange={(e) => setActiveTab(e.target.value as any)}
+                        className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm font-bold focus:border-brand-secondary outline-none"
+                    >
+                        <option value="active_assets">Ativos & Software</option>
+                        <option value="tickets">Histórico Suporte</option>
+                        <option value="info">Dados Adicionais</option>
+                    </select>
+                </div>
+
+                {/* Desktop Navegação Interna */}
+                <div className="hidden sm:flex border-b border-gray-700 mb-6 flex-shrink-0">
                     <button onClick={() => setActiveTab('active_assets')} className={`px-6 py-2 text-sm font-black uppercase tracking-widest border-b-2 transition-all ${activeTab === 'active_assets' ? 'border-brand-secondary text-white bg-gray-800/30' : 'border-transparent text-gray-500 hover:text-gray-300'}`}>Ativos & Software ({assignedEquipment.length})</button>
                     <button onClick={() => setActiveTab('tickets')} className={`px-6 py-2 text-sm font-black uppercase tracking-widest border-b-2 transition-all ${activeTab === 'tickets' ? 'border-brand-secondary text-white bg-gray-800/30' : 'border-transparent text-gray-300 hover:text-gray-300'}`}>Histórico Suporte ({collaboratorTickets.length})</button>
                     <button onClick={() => setActiveTab('info')} className={`px-6 py-2 text-sm font-black uppercase tracking-widest border-b-2 transition-all ${activeTab === 'info' ? 'border-brand-secondary text-white bg-gray-800/30' : 'border-transparent text-gray-300 hover:text-gray-300'}`}>Dados Adicionais</button>

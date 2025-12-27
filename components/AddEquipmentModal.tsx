@@ -486,7 +486,24 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({
         <Modal title={modalTitleText} onClose={onClose} maxWidth="max-w-4xl">
             {isScanning && <CameraScanner onCapture={handleScanComplete} onClose={() => setIsScanning(false)} />}
             
-            <div className="flex border-b border-gray-700 mb-4 flex-wrap">
+            {/* Mobile Selector */}
+            <div className="sm:hidden mb-4">
+                <label className="block text-[10px] font-black text-gray-500 uppercase mb-2 tracking-widest">Secção do Formulário</label>
+                <select 
+                    value={activeTab} 
+                    onChange={(e) => setActiveTab(e.target.value as any)}
+                    className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm font-bold focus:border-brand-secondary outline-none"
+                >
+                    <option value="general">Geral</option>
+                    <option value="hardware">Hardware & Rede</option>
+                    <option value="security">Sistema & Segurança</option>
+                    <option value="financial">Financeiro (FinOps)</option>
+                    <option value="compliance">Legal & Compliance</option>
+                </select>
+            </div>
+
+            {/* Desktop Tabs */}
+            <div className="hidden sm:flex border-b border-gray-700 mb-4 flex-wrap">
                 <button type="button" onClick={() => setActiveTab('general')} className={getTabClassValue('general')}>Geral</button>
                 <button type="button" onClick={() => setActiveTab('hardware')} className={getTabClassValue('hardware')}>Hardware & Rede</button>
                 <button type="button" onClick={() => setActiveTab('security')} className={getTabClassValue('security')}>Sistema & Segurança</button>
