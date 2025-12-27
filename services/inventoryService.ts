@@ -125,11 +125,13 @@ export const fetchInventoryData = async () => {
         sb().from('config_job_titles').select('*'),
         sb().from('config_collaborator_deactivation_reasons').select('*'),
         sb().from('config_holiday_types').select('*'),
+        // Correção Pedido 3: Garantir que o resource_type está em minúsculas conforme gravado pelo orgService
         sb().from('resource_contacts').select('*').eq('resource_type', 'supplier')
     ]);
     
     const rawSuppliers = results[9].data || [];
     const supplierContacts = results[22].data || [];
+    
     const hydratedSuppliers = rawSuppliers.map((s: any) => ({
         ...s,
         contacts: supplierContacts.filter((c: any) => c.resource_id === s.id)

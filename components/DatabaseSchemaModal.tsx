@@ -4,10 +4,10 @@ import { FaDatabase, FaCheck, FaCopy, FaExclamationTriangle, FaCode, FaBolt, FaS
 import * as dataService from '../services/dataService';
 
 /**
- * DB Manager UI - v43.0 (Resource Contacts RLS Fix)
+ * DB Manager UI - v44.0 (Live Diag Implementation)
  * -----------------------------------------------------------------------------
- * - CORREÇÃO: Inclusão de 'resource_contacts' no patch de RLS.
- * - AUTOMAÇÃO: SQL Procedure para renovação ISO 27001 e Auditoria NIS2.
+ * - IMPLEMENTAÇÃO: Ferramenta de diagnóstico técnico em tempo real.
+ * - AUDITORIA: Verificação de colunas e conectividade RLS.
  * -----------------------------------------------------------------------------
  */
 
@@ -29,22 +29,65 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
 
     const runLiveDiagnosis = async () => {
         setIsDiagLoading(true);
-        setDiagResult('A consultar metadados do Supabase...');
+        setDiagResult('A iniciar bateria de testes de integridade...\n');
+        
+        let report = `--- RELATÓRIO DE INTEGRIDADE ESTRUTURAL (Live) ---\n`;
+        report += `Data: ${new Date().toLocaleString()}\n`;
+        report += `Projeto: yyiwkrkuhlkqibhowdmq\n\n`;
+
         try {
-            const tables = ['equipment', 'collaborators', 'suppliers', 'tickets', 'resource_contacts'];
-            let report = `--- RELATÓRIO DE ESTRUTURA REAL (Live) ---\nGerado em: ${new Date().toLocaleString()}\n\n`;
+            const tables = ['institutions', 'entities', 'collaborators', 'equipment', 'tickets', 'suppliers', 'resource_contacts', 'software_licenses'];
+            
+            report += `[1/3] VERIFICAÇÃO DE CONETIVIDADE:\n`;
+            try {
+                const diagRes = await dataService.runSystemDiagnostics();
+                diagRes.forEach(r => {
+                    report += ` - ${r.module}: ${r.status === 'Success' ? '✅' : '❌'} (${r.message})\n`;
+                });
+            } catch (e) {
+                report += ` - FALHA CRÍTICA NA CONETIVIDADE: ${e}\n`;
+            }
+
+            report += `\n[2/3] INSPEÇÃO DE SCHEMA (COLUNAS REAL NA BD):\n`;
             for (const table of tables) {
                 try {
-                    const columns = await dataService.fetchTableSchema(table);
                     report += `TABELA: ${table.toUpperCase()}\n`;
-                    columns.forEach(col => { report += ` - ${col.column_name} (${col.data_type})\n`; });
-                    report += `\n`;
-                } catch (e) {
-                    report += `TABELA: ${table.toUpperCase()} -> Erro: RPC não encontrada.\n\n`;
+                    const columns = await dataService.fetchTableSchema(table);
+                    if (columns && columns.length > 0) {
+                        columns.forEach(col => {
+                            report += `  • ${col.column_name.padEnd(25)} | ${col.data_type}\n`;
+                        });
+                    } else {
+                        report += `  ⚠️ Sem colunas visíveis ou permissão negada.\n`;
+                    }
+                } catch (e: any) {
+                    report += `  ❌ ERRO: ${e.message || 'RPC inspect_table_columns não encontrada.'}\n`;
                 }
+                report += `\n`;
             }
+
+            report += `[3/3] ANÁLISE DE CONTACTOS ADICIONAIS:\n`;
+            try {
+                const cols = await dataService.fetchTableSchema('resource_contacts');
+                const hasType = cols.some(c => c.column_name === 'resource_type');
+                const hasId = cols.some(c => c.column_name === 'resource_id');
+                
+                if (hasType && hasId) {
+                    report += ` ✅ Estrutura de resource_contacts parece correta.\n`;
+                    report += ` DICA: Se a gravação falha, verifique o RLS ou o script v43.\n`;
+                } else {
+                    report += ` ❌ ESTRUTURA INVÁLIDA detetada em resource_contacts.\n`;
+                    report += ` Verifique se as colunas resource_type e resource_id existem.\n`;
+                }
+            } catch (e) {}
+
+            report += `\n--- FIM DO DIAGNÓSTICO ---`;
             setDiagResult(report);
-        } catch (error: any) { setDiagResult(`Erro Crítico: ${error.message}`); } finally { setIsDiagLoading(false); }
+        } catch (error: any) { 
+            setDiagResult(`Erro Crítico na ferramenta de diagnóstico: ${error.message}`); 
+        } finally { 
+            setIsDiagLoading(false); 
+        }
     };
 
     const automationPatch = `-- 🤖 AIMANAGER - AUTOMATION & RLS PATCH (v43.0)
@@ -140,17 +183,31 @@ COMMIT;`;
                         </div>
                     )}
 
-                    <div className="relative flex-grow bg-black rounded-lg border border-gray-700 shadow-2xl overflow-hidden">
-                        <div className="absolute top-2 right-4 z-20">
-                            <button 
-                                onClick={() => handleCopy(activeTab === 'automation_patch' ? automationPatch : universalZeroScript, activeTab)} 
-                                className="px-4 py-2 bg-brand-primary text-white text-xs font-black rounded-md shadow-lg flex items-center gap-2 hover:bg-brand-secondary transition-all"
-                            >
-                                {copied === activeTab ? <FaCheck /> : <FaCopy />} Copiar Código
+                    {activeTab === 'live_diag' && (
+                        <div className="bg-blue-900/10 border border-blue-500/30 p-4 rounded-lg mb-2 flex justify-between items-center">
+                            <div>
+                                <h4 className="text-blue-300 font-bold flex items-center gap-2 text-sm uppercase mb-1"><FaStethoscope /> FERRAMENTA DE INSPEÇÃO EM TEMPO REAL</h4>
+                                <p className="text-[11px] text-gray-300">Valida se a estrutura de colunas do Supabase corresponde exatamente ao código da App.</p>
+                            </div>
+                            <button onClick={runLiveDiagnosis} disabled={isDiagLoading} className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2 rounded font-bold flex items-center gap-2 disabled:opacity-50">
+                                {isDiagLoading ? <FaSpinner className="animate-spin" /> : <FaPlay />} Executar Inspeção Completa
                             </button>
                         </div>
+                    )}
+
+                    <div className="relative flex-grow bg-black rounded-lg border border-gray-700 shadow-2xl overflow-hidden">
+                        {(activeTab === 'automation_patch' || activeTab === 'full') && (
+                            <div className="absolute top-2 right-4 z-20">
+                                <button 
+                                    onClick={() => handleCopy(activeTab === 'automation_patch' ? automationPatch : universalZeroScript, activeTab)} 
+                                    className="px-4 py-2 bg-brand-primary text-white text-xs font-black rounded-md shadow-lg flex items-center gap-2 hover:bg-brand-secondary transition-all"
+                                >
+                                    {copied === activeTab ? <FaCheck /> : <FaCopy />} Copiar Código
+                                </button>
+                            </div>
+                        )}
                         <div className="h-full overflow-auto custom-scrollbar p-6 bg-gray-950 font-mono text-xs text-blue-400">
-                            <pre className="whitespace-pre-wrap">{activeTab === 'automation_patch' ? automationPatch : universalZeroScript}</pre>
+                            <pre className="whitespace-pre-wrap">{activeTab === 'live_diag' ? diagResult || 'Clique em "Executar Inspeção" para analisar a base de dados.' : (activeTab === 'automation_patch' ? automationPatch : universalZeroScript)}</pre>
                         </div>
                     </div>
                 </div>

@@ -166,36 +166,53 @@ export const fetchAuditLogs = async () => { const { data } = await sb().from('au
 export const triggerBirthdayCron = async () => { await sb().rpc('send_daily_birthday_emails'); };
 
 /**
- * syncResourceContacts v2.0 - Sincronização robusta de contactos adicionais.
- * Pedido 3: Adicionado tratamento de erro explícito para RLS.
+ * syncResourceContacts v3.0 - Sincronização robusta de contactos adicionais.
+ * Pedido 3: Normalização de tipos e IDs para evitar falhas de cast no PostgreSQL.
  */
 export const syncResourceContacts = async (type: string, id: string, contacts: ResourceContact[]) => { 
+    console.log(`[syncResourceContacts] A iniciar sync para ${type} (ID: ${id}) com ${contacts.length} contactos.`);
+    
     // 1. Limpeza de contactos antigos
     const { error: deleteError } = await sb()
         .from('resource_contacts')
         .delete()
-        .eq('resource_type', type)
+        .eq('resource_type', String(type).trim())
         .eq('resource_id', id); 
     
     if (deleteError) {
-        console.error(`[syncResourceContacts] Erro ao limpar contactos (RLS?):`, deleteError);
-        throw new Error(`Falha ao atualizar base de dados de contactos: ${deleteError.message}`);
+        console.error(`[syncResourceContacts] Erro no DELETE (RLS ou FK?):`, deleteError);
+        throw new Error(`Falha ao limpar contactos: ${deleteError.message}`);
     }
 
     // 2. Inserção dos novos contactos
     if (contacts.length > 0) { 
         const items = contacts.map(c => {
-            const clean = { ...c, resource_type: type, resource_id: id };
-            // Remover ID se for novo para deixar o Postgres gerar UUID
-            if (String(clean.id).length > 30) { /* manter uuid existente */ } else { delete (clean as any).id; }
+            const clean: any = { 
+                resource_type: String(type).trim(), 
+                resource_id: id,
+                title: c.title || null,
+                name: c.name || 'Sem Nome',
+                role: c.role || 'Técnico',
+                email: c.email || null,
+                phone: c.phone || null,
+                is_active: c.is_active !== false
+            };
+            
+            // Gerar novo UUID se o ID original for temporário (curto)
+            if (c.id && String(c.id).length > 30) {
+                clean.id = c.id;
+            }
             return clean;
         }); 
 
+        console.log(`[syncResourceContacts] A inserir payloads:`, items);
         const { error: insertError } = await sb().from('resource_contacts').insert(items); 
+        
         if (insertError) {
-            console.error(`[syncResourceContacts] Erro ao inserir novos contactos:`, insertError);
+            console.error(`[syncResourceContacts] Erro no INSERT:`, insertError);
             throw new Error(`Falha ao gravar novos contactos: ${insertError.message}`);
         }
+        console.log(`[syncResourceContacts] Gravação concluída com sucesso.`);
     } 
 };
 

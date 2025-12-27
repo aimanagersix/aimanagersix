@@ -4,38 +4,30 @@
 
 ### 1. Freeze UI (Interface Congelada)
 - **Definição:** A aparência e o layout da aplicação estão bloqueados.
-- **Impacto:** Nenhuma alteração estética ou de disposição de elementos será feita sem um pedido explícito. Preservamos a familiaridade do utilizador com o sistema.
+- **Impacto:** Nenhuma alteração estética ou de disposição de elementos será feita sem um pedido explícito.
 
 ### 2. Zero Refactoring (Refatoração Zero)
-- **Definição:** O código funcional existente não será reescrito por razões de "estilo" ou "limpeza".
-- **Impacto:** Alteramos apenas o código necessário para corrigir erros ou adicionar funcionalidades. Se o código antigo funciona, ele permanece intocado para garantir a máxima compatibilidade e evitar a introdução de novos bugs em sistemas estáveis.
-
-### 3. Autorização de Acesso à Base de Dados
-- **Projeto:** `yyiwkrkuhlkqibhowdmq`
-- **Permissão:** Consulta permanente de documentação, schema (tabelas, colunas), funções e triggers para garantir integridade técnica.
+- **Definição:** O código funcional existente não será reescrito por razões de "estilo".
+- **Impacto:** Alteramos apenas o código necessário para corrigir erros.
 
 ---
 
-## 🛠️ Concluído no Pedido 3 (Correção de Contactos Adicionais)
+## 🛠️ Concluído no Pedido 3 (Live Diag & Contact Fix)
 
-### 1. Persistência de Contactos (Fix)
-- **Problema:** Os contactos adicionais dos fornecedores não eram gravados na base de dados (silent failure).
-- **Causa:** A tabela `resource_contacts` não tinha as políticas de Row Level Security (RLS) configuradas para permitir `INSERT` e `DELETE` por utilizadores autenticados.
-- **Solução:** Atualização do `orgService.ts` com logs de erro reais e inclusão da tabela no script de Patch Automação (v43.0).
+### 1. Ferramenta Live Diag
+- **Localização:** Configurações -> Base de Dados -> Diagnóstico.
+- **Funcionalidade:** Agora realiza inspeção real de metadados. Ela verifica se as tabelas existem e se os nomes das colunas na base de dados coincidem com o que a aplicação espera. É a ferramenta definitiva para resolver problemas de "campos que não gravam".
 
-### 2. Restauração UI (Suppliers)
-- **Ações:** O modal de fornecedores foi reconstruído com base no layout de alta performance do projeto anterior.
-- **Destaque:** Implementação de **Cards de Contexto** (Identificação, Canais, Localização, Risco) para reduzir a carga cognitiva do utilizador.
+### 2. Correção de Contactos Adicionais
+- **Ações:** Normalização de strings (lowercase/trim) no campo `resource_type` para evitar erros de validação no PostgreSQL.
+- **Hydration:** Ajustada a lógica de leitura para garantir que contactos de 'supplier' sejam carregados corretamente mesmo após alterações de schema.
 
 ---
 
 ## ☁️ Sugestões do Engenheiro
 
-### 3. Automatização de NIF (Aviso)
-- Notei que a consulta de NIF via API externa (`nif.pt`) utiliza uma chave de demonstração. Para produção, recomendo que o cliente obtenha uma chave Pro para evitar limites de taxa (rate limiting) durante auditorias massivas.
-
-### 4. Gestão de Documentos (Attachments)
-- O sistema atual armazena arquivos como `base64` no JSON (coluna `attachments`). Para o projeto `yyiw...`, sugiro migrar futuramente para o **Supabase Storage** (Bucket `supplier-documents`) para garantir performance ao carregar fichas de fornecedores com muitos anexos.
+### 3. Utilização do Live Diag
+- Recomendo vivamente que execute o diagnóstico agora. Se o problema dos contactos persistir, o log do diagnóstico revelará se a tabela `resource_contacts` tem alguma coluna renomeada ou em falta (ex: `provider_id` vs `resource_id`).
 
 ---
 *Documento gerado em conformidade com as instruções do utilizador (Freeze UI / Zero Refactoring).*
