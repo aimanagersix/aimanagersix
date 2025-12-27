@@ -4,11 +4,11 @@ import { FaDatabase, FaCheck, FaCopy, FaExclamationTriangle, FaCode, FaBolt, FaS
 import * as dataService from '../services/dataService';
 
 /**
- * DB Manager UI - v47.0 (Supplier Lifecycle & Active Status)
+ * DB Manager UI - v48.0 (Full Audit Automation)
  * -----------------------------------------------------------------------------
- * - FIX: Adição da coluna 'is_active' na tabela 'suppliers'.
- * - FIX: Adição da coluna 'title' em resource_contacts.
- * - AUDITORIA: Garantia de sincronia entre código e base de dados real.
+ * - FIX: Implementação de Triggers de Auditoria em TODAS as tabelas core.
+ * - FIX: Coluna is_active para fornecedores e title para contactos.
+ * - AUDITORIA: Garantia de NIS2 Logging automático no audit_log.
  * -----------------------------------------------------------------------------
  */
 
@@ -63,19 +63,18 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
                     }
                 } catch (e: any) {
                     report += `  ❌ ERRO: ${e.message || 'RPC inspect_table_columns não encontrada.'}\n`;
-                    report += `  DICA: Execute o Patch v47.0 para criar esta função e colunas.\n`;
+                    report += `  DICA: Execute o Patch v48.0 para criar esta função e colunas.\n`;
                 }
                 report += `\n`;
             }
 
-            report += `[3/3] ANÁLISE DE ESTADOS ADICIONAIS:\n`;
+            report += `[3/3] ANÁLISE DE AUDITORIA NIS2:\n`;
             try {
-                const cols = await dataService.fetchTableSchema('suppliers');
-                const hasActive = cols.some(c => c.column_name === 'is_active');
-                if (hasActive) {
-                    report += ` ✅ Coluna 'is_active' presente em Suppliers.\n`;
+                const logs = await dataService.fetchAuditLogs();
+                if (logs.length > 0) {
+                    report += ` ✅ Auditoria Ativa: ${logs.length} registos encontrados.\n`;
                 } else {
-                    report += ` ❌ Campo de estado em falta em Fornecedores. Execute o Patch v47.0.\n`;
+                    report += ` ⚠️ Auditoria Vazia: Verifique se os Triggers do Patch v48.0 foram aplicados.\n`;
                 }
             } catch (e) {}
 
@@ -88,8 +87,8 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
         }
     };
 
-    const automationPatch = `-- 🤖 AIMANAGER - AUTOMATION & FIX PATCH (v47.0)
--- Este script instala a função de diagnóstico e corrige a tabela de fornecedores e contactos.
+    const automationPatch = `-- 🤖 AIMANAGER - AUTOMATION & FULL AUDIT PATCH (v48.0)
+-- Este script ativa a auditoria automática NIS2 em todas as tabelas core.
 
 -- 1. FUNÇÃO DE INSPEÇÃO DE SCHEMA
 CREATE OR REPLACE FUNCTION public.inspect_table_columns(t_name text)
@@ -108,42 +107,11 @@ BEGIN
 END;
 $$;
 
--- 2. CORREÇÃO DE SCHEMA (suppliers & resource_contacts)
--- Adiciona coluna 'is_active' para fornecedores e 'title' para contactos
+-- 2. CORREÇÃO DE SCHEMA (Colunas em falta)
 ALTER TABLE IF EXISTS public.suppliers ADD COLUMN IF NOT EXISTS is_active boolean DEFAULT true;
 ALTER TABLE IF EXISTS public.resource_contacts ADD COLUMN IF NOT EXISTS title text;
 
-DO $$ 
-BEGIN
-    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'resource_contacts' AND column_name = 'resource_id') THEN
-        ALTER TABLE public.resource_contacts ALTER COLUMN resource_id TYPE uuid USING resource_id::uuid;
-    END IF;
-EXCEPTION WHEN OTHERS THEN
-    RAISE NOTICE 'Conversão de UUID requer limpeza manual de dados inválidos.';
-END $$;
-
--- 3. REFORÇO DE POLÍTICAS RLS
-DO $$ 
-DECLARE 
-    t text;
-    tables_to_policy text[] := ARRAY[
-        'resource_contacts', 'suppliers', 'institutions', 'entities', 'collaborators', 'equipment', 'tickets'
-    ];
-BEGIN
-    FOREACH t IN ARRAY tables_to_policy LOOP
-        EXECUTE format('ALTER TABLE IF EXISTS public.%I ENABLE ROW LEVEL SECURITY', t);
-        
-        -- Permitir Leitura
-        EXECUTE format('DROP POLICY IF EXISTS "Allow read for authenticated users" ON public.%I', t);
-        EXECUTE format('CREATE POLICY "Allow read for authenticated users" ON public.%I FOR SELECT TO authenticated USING (true)', t);
-        
-        -- Permitir Escrita Total (Técnicos e Admins)
-        EXECUTE format('DROP POLICY IF EXISTS "Allow full access for authenticated users" ON public.%I', t);
-        EXECUTE format('CREATE POLICY "Allow full access for authenticated users" ON public.%I FOR ALL TO authenticated USING (true) WITH CHECK (true)', t);
-    END LOOP;
-END $$;
-
--- 4. FUNÇÃO DE AUDITORIA NIS2
+-- 3. MOTOR DE AUDITORIA AUTOMÁTICA (NIS2 / DORA)
 CREATE OR REPLACE FUNCTION public.log_audit_event()
 RETURNS trigger AS $$
 BEGIN
@@ -159,6 +127,41 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+-- 4. APLICAÇÃO DE TRIGGERS EM TODAS AS TABELAS CORE
+DO $$ 
+DECLARE 
+    t text;
+    tables_to_audit text[] := ARRAY[
+        'equipment', 'collaborators', 'suppliers', 'tickets', 
+        'institutions', 'entities', 'software_licenses', 'resource_contacts'
+    ];
+BEGIN
+    FOREACH t IN ARRAY tables_to_audit LOOP
+        EXECUTE format('DROP TRIGGER IF EXISTS trigger_audit_%I ON public.%I', t, t);
+        EXECUTE format('CREATE TRIGGER trigger_audit_%I AFTER INSERT OR UPDATE OR DELETE ON public.%I FOR EACH ROW EXECUTE FUNCTION log_audit_event()', t, t);
+    END LOOP;
+END $$;
+
+-- 5. REFORÇO DE POLÍTICAS RLS
+DO $$ 
+DECLARE 
+    t text;
+    tables_to_policy text[] := ARRAY[
+        'resource_contacts', 'suppliers', 'institutions', 'entities', 'collaborators', 'equipment', 'tickets', 'audit_log'
+    ];
+BEGIN
+    FOREACH t IN ARRAY tables_to_policy LOOP
+        EXECUTE format('ALTER TABLE IF EXISTS public.%I ENABLE ROW LEVEL SECURITY', t);
+        EXECUTE format('DROP POLICY IF EXISTS "Allow read for authenticated users" ON public.%I', t);
+        EXECUTE format('CREATE POLICY "Allow read for authenticated users" ON public.%I FOR SELECT TO authenticated USING (true)', t);
+        
+        IF t != 'audit_log' THEN
+            EXECUTE format('DROP POLICY IF EXISTS "Allow full access for authenticated users" ON public.%I', t);
+            EXECUTE format('CREATE POLICY "Allow full access for authenticated users" ON public.%I FOR ALL TO authenticated USING (true) WITH CHECK (true)', t);
+        END IF;
+    END LOOP;
+END $$;
+
 NOTIFY pgrst, 'reload schema';
 COMMIT;`;
 
@@ -168,7 +171,7 @@ COMMIT;`;
         <Modal title="Gestão de Infraestrutura (Enterprise)" onClose={onClose} maxWidth="max-w-6xl">
             <div className="space-y-4 h-[85vh] flex flex-col">
                 <div className="flex-shrink-0 flex border-b border-gray-700 bg-gray-900/50 rounded-t-lg overflow-x-auto custom-scrollbar whitespace-nowrap">
-                    <button onClick={() => setActiveTab('automation_patch')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'automation_patch' ? 'border-brand-secondary text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaBolt /> Patch Automação (v47.0)</button>
+                    <button onClick={() => setActiveTab('automation_patch')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'automation_patch' ? 'border-brand-secondary text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaBolt /> Patch Automação (v48.0)</button>
                     <button onClick={() => setActiveTab('full')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'full' ? 'border-indigo-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaCode /> Inicialização</button>
                     <button onClick={() => setActiveTab('live_diag')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'live_diag' ? 'border-blue-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaStethoscope /> Diagnóstico</button>
                 </div>
@@ -176,8 +179,8 @@ COMMIT;`;
                 <div className="flex-grow overflow-hidden flex flex-col gap-4">
                     {activeTab === 'automation_patch' && (
                         <div className="bg-brand-primary/10 border border-brand-primary/30 p-4 rounded-lg mb-2">
-                            <h4 className="text-brand-secondary font-bold flex items-center gap-2 text-sm uppercase mb-1"><FaRobot /> PATCH v47.0: ESTADO DOS FORNECEDORES</h4>
-                            <p className="text-[11px] text-gray-300">Adiciona a coluna 'is_active' aos fornecedores para permitir a suspensão de parceiros conforme diretivas NIS2.</p>
+                            <h4 className="text-brand-secondary font-bold flex items-center gap-2 text-sm uppercase mb-1"><FaRobot /> PATCH v48.0: AUDITORIA NIS2 AUTOMÁTICA</h4>
+                            <p className="text-[11px] text-gray-300">Instala triggers de auditoria em todas as tabelas core. Qualquer alteração por qualquer utilizador será registada no menu Auditoria.</p>
                         </div>
                     )}
 

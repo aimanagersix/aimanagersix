@@ -79,7 +79,8 @@ const cleanPayload = (data: any) => {
         'installationLocation': 'installation_location',
         'installation_location': 'installation_location',
         'isActive': 'is_active',
-        'is_active': 'is_active'
+        'is_active': 'is_active',
+        'procurement_request_id': 'procurement_request_id'
     };
 
     const blackList = ['contacts', 'preferences', 'simulatedTicket', 'isSimulating', 'address']; 
@@ -234,7 +235,9 @@ export const syncLicenseAssignments = async (equipmentId: string, licenseIds: st
 };
 
 export const addMultipleEquipment = async (items: any[]) => { 
-    await sb().from('equipment').insert(items.map(cleanPayload)); 
+    if (!items || items.length === 0) return;
+    const { error } = await sb().from('equipment').insert(items.map(cleanPayload)); 
+    if (error) throw error;
 };
 
 export const deleteEquipment = async (id: string, reason: string = 'Abate Administrativo') => { 
@@ -287,7 +290,9 @@ export const addLicense = async (lic: any) => {
     return data; 
 };
 export const addMultipleLicenses = async (items: any[]) => { 
-    await sb().from('software_licenses').insert(items.map(cleanPayload)); 
+    if (!items || items.length === 0) return;
+    const { error } = await sb().from('software_licenses').insert(items.map(cleanPayload)); 
+    if (error) throw error;
 };
 export const updateLicense = async (id: string, updates: any) => { 
     const { error } = await sb().from('software_licenses').update(cleanPayload(updates)).eq('id', id); 
