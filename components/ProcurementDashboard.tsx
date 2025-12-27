@@ -1,7 +1,6 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { ProcurementRequest, Collaborator, Supplier, ProcurementStatus, UserRole } from '../types';
-import { FaShoppingCart, FaPlus, FaSearch, FaFilter, FaCheckCircle, FaTimesCircle, FaBoxOpen, FaEdit, FaTrash, FaMicrochip, FaKey, FaSort, FaSortUp, FaSortDown, FaSync } from 'react-icons/fa';
+import { FaShoppingCart, FaPlus, FaSearch, FaFilter, FaCheckCircle, FaTimesCircle, FaBoxOpen, FaEdit, FaTrash, FaMicrochip, FaKey, FaSort, FaSortUp, FaSortDown, FaSync, FaEye } from 'react-icons/fa';
 import Pagination from './common/Pagination';
 import * as dataService from '../services/dataService'; // For brand fetching if not passed via props, but assume props passed usually
 
@@ -162,7 +161,7 @@ const ProcurementDashboard: React.FC<ProcurementDashboardProps> = ({ requests = 
     }, [filteredRequests, currentPage, itemsPerPage]);
 
     return (
-        <div className="bg-surface-dark p-6 rounded-lg shadow-xl">
+        <div className="bg-surface-dark p-6 rounded-lg shadow-xl animate-fade-in">
             <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
                 <div>
                     <h2 className="text-xl font-semibold text-white flex items-center gap-2">
@@ -173,7 +172,7 @@ const ProcurementDashboard: React.FC<ProcurementDashboardProps> = ({ requests = 
                     </p>
                 </div>
                 {onCreate && (
-                    <button onClick={onCreate} className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary transition-colors shadow-lg">
+                    <button onClick={onCreate} className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-md font-bold uppercase text-xs tracking-widest hover:bg-brand-secondary transition-all shadow-lg active:scale-95">
                         <FaPlus /> Novo Pedido
                     </button>
                 )}
@@ -189,41 +188,41 @@ const ProcurementDashboard: React.FC<ProcurementDashboardProps> = ({ requests = 
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         placeholder="Procurar pedido, requerente, fornecedor, marca..."
-                        className="w-full bg-gray-800 border border-gray-600 text-white rounded-md pl-9 p-2 text-sm"
+                        className="w-full bg-gray-800 border border-gray-700 text-white rounded-md pl-9 p-2 text-sm focus:border-brand-secondary outline-none"
                     />
                 </div>
                 <select
                     value={filterStatus}
                     onChange={(e) => setFilterStatus(e.target.value)}
-                    className="bg-gray-800 border border-gray-600 text-white rounded-md p-2 text-sm sm:w-48"
+                    className="bg-gray-800 border border-gray-700 text-white rounded-md p-2 text-sm sm:w-48 font-bold"
                 >
                     <option value="">Todos os Estados</option>
                     {Object.values(ProcurementStatus).map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
                 <button 
                     onClick={handleClearFilters}
-                    className="px-4 py-2 text-sm bg-gray-700 text-white rounded-md hover:bg-gray-600 transition-colors flex items-center gap-2 border border-gray-600 whitespace-nowrap"
+                    className="px-4 py-2 text-xs uppercase tracking-widest font-black bg-gray-700 text-white rounded-md hover:bg-gray-600 transition-colors flex items-center gap-2 border border-gray-600 whitespace-nowrap"
                 >
                     <FaSync className={searchQuery || filterStatus ? "text-brand-secondary" : ""} /> Limpar
                 </button>
             </div>
 
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto rounded-lg border border-gray-700">
                 <table className="w-full text-sm text-left text-on-surface-dark-secondary">
-                    <thead className="text-xs text-on-surface-dark-secondary uppercase bg-gray-700/50">
+                    <thead className="text-[10px] text-gray-500 uppercase font-black tracking-widest bg-gray-800">
                         <tr>
+                            <th scope="col" className="px-4 py-3 w-10"></th>
                             <SortableHeader label="Data" sortKey="request_date" currentSort={sortConfig} onSort={handleSort} />
                             <SortableHeader label="Tipo" sortKey="resource_type" currentSort={sortConfig} onSort={handleSort} className="text-center" />
                             <SortableHeader label="Pedido" sortKey="title" currentSort={sortConfig} onSort={handleSort} />
                             <SortableHeader label="Marca/Fornecedor" sortKey="brand_supplier" currentSort={sortConfig} onSort={handleSort} />
-                            <SortableHeader label="Requerente" sortKey="requester_id" currentSort={sortConfig} onSort={handleSort} />
                             <SortableHeader label="Qtd" sortKey="quantity" currentSort={sortConfig} onSort={handleSort} className="text-center" />
                             <SortableHeader label="Valor Est." sortKey="estimated_cost" currentSort={sortConfig} onSort={handleSort} className="text-right" />
                             <SortableHeader label="Estado" sortKey="status" currentSort={sortConfig} onSort={handleSort} className="text-center" />
-                            <th className="px-6 py-3 text-center">Ações</th>
+                            <th scope="col" className="px-6 py-3 text-center">Gestão</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody className="divide-y divide-gray-800">
                         {paginatedRequests.length > 0 ? paginatedRequests.map(req => {
                             const brandName = req.brand_id ? brandMap.get(req.brand_id) : null;
                             const supplierName = req.supplier_id ? supplierMap.get(req.supplier_id) : '-';
@@ -234,46 +233,42 @@ const ProcurementDashboard: React.FC<ProcurementDashboardProps> = ({ requests = 
                                 className="bg-surface-dark border-b border-gray-700 hover:bg-gray-800/50 cursor-pointer transition-colors"
                                 onClick={() => onEdit && onEdit(req)}
                             >
-                                <td className="px-6 py-4 text-white whitespace-nowrap">{new Date(req.request_date).toLocaleDateString()}</td>
-                                <td className="px-6 py-4 text-center">
-                                    {req.resource_type === 'Hardware' ? <FaMicrochip title="Hardware" className="text-blue-400 mx-auto"/> : <FaKey title="Software" className="text-yellow-400 mx-auto"/>}
+                                <td className="px-4 py-4 text-center">
+                                    <FaEye className="text-gray-600 hover:text-brand-secondary transition-colors" size={14} />
                                 </td>
-                                <td className="px-6 py-4 font-medium text-on-surface-dark">
+                                <td className="px-6 py-4 text-white whitespace-nowrap text-xs font-bold">{new Date(req.request_date).toLocaleDateString()}</td>
+                                <td className="px-6 py-4 text-center">
+                                    {req.resource_type === 'Hardware' ? <FaMicrochip title="Hardware" className="text-blue-400 mx-auto" size={14}/> : <FaKey title="Software" className="text-yellow-400 mx-auto" size={14}/>}
+                                </td>
+                                <td className="px-6 py-4 font-bold text-on-surface-dark text-sm">
                                     {req.title}
-                                    {req.priority === 'Urgente' && <span className="ml-2 text-xs bg-red-900 text-red-200 px-1 rounded font-bold">!</span>}
+                                    {req.priority === 'Urgente' && <span className="ml-2 text-[9px] bg-red-900 text-red-200 px-1 rounded font-black uppercase tracking-tighter shadow-lg">Urgente</span>}
                                 </td>
                                 <td className="px-6 py-4 text-xs">
                                     {brandName && <div className="text-white font-bold">{brandName}</div>}
                                     <div className="text-gray-400">{supplierName}</div>
                                 </td>
-                                <td className="px-6 py-4">{collaboratorMap.get(req.requester_id)}</td>
-                                <td className="px-6 py-4 text-center">{req.quantity}</td>
-                                <td className="px-6 py-4 text-right font-mono">{req.estimated_cost ? `€ ${req.estimated_cost.toLocaleString()}` : '-'}</td>
+                                <td className="px-6 py-4 text-center font-mono font-bold text-white">{req.quantity}</td>
+                                <td className="px-6 py-4 text-right font-mono font-bold text-brand-secondary">€ {req.estimated_cost ? req.estimated_cost.toLocaleString() : '0'}</td>
                                 <td className="px-6 py-4 text-center">
-                                    <span className={`px-2 py-1 text-xs rounded border ${getStatusClass(req.status)}`}>
+                                    <span className={`px-2 py-1 text-[9px] font-black uppercase rounded border ${getStatusClass(req.status)}`}>
                                         {req.status}
                                     </span>
                                 </td>
                                 <td className="px-6 py-4 text-center" onClick={(e) => e.stopPropagation()}>
                                     <div className="flex justify-center gap-3">
-                                        {/* Receive Button - Only if Received and NOT Completed */}
                                         {onReceive && req.status === ProcurementStatus.Received && (
                                             <button 
                                                 onClick={() => onReceive(req)}
-                                                className="text-green-400 hover:text-green-300"
-                                                title="Gerar Ativos (Dar Entrada em Stock)"
+                                                className="text-green-400 hover:text-green-200 transition-colors"
+                                                title="Entrada em Stock"
                                             >
-                                                <FaBoxOpen />
-                                            </button>
-                                        )}
-                                        {onEdit && (canApprove || req.status === ProcurementStatus.Pending) && (
-                                            <button onClick={() => onEdit(req)} className="text-blue-400 hover:text-blue-300" title={canApprove ? "Gerir / Aprovar" : "Editar"}>
-                                                <FaEdit />
+                                                <FaBoxOpen size={16} />
                                             </button>
                                         )}
                                         {onDelete && (
-                                            <button onClick={() => onDelete(req.id)} className="text-red-400 hover:text-red-300" title="Excluir">
-                                                <FaTrash />
+                                            <button onClick={() => onDelete(req.id)} className="text-red-400 hover:text-red-300 transition-colors" title="Excluir">
+                                                <FaTrash size={14}/>
                                             </button>
                                         )}
                                     </div>
@@ -281,7 +276,7 @@ const ProcurementDashboard: React.FC<ProcurementDashboardProps> = ({ requests = 
                             </tr>
                         )}) : (
                             <tr>
-                                <td colSpan={9} className="text-center py-8 text-gray-500">Nenhum pedido de aquisição encontrado.</td>
+                                <td colSpan={9} className="text-center py-10 text-gray-500 italic">Nenhum pedido de aquisição encontrado.</td>
                             </tr>
                         )}
                     </tbody>

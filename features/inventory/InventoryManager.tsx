@@ -11,6 +11,7 @@ import AssignMultipleEquipmentModal from '../../components/AssignMultipleEquipme
 import EquipmentHistoryModal from '../../components/EquipmentHistoryModal';
 import AddLicenseModal from '../../components/AddLicenseModal';
 import AddProcurementModal from '../../components/AddProcurementModal';
+import ProcurementDetailModal from '../../components/ProcurementDetailModal';
 import ReceiveAssetsModal from '../../components/ReceiveAssetsModal';
 
 interface InventoryManagerProps {
@@ -42,8 +43,12 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({ activeTab, appData,
     const [detailEquipment, setDetailEquipment] = useState<Equipment | null>(null);
     const [showAddLicenseModal, setShowAddLicenseModal] = useState(false);
     const [licenseToEdit, setLicenseToEdit] = useState<SoftwareLicense | null>(null);
+    
     const [showAddProcurementModal, setShowAddProcurementModal] = useState(false);
+    const [showProcurementDetailModal, setShowProcurementDetailModal] = useState(false);
     const [procurementToEdit, setProcurementToEdit] = useState<ProcurementRequest | null>(null);
+    const [detailProcurement, setDetailProcurement] = useState<ProcurementRequest | null>(null);
+
     const [showReceiveAssetsModal, setShowReceiveAssetsModal] = useState(false);
     const [procurementToReceive, setProcurementToReceive] = useState<ProcurementRequest | null>(null);
 
@@ -132,7 +137,14 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({ activeTab, appData,
             )}
             
             {activeTab === 'equipment.procurement' && (
-                <ProcurementDashboard requests={appData.procurementRequests} collaborators={appData.collaborators} suppliers={appData.suppliers} currentUser={currentUser} onCreate={checkPermission('procurement', 'create') ? () => { setProcurementToEdit(null); setShowAddProcurementModal(true); } : undefined} onEdit={checkPermission('procurement', 'edit') ? (req: ProcurementRequest) => { setProcurementToEdit(req); setShowAddProcurementModal(true); } : undefined} onReceive={checkPermission('equipment', 'create') ? (req: ProcurementRequest) => { setProcurementToReceive(req); setShowReceiveAssetsModal(true); } : undefined} onDelete={checkPermission('procurement', 'delete') ? async (id: string) => { if (window.confirm("Apagar?")) { await dataService.deleteProcurement(id); refreshGlobalData(); } } : undefined} canApprove={checkPermission('procurement', 'delete')} />
+                <ProcurementDashboard 
+                    requests={appData.procurementRequests} collaborators={appData.collaborators} suppliers={appData.suppliers} currentUser={currentUser} 
+                    onCreate={checkPermission('procurement', 'create') ? () => { setProcurementToEdit(null); setShowAddProcurementModal(true); } : undefined} 
+                    onEdit={checkPermission('procurement', 'edit') ? (req: ProcurementRequest) => { setDetailProcurement(req); setShowProcurementDetailModal(true); } : undefined} 
+                    onReceive={checkPermission('equipment', 'create') ? (req: ProcurementRequest) => { setProcurementToReceive(req); setShowReceiveAssetsModal(true); } : undefined} 
+                    onDelete={checkPermission('procurement', 'delete') ? async (id: string) => { if (window.confirm("Apagar?")) { await dataService.deleteProcurement(id); refreshGlobalData(); } } : undefined} 
+                    canApprove={checkPermission('procurement', 'delete')} 
+                />
             )}
 
             {showAddEquipmentModal && (
@@ -167,6 +179,14 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({ activeTab, appData,
                     equipmentTypes={appData.equipmentTypes} 
                     softwareCategories={appData.softwareCategories} 
                     softwareProducts={appData.softwareProducts}
+                />
+            )}
+            {showProcurementDetailModal && detailProcurement && (
+                <ProcurementDetailModal 
+                    procurement={detailProcurement} collaborators={appData.collaborators} suppliers={appData.suppliers} 
+                    onClose={() => setShowProcurementDetailModal(false)} 
+                    onEdit={() => { setShowProcurementDetailModal(false); setProcurementToEdit(detailProcurement); setShowAddProcurementModal(true); }} 
+                    brandMap={new Map(appData.brands.map((b:Brand)=>[b.id,b.name]))} equipmentTypeMap={new Map(appData.equipmentTypes.map((t:EquipmentType)=>[t.id,t.name]))}
                 />
             )}
             {showReceiveAssetsModal && procurementToReceive && <ReceiveAssetsModal onClose={() => setShowReceiveAssetsModal(false)} request={procurementToReceive} brands={appData.brands} types={appData.equipmentTypes} onSave={async (assets: any[]) => { if (procurementToReceive.resource_type === 'Software') await dataService.addMultipleLicenses(assets); else await dataService.addMultipleEquipment(assets); await dataService.updateProcurement(procurementToReceive.id, { status: 'Concluído' }); fetchEquipment(); refreshGlobalData(); }} />}
