@@ -8,14 +8,17 @@
 - **Problema**: O `cleanPayload` estava a ser muito agressivo ou a falhar na normalização de nomes de campos em massa.
 - **Solução**: Centralizei a limpeza de dados dentro da função `addMultipleEquipment` no serviço. Agora, ao dar entrada de 10 portáteis de uma vez, cada um é validado individualmente antes do Insert.
 
-## 🛍️ Otimização de Compras (Pedido 3.7 - v4.0)
-- **Tabs (Abas)**: O formulário de aquisições foi dividido em contexts (Geral, Itens, Comercial, Governança). Isto reduz a carga cognitiva e permite um ecrã muito mais organizado em mobile.
-- **Auto-Sugestão**: Ao selecionar a Marca e o Tipo de Equipamento, o sistema preenche automaticamente o início da descrição. Isto acelera a entrada de dados em 40%.
-- **Anexos Técnicos**: Restaurada a capacidade de anexar orçamentos e faturas ao pedido, centralizando as evidências NIS2.
+## 🛍️ Otimização de Compras (Pedido 3.7 - v5.0)
+- **Layout Eficiente**: Restaurada a UI baseada em linhas para a composição do pedido. Isto permite uma visão em grelha muito mais próxima de um ERP profissional, facilitando a gestão de 10-20 itens por compra.
+- **Normalização de Labels**: As colunas de seleção agora adaptam-se ao contexto:
+    - **Categoria**: Reflete o Tipo (HW) ou Categoria (SW).
+    - **Tipo/Marca**: Reflete a Marca (HW) ou Produto Standard (SW).
+- **Catálogo de Software**: A coluna "Tipo/Marca" para itens de software agora consome o catálogo padrão, garantindo que as aquisições usem nomes normalizados para facilitar o inventário futuro.
 
 ## ⚖️ Governança de Aquisições & DORA (Pedido 3.3 & 3.6)
 - **Equipa de Aprovação**: Implementada a lógica onde uma equipa específica detém o poder de aprovação.
 - **Workflow de Estados**: Adicionados botões de transição direta (Aprovar, Rejeitar, Receber) na nova aba de Governança, vinculando o ID do aprovador e a data automaticamente.
+- **Preparação para Notificações**: A estrutura por equipa permite que, numa fase seguinte, possamos isolar os destinatários dos alertas apenas para os membros desse grupo DORA.
 
 ## 🤖 Contexto IA Profundo (MCP)
 - **Implementação**: Adicionada aba "Contexto IA (MCP)" nas Definições do Sistema.

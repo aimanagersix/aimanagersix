@@ -81,7 +81,6 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({ activeTab, appData,
         reader.onload = (event) => {
             try {
                 const json = JSON.parse(event.target?.result as string);
-                // Normalizar campos do Agente PowerShell para a estrutura do Modal
                 const normalized: Partial<Equipment> = {
                     serial_number: json.serialNumber || json.serial_number,
                     description: json.description,
@@ -154,7 +153,6 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({ activeTab, appData,
             {detailEquipment && <EquipmentHistoryModal equipment={detailEquipment} assignments={appData.assignments} collaborators={appData.collaborators} escolasDepartamentos={appData.entidades} tickets={appData.tickets} ticketActivities={appData.ticketActivities} onClose={() => setDetailEquipment(null)} onEdit={(eq) => { setDetailEquipment(null); setEquipmentToEdit(eq); setShowAddEquipmentModal(true); }} businessServices={appData.businessServices} serviceDependencies={appData.serviceDependencies} softwareLicenses={appData.softwareLicenses} licenseAssignments={appData.licenseAssignments} vulnerabilities={appData.vulnerabilities} suppliers={appData.suppliers} onViewItem={onViewItem} accountingCategories={appData.configAccountingCategories} conservationStates={appData.configConservationStates} />}
             {showAddLicenseModal && <AddLicenseModal onClose={() => setShowAddLicenseModal(false)} onSave={async (lic: any) => { if (licenseToEdit) await dataService.updateLicense(licenseToEdit.id, lic); else await dataService.addLicense(lic); refreshGlobalData(); }} licenseToEdit={licenseToEdit} suppliers={appData.suppliers} categories={appData.softwareCategories} />}
             {showAddProcurementModal && (
-                /* Fix: Removed unused cpuOptions, ramOptions, and storageOptions props from AddProcurementModal to resolve TypeScript error on line 157 */
                 <AddProcurementModal 
                     onClose={() => setShowAddProcurementModal(false)} 
                     onSave={async (req: any) => { 
@@ -168,6 +166,7 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({ activeTab, appData,
                     suppliers={appData.suppliers} 
                     equipmentTypes={appData.equipmentTypes} 
                     softwareCategories={appData.softwareCategories} 
+                    softwareProducts={appData.softwareProducts}
                 />
             )}
             {showReceiveAssetsModal && procurementToReceive && <ReceiveAssetsModal onClose={() => setShowReceiveAssetsModal(false)} request={procurementToReceive} brands={appData.brands} types={appData.equipmentTypes} onSave={async (assets: any[]) => { if (procurementToReceive.resource_type === 'Software') await dataService.addMultipleLicenses(assets); else await dataService.addMultipleEquipment(assets); await dataService.updateProcurement(procurementToReceive.id, { status: 'Concluído' }); fetchEquipment(); refreshGlobalData(); }} />}

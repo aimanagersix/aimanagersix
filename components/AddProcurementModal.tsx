@@ -1,17 +1,17 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import Modal from './common/Modal';
-import { ProcurementRequest, ProcurementItem, Collaborator, Supplier, ProcurementStatus, UserRole, EquipmentType, ConfigItem, Brand } from '../types';
-import { FaSave, FaCheck, FaTimes, FaTruck, FaBoxOpen, FaShoppingCart, FaMicrochip, FaKey, FaPaperclip, FaTags, FaPlus, FaTrash, FaListUl, FaInfoCircle, FaCalendarAlt, FaFileContract, FaShieldAlt } from 'react-icons/fa';
+import { ProcurementRequest, ProcurementItem, Collaborator, Supplier, ProcurementStatus, UserRole, EquipmentType, ConfigItem, Brand, SoftwareProduct } from '../types';
+import { FaSave, FaCheck, FaTimes, FaPlus, FaTrash, FaListUl, FaPaperclip, FaFileContract, FaShieldAlt, FaMicrochip, FaKey, FaShoppingCart, FaTags, FaInfoCircle, FaBoxOpen } from 'react-icons/fa';
 import { SpinnerIcon } from './common/Icons';
 import * as dataService from '../services/dataService';
 
 /**
- * ADD PROCUREMENT MODAL - V4.0 (Enterprise Workflow)
+ * ADD PROCUREMENT MODAL - V5.0 (Row-based efficient UI)
  * -----------------------------------------------------------------------------
  * STATUS DE BLOQUEIO RIGOROSO (Freeze UI):
- * - PEDIDO 2: SUPORTE A TABS (GERAL, ITENS, FINANCEIRO, GOVERNANÇA).
- * - PEDIDO 2: REORDENAÇÃO DE CAMPOS (MARCA/CATEGORIA PRIMEIRO).
- * - PEDIDO 2: SISTEMA DE APROVAÇÃO INTEGRADO.
+ * - PEDIDO 2: RESTAURAÇÃO DO LAYOUT EM LINHAS (ROW-BASED).
+ * - PEDIDO 2: LABELS NORMALIZADAS (CATEGORIA / TIPO/MARCA).
+ * - PEDIDO 2: GOVERNANÇA MANTIDA POR EQUIPA.
  * -----------------------------------------------------------------------------
  */
 
@@ -24,13 +24,12 @@ interface AddProcurementModalProps {
     suppliers: Supplier[];
     equipmentTypes?: EquipmentType[];
     softwareCategories?: ConfigItem[];
+    softwareProducts?: SoftwareProduct[];
 }
-
-const MAX_FILES = 5;
 
 const AddProcurementModal: React.FC<AddProcurementModalProps> = ({ 
     onClose, onSave, procurementToEdit, currentUser, collaborators, suppliers, 
-    equipmentTypes = [], softwareCategories = []
+    equipmentTypes = [], softwareCategories = [], softwareProducts = []
 }) => {
     
     const [activeTab, setActiveTab] = useState<'general' | 'items' | 'processing' | 'gov'>('general');
@@ -101,19 +100,22 @@ const AddProcurementModal: React.FC<AddProcurementModalProps> = ({
         const newItems = [...items];
         newItems[idx] = { ...newItems[idx], [field]: value };
         
-        // Auto-sugestão de descrição baseada em Marca/Tipo
-        if (field === 'brand_id' || field === 'equipment_type_id' || field === 'software_category_id') {
-            const brandName = brands.find(b => b.id === newItems[idx].brand_id)?.name || '';
-            let typeName = '';
+        // Auto-sugestão de descrição baseada em Categoria e Marca/Produto
+        if (field === 'brand_id' || field === 'equipment_type_id' || field === 'software_category_id' || field === 'software_product_id') {
+            let catName = '';
+            let typeBrandName = '';
+            
             if (newItems[idx].resource_type === 'Hardware') {
-                typeName = equipmentTypes.find(t => t.id === newItems[idx].equipment_type_id)?.name || '';
+                catName = equipmentTypes.find(t => t.id === newItems[idx].equipment_type_id)?.name || '';
+                typeBrandName = brands.find(b => b.id === newItems[idx].brand_id)?.name || '';
             } else {
-                typeName = softwareCategories.find(c => c.id === newItems[idx].software_category_id)?.name || '';
+                catName = softwareCategories.find(c => c.id === newItems[idx].software_category_id)?.name || '';
+                typeBrandName = softwareProducts.find(p => p.id === newItems[idx].software_product_id)?.name || '';
             }
             
             const currentTitle = newItems[idx].title || '';
-            if (!currentTitle || currentTitle.trim() === '') {
-                newItems[idx].title = `${brandName} ${typeName}`.trim() + " ";
+            if (!currentTitle || currentTitle.trim() === '' || currentTitle.includes('Selecione')) {
+                newItems[idx].title = `${typeBrandName} ${catName}`.trim() + " ";
             }
         }
         
@@ -163,7 +165,6 @@ const AddProcurementModal: React.FC<AddProcurementModalProps> = ({
         }
     };
 
-    // Botões de transição de estado (Governança)
     const handleSetStatus = (newStatus: ProcurementStatus) => {
         setFormData(prev => ({ 
             ...prev, 
@@ -176,19 +177,18 @@ const AddProcurementModal: React.FC<AddProcurementModalProps> = ({
     const getTabClass = (id: string) => `px-6 py-3 text-xs font-black uppercase tracking-widest border-b-2 transition-all ${activeTab === id ? 'border-brand-secondary text-white bg-gray-800' : 'border-transparent text-gray-500 hover:text-gray-300'}`;
 
     return (
-        <Modal title={procurementToEdit ? "Gestão Estratégica de Aquisição" : "Nova Requisição de Compra"} onClose={onClose} maxWidth="max-w-6xl">
+        <Modal title={procurementToEdit ? "Gestão Estratégica de Aquisição" : "Nova Requisição de Compra"} onClose={onClose} maxWidth="max-w-7xl">
             <div className="flex flex-col h-[85vh]">
                 
-                {/* Fixed Tabs Navigation */}
                 <div className="flex-shrink-0 flex border-b border-gray-700 bg-gray-900/50 rounded-t-xl overflow-x-auto whitespace-nowrap custom-scrollbar">
                     <button onClick={() => setActiveTab('general')} className={getTabClass('general')}>1. Dados Gerais</button>
-                    <button onClick={() => setActiveTab('items')} className={getTabClass('items')}>2. Itens da Compra ({items.length})</button>
+                    <button onClick={() => setActiveTab('items')} className={getTabClass('items')}>2. Composição do Pedido ({items.length})</button>
                     <button onClick={() => setActiveTab('processing')} className={getTabClass('processing')}>3. Fornecedor & Fatura</button>
-                    <button onClick={() => setActiveTab('gov')} className={getTabClass('gov')}>4. Governança & Anexos</button>
+                    <button onClick={() => setActiveTab('gov')} className={getTabClass('gov')}>4. Governança & Aprovação</button>
                 </div>
 
                 <form onSubmit={handleSubmit} className="flex-grow flex flex-col min-h-0">
-                    <div className="flex-grow overflow-y-auto custom-scrollbar p-6 space-y-8">
+                    <div className="flex-grow overflow-y-auto custom-scrollbar p-6">
                         
                         {/* TAB 1: GERAL */}
                         {activeTab === 'general' && (
@@ -196,193 +196,182 @@ const AddProcurementModal: React.FC<AddProcurementModalProps> = ({
                                 <div className="bg-gray-800/40 p-6 rounded-xl border border-gray-700 grid grid-cols-1 md:grid-cols-3 gap-6 shadow-lg">
                                     <div className="md:col-span-2">
                                         <label className="block text-[10px] font-black text-gray-500 uppercase mb-1 tracking-widest">Identificador / Título do Pedido</label>
-                                        <input type="text" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} className="w-full bg-gray-900 border border-gray-700 text-white rounded p-3 text-sm focus:border-brand-primary outline-none shadow-inner" placeholder="Ex: Upgrade Servidores Q4 ou Kit Onboarding" required />
+                                        <input type="text" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} className="w-full bg-gray-900 border border-gray-700 text-white rounded p-3 text-sm focus:border-brand-primary outline-none shadow-inner" placeholder="Ex: Renovação de Parque Portáteis 2024" required />
                                     </div>
                                     <div>
-                                        <label className="block text-[10px] font-black text-gray-500 uppercase mb-1">Prioridade</label>
-                                        <select value={formData.priority} onChange={e => setFormData({...formData, priority: e.target.value as any})} className="w-full bg-gray-900 border border-gray-700 text-white rounded p-3 text-sm">
-                                            <option value="Normal">Normal</option>
-                                            <option value="Urgente">Urgente (!)</option>
-                                        </select>
+                                        <label className="block text-[10px] font-black text-gray-500 uppercase mb-1 tracking-widest">Data Limite Desejada</label>
+                                        <input type="date" value={formData.request_date} onChange={e => setFormData({...formData, request_date: e.target.value})} className="w-full bg-gray-900 border border-gray-700 text-white rounded p-3 text-sm" />
                                     </div>
                                     <div className="md:col-span-3">
-                                        <label className="block text-[10px] font-black text-gray-500 uppercase mb-1">Justificação e Notas</label>
-                                        <textarea value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} rows={4} className="w-full bg-gray-900 border border-gray-700 text-white rounded p-3 text-sm custom-scrollbar" placeholder="Descreva o motivo desta aquisição para o conselho administrativo..." />
+                                        <label className="block text-[10px] font-black text-gray-500 uppercase mb-1 tracking-widest">Justificação do Pedido</label>
+                                        <textarea value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} rows={4} className="w-full bg-gray-900 border border-gray-700 text-white rounded p-3 text-sm" placeholder="Descreva o impacto e a necessidade desta aquisição..." />
                                     </div>
                                 </div>
                             </div>
                         )}
 
-                        {/* TAB 2: ITENS (AQUI A ORDEM MUDOU - MARCA/TIPO PRIMEIRO) */}
+                        {/* TAB 2: ITENS (TABULAR / ROWS) */}
                         {activeTab === 'items' && (
                             <div className="space-y-4 animate-fade-in">
-                                <div className="flex justify-between items-center mb-2">
+                                <div className="flex justify-between items-center bg-gray-900/50 p-3 rounded-t-lg border-x border-t border-gray-700">
                                     <h3 className="text-white font-black text-xs uppercase tracking-widest flex items-center gap-2">
-                                        <FaListUl className="text-brand-secondary"/> Composição do Pedido
+                                        <FaListUl className="text-brand-secondary"/> Itens da Requisição
                                     </h3>
-                                    <button type="button" onClick={handleAddItem} className="bg-brand-primary hover:bg-brand-secondary text-white px-4 py-2 rounded text-xs font-black uppercase flex items-center gap-2 shadow-lg transition-all">
-                                        <FaPlus /> Adicionar Item
+                                    <button type="button" onClick={handleAddItem} className="bg-brand-primary hover:bg-brand-secondary text-white px-4 py-1.5 rounded text-xs font-black uppercase flex items-center gap-2 transition-all">
+                                        <FaPlus /> Novo Item
                                     </button>
                                 </div>
 
-                                <div className="space-y-4">
-                                    {items.map((item, idx) => (
-                                        <div key={idx} className="bg-gray-800/30 p-5 rounded-xl border border-gray-700 flex flex-col gap-6 animate-fade-in relative group shadow-md hover:border-gray-600 transition-all">
-                                            <button type="button" onClick={() => handleRemoveItem(idx)} className="absolute -right-2 -top-2 bg-red-600 text-white p-2 rounded-full shadow-xl opacity-0 group-hover:opacity-100 transition-opacity z-10"><FaTrash size={12}/></button>
-                                            
-                                            {/* PEDIDO 2: Categoria/Marca primeiro */}
-                                            <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
-                                                <div className="md:col-span-2">
-                                                    <label className="block text-[9px] font-black text-gray-500 uppercase mb-1">Tipo Recurso</label>
-                                                    <select value={item.resource_type} onChange={e => handleItemChange(idx, 'resource_type', e.target.value)} className="w-full bg-gray-900 border border-gray-700 text-white rounded p-2 text-xs font-bold uppercase">
-                                                        <option value="Hardware">Hardware</option>
-                                                        <option value="Software">Software</option>
-                                                    </select>
-                                                </div>
-
-                                                <div className="md:col-span-3">
-                                                    <label className="block text-[9px] font-black text-gray-500 uppercase mb-1">Marca / Fabricante</label>
-                                                    <select value={item.brand_id || ''} onChange={e => handleItemChange(idx, 'brand_id', e.target.value)} className="w-full bg-gray-900 border border-gray-700 text-white rounded p-2 text-xs">
-                                                        <option value="">-- Selecione --</option>
-                                                        {brands.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-                                                    </select>
-                                                </div>
-
-                                                <div className="md:col-span-3">
-                                                    <label className="block text-[9px] font-black text-gray-500 uppercase mb-1">
-                                                        {item.resource_type === 'Hardware' ? 'Tipo Ativo' : 'Categoria Software'}
-                                                    </label>
-                                                    {item.resource_type === 'Hardware' ? (
-                                                        <select value={item.equipment_type_id || ''} onChange={e => handleItemChange(idx, 'equipment_type_id', e.target.value)} className="w-full bg-gray-900 border border-gray-700 text-white rounded p-2 text-xs">
-                                                            <option value="">-- Selecione --</option>
-                                                            {equipmentTypes.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                                <div className="overflow-x-auto border border-gray-700 rounded-b-lg shadow-2xl">
+                                    <table className="w-full text-left border-collapse bg-gray-900/20">
+                                        <thead className="bg-gray-800 text-[10px] font-black text-gray-500 uppercase tracking-widest border-b border-gray-700">
+                                            <tr>
+                                                <th className="p-3 w-32">Recurso</th>
+                                                <th className="p-3 w-48">Categoria</th>
+                                                <th className="p-3 w-48">Tipo/Marca</th>
+                                                <th className="p-3 min-w-[200px]">Descrição</th>
+                                                <th className="p-3 w-20 text-center">Qtd</th>
+                                                <th className="p-3 w-32 text-right">Unitário</th>
+                                                <th className="p-3 w-32 text-right">Subtotal</th>
+                                                <th className="p-3 w-12"></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-800">
+                                            {items.map((item, idx) => (
+                                                <tr key={idx} className="hover:bg-gray-800/30 transition-colors group">
+                                                    <td className="p-2">
+                                                        <select value={item.resource_type} onChange={e => handleItemChange(idx, 'resource_type', e.target.value)} className="w-full bg-gray-800 border border-gray-700 text-white rounded p-1.5 text-xs font-bold uppercase">
+                                                            <option value="Hardware">Hardware</option>
+                                                            <option value="Software">Software</option>
                                                         </select>
-                                                    ) : (
-                                                        <select value={item.software_category_id || ''} onChange={e => handleItemChange(idx, 'software_category_id', e.target.value)} className="w-full bg-gray-900 border border-gray-700 text-white rounded p-2 text-xs">
-                                                            <option value="">-- Selecione --</option>
-                                                            {softwareCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                                                        </select>
-                                                    )}
-                                                </div>
-
-                                                <div className="md:col-span-4">
-                                                    <label className="block text-[9px] font-black text-gray-500 uppercase mb-1">Descrição do Produto (Sugestão IA)</label>
-                                                    <input type="text" value={item.title} onChange={e => handleItemChange(idx, 'title', e.target.value)} className="w-full bg-gray-900 border border-gray-700 text-white rounded p-2 text-xs font-bold" placeholder="Ex: Latitude 5420 i7 16GB..." />
-                                                </div>
-
-                                                <div className="md:col-span-2">
-                                                    <label className="block text-[9px] font-black text-gray-500 uppercase mb-1">Quantidade</label>
-                                                    <input type="number" value={item.quantity} onChange={e => handleItemChange(idx, 'quantity', parseInt(e.target.value))} className="w-full bg-gray-900 border border-gray-700 text-white rounded p-2 text-xs text-center font-mono" />
-                                                </div>
-                                                <div className="md:col-span-3">
-                                                    <label className="block text-[9px] font-black text-gray-500 uppercase mb-1">Preço Unitário Estimado (€)</label>
-                                                    <input type="number" value={item.unit_cost} onChange={e => handleItemChange(idx, 'unit_cost', parseFloat(e.target.value))} className="w-full bg-gray-900 border border-gray-700 text-white rounded p-2 text-xs text-right font-mono" placeholder="0.00" />
-                                                </div>
-                                                <div className="md:col-span-7 flex items-end justify-end pb-2">
-                                                    <p className="text-[10px] text-gray-500 uppercase font-black mr-4">Subtotal:</p>
-                                                    <p className="text-lg font-black text-brand-secondary font-mono">€ {((item.quantity || 0) * (item.unit_cost || 0)).toLocaleString()}</p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ))}
+                                                    </td>
+                                                    <td className="p-2">
+                                                        {item.resource_type === 'Hardware' ? (
+                                                            <select value={item.equipment_type_id || ''} onChange={e => handleItemChange(idx, 'equipment_type_id', e.target.value)} className="w-full bg-gray-800 border border-gray-700 text-white rounded p-1.5 text-xs">
+                                                                <option value="">-- Selecione --</option>
+                                                                {equipmentTypes.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                                                            </select>
+                                                        ) : (
+                                                            <select value={item.software_category_id || ''} onChange={e => handleItemChange(idx, 'software_category_id', e.target.value)} className="w-full bg-gray-800 border border-gray-700 text-white rounded p-1.5 text-xs">
+                                                                <option value="">-- Selecione --</option>
+                                                                {softwareCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                                            </select>
+                                                        )}
+                                                    </td>
+                                                    <td className="p-2">
+                                                        {item.resource_type === 'Hardware' ? (
+                                                            <select value={item.brand_id || ''} onChange={e => handleItemChange(idx, 'brand_id', e.target.value)} className="w-full bg-gray-800 border border-gray-700 text-white rounded p-1.5 text-xs">
+                                                                <option value="">-- Marca --</option>
+                                                                {brands.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                                                            </select>
+                                                        ) : (
+                                                            <select value={item.software_product_id || ''} onChange={e => handleItemChange(idx, 'software_product_id', e.target.value)} className="w-full bg-gray-800 border border-gray-700 text-white rounded p-1.5 text-xs">
+                                                                <option value="">-- Produto --</option>
+                                                                {softwareProducts.filter(p => !item.software_category_id || p.category_id === item.software_category_id).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                                                            </select>
+                                                        )}
+                                                    </td>
+                                                    <td className="p-2">
+                                                        <input type="text" value={item.title} onChange={e => handleItemChange(idx, 'title', e.target.value)} className="w-full bg-gray-800 border border-gray-700 text-white rounded p-1.5 text-xs font-bold" placeholder="Nome comercial..." />
+                                                    </td>
+                                                    <td className="p-2">
+                                                        <input type="number" value={item.quantity} onChange={e => handleItemChange(idx, 'quantity', parseInt(e.target.value))} className="w-full bg-gray-800 border border-gray-700 text-white rounded p-1.5 text-xs text-center font-mono" />
+                                                    </td>
+                                                    <td className="p-2">
+                                                        <input type="number" value={item.unit_cost} onChange={e => handleItemChange(idx, 'unit_cost', parseFloat(e.target.value))} className="w-full bg-gray-800 border border-gray-700 text-white rounded p-1.5 text-xs text-right font-mono" />
+                                                    </td>
+                                                    <td className="p-2 text-right font-mono text-xs text-brand-secondary font-bold">
+                                                        € {((item.quantity || 0) * (item.unit_cost || 0)).toLocaleString()}
+                                                    </td>
+                                                    <td className="p-2 text-center">
+                                                        <button type="button" onClick={() => handleRemoveItem(idx)} className="text-red-500 hover:text-red-300 transition-colors"><FaTrash size={12}/></button>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
                                 </div>
                             </div>
                         )}
 
-                        {/* TAB 3: PROCESSING (FORNECEDOR / FATURA) */}
+                        {/* TAB 3: PROCESSING */}
                         {activeTab === 'processing' && (
                             <div className="space-y-6 animate-fade-in">
                                 <div className="bg-gray-800/40 p-8 rounded-xl border border-gray-700 shadow-lg space-y-6">
-                                    <h4 className="text-[11px] font-black text-brand-secondary uppercase tracking-[0.2em] mb-4 flex items-center gap-2"><FaFileContract/> Dados Comerciais & Encomenda</h4>
-                                    
+                                    <h4 className="text-[11px] font-black text-brand-secondary uppercase tracking-[0.2em] mb-4 flex items-center gap-2"><FaFileContract/> Dados Comerciais</h4>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                         <div>
-                                            <label className="block text-[10px] font-black text-gray-500 uppercase mb-1">Fornecedor Selecionado</label>
-                                            <select value={formData.supplier_id || ''} onChange={e => setFormData({...formData, supplier_id: e.target.value})} className="w-full bg-gray-900 border border-gray-700 text-white rounded p-3 text-sm outline-none focus:border-brand-primary">
+                                            <label className="block text-[10px] font-black text-gray-500 uppercase mb-1">Fornecedor Preferencial</label>
+                                            <select value={formData.supplier_id || ''} onChange={e => setFormData({...formData, supplier_id: e.target.value})} className="w-full bg-gray-900 border border-gray-700 text-white rounded p-3 text-sm focus:border-brand-primary outline-none">
                                                 <option value="">-- Selecione Fornecedor --</option>
                                                 {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                                             </select>
                                         </div>
                                         <div>
-                                            <label className="block text-[10px] font-black text-gray-500 uppercase mb-1">Referência de Encomenda / PO</label>
-                                            <input type="text" value={formData.order_reference || ''} onChange={e => setFormData({...formData, order_reference: e.target.value})} className="w-full bg-gray-900 border border-gray-700 text-white rounded p-3 text-sm" placeholder="Ex: PO-2024-001" />
-                                        </div>
-                                        <div>
-                                            <label className="block text-[10px] font-black text-gray-500 uppercase mb-1">Número da Fatura</label>
-                                            <input type="text" value={formData.invoice_number || ''} onChange={e => setFormData({...formData, invoice_number: e.target.value})} className="w-full bg-gray-900 border border-gray-700 text-white rounded p-3 text-sm" placeholder="Ex: FT/12345" />
-                                        </div>
-                                        <div>
-                                            <label className="block text-[10px] font-black text-gray-500 uppercase mb-1">Data da Encomenda</label>
-                                            <input type="date" value={formData.order_date || ''} onChange={e => setFormData({...formData, order_date: e.target.value})} className="w-full bg-gray-900 border border-gray-700 text-white rounded p-3 text-sm" />
+                                            <label className="block text-[10px] font-black text-gray-500 uppercase mb-1">Número de Fatura (Se já disponível)</label>
+                                            <input type="text" value={formData.invoice_number || ''} onChange={e => setFormData({...formData, invoice_number: e.target.value})} className="w-full bg-gray-900 border border-gray-700 text-white rounded p-3 text-sm" placeholder="FT/2024..." />
                                         </div>
                                     </div>
                                 </div>
                             </div>
                         )}
 
-                        {/* TAB 4: GOVERNANÇA & ANEXOS */}
+                        {/* TAB 4: GOVERNANÇA */}
                         {activeTab === 'gov' && (
                             <div className="space-y-6 animate-fade-in">
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                    {/* Workflow de Aprovação */}
                                     <div className="bg-blue-900/10 p-6 rounded-xl border border-blue-500/30 space-y-4">
-                                        <h4 className="text-blue-300 font-black text-[10px] uppercase tracking-widest flex items-center gap-2"><FaShieldAlt/> Controlo de Aprovação NIS2/DORA</h4>
+                                        <h4 className="text-blue-300 font-black text-[10px] uppercase tracking-widest flex items-center gap-2"><FaShieldAlt/> Autorização & Workflow</h4>
                                         <div className="flex flex-col gap-3">
                                             <div className="flex justify-between items-center bg-black/20 p-3 rounded">
-                                                <span className="text-xs text-gray-400">Estado Atual:</span>
-                                                <span className="text-xs font-black uppercase text-brand-secondary">{formData.status}</span>
+                                                <span className="text-xs text-gray-400">Estado do Pedido:</span>
+                                                <span className={`text-xs font-black uppercase ${formData.status === 'Pendente' ? 'text-yellow-400' : 'text-brand-secondary'}`}>{formData.status}</span>
                                             </div>
                                             
                                             {canUserApprove && formData.status === ProcurementStatus.Pending && (
                                                 <div className="grid grid-cols-2 gap-2 pt-2">
-                                                    <button type="button" onClick={() => handleSetStatus(ProcurementStatus.Approved)} className="bg-green-600 hover:bg-green-500 text-white py-3 rounded font-black text-[10px] uppercase tracking-tighter flex items-center justify-center gap-2 transition-all"><FaCheck/> Aprovar Pedido</button>
+                                                    <button type="button" onClick={() => handleSetStatus(ProcurementStatus.Approved)} className="bg-green-600 hover:bg-green-500 text-white py-3 rounded font-black text-[10px] uppercase tracking-tighter flex items-center justify-center gap-2 transition-all"><FaCheck/> Aprovar</button>
                                                     <button type="button" onClick={() => handleSetStatus(ProcurementStatus.Rejected)} className="bg-red-600 hover:bg-red-500 text-white py-3 rounded font-black text-[10px] uppercase tracking-tighter flex items-center justify-center gap-2 transition-all"><FaTimes/> Rejeitar</button>
                                                 </div>
-                                            )}
-                                            
-                                            {canUserApprove && formData.status === ProcurementStatus.Approved && (
-                                                <button type="button" onClick={() => handleSetStatus(ProcurementStatus.Ordered)} className="w-full bg-purple-600 hover:bg-purple-500 text-white py-3 rounded font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2"><FaShoppingCart/> Registar Encomenda</button>
                                             )}
                                         </div>
                                     </div>
 
-                                    {/* Anexos */}
                                     <div className="bg-gray-800/40 p-6 rounded-xl border border-gray-700 flex flex-col">
-                                        <h4 className="text-gray-400 font-black text-[10px] uppercase tracking-widest mb-4 flex items-center gap-2"><FaPaperclip/> Documentação de Suporte</h4>
+                                        <h4 className="text-gray-400 font-black text-[10px] uppercase tracking-widest mb-4 flex items-center gap-2"><FaPaperclip/> Orçamentos e Documentos</h4>
                                         <div className="flex-grow space-y-2 mb-4 max-h-40 overflow-y-auto custom-scrollbar">
                                             {attachments.map((file, index) => (
                                                 <div key={index} className="flex justify-between items-center p-2 bg-black/20 rounded border border-gray-700">
-                                                    <span className="text-[10px] text-gray-300 truncate max-w-[180px]">{file.name}</span>
+                                                    <span className="text-[10px] text-gray-300 truncate">{file.name}</span>
                                                     <button type="button" onClick={() => setAttachments(prev => prev.filter((_, i) => i !== index))} className="text-red-500 hover:text-red-400 p-1"><FaTrash size={10}/></button>
                                                 </div>
                                             ))}
-                                            {attachments.length === 0 && <p className="text-center py-6 text-gray-600 italic text-xs border border-dashed border-gray-700 rounded">Nenhum documento (Orçamentos, Faturas, etc)</p>}
+                                            {attachments.length === 0 && <p className="text-center py-6 text-gray-600 italic text-xs border border-dashed border-gray-700 rounded">Anexe orçamentos para aprovação.</p>}
                                         </div>
                                         <input type="file" multiple ref={fileInputRef} onChange={handleFileSelect} className="hidden" accept="image/*,application/pdf" />
-                                        <button type="button" onClick={() => fileInputRef.current?.click()} className="w-full py-2 bg-gray-700 text-white rounded text-[10px] font-black uppercase tracking-widest hover:bg-gray-600 transition-all">+ Carregar Ficheiro</button>
+                                        <button type="button" onClick={() => fileInputRef.current?.click()} className="w-full py-2 bg-gray-700 text-white rounded text-[10px] font-black uppercase tracking-widest hover:bg-gray-600 transition-all">+ Novo Anexo</button>
                                     </div>
                                 </div>
                             </div>
                         )}
                     </div>
 
-                    {/* Footer - Totals & Submit */}
                     <div className="flex-shrink-0 bg-gray-900 border-t border-gray-700 p-6 rounded-b-xl flex flex-col md:flex-row justify-between items-center gap-6">
                         <div className="flex gap-12">
                             <div className="text-center">
-                                <p className="text-[10px] text-gray-500 uppercase font-black tracking-widest">Itens Totais</p>
+                                <p className="text-[10px] text-gray-500 uppercase font-black tracking-widest">Qtd Total</p>
                                 <p className="text-2xl font-black text-white">{totalQuantity}</p>
                             </div>
                             <div className="text-center">
-                                <p className="text-[10px] text-gray-500 uppercase font-black tracking-widest">Investimento Est.</p>
+                                <p className="text-[10px] text-gray-500 uppercase font-black tracking-widest">Valor Global Est.</p>
                                 <p className="text-2xl font-black text-brand-secondary">€ {totalEstimatedCost.toLocaleString()}</p>
                             </div>
                         </div>
                         
                         <div className="flex gap-3">
-                            <button type="button" onClick={onClose} className="px-6 py-2 bg-gray-700 text-white rounded font-bold hover:bg-gray-600 transition-all uppercase text-xs tracking-widest">Cancelar</button>
-                            <button type="submit" disabled={isSaving} className="px-10 py-2 bg-brand-primary text-white rounded font-black uppercase tracking-[0.2em] hover:bg-brand-secondary shadow-2xl flex items-center gap-2 transition-all active:scale-95 disabled:opacity-50">
-                                {isSaving ? <SpinnerIcon className="h-4 w-4"/> : <FaSave />} {isSaving ? 'A Processar...' : 'Gravar Aquisição'}
+                            <button type="button" onClick={onClose} className="px-8 py-2 bg-gray-700 text-white rounded font-bold hover:bg-gray-600 transition-all uppercase text-xs tracking-widest">Sair</button>
+                            <button type="submit" disabled={isSaving} className="px-12 py-2 bg-brand-primary text-white rounded font-black uppercase tracking-[0.2em] hover:bg-brand-secondary shadow-2xl flex items-center gap-2 transition-all active:scale-95 disabled:opacity-50">
+                                {isSaving ? <SpinnerIcon className="h-4 w-4"/> : <FaSave />} Gravar Aquisição
                             </button>
                         </div>
                     </div>
