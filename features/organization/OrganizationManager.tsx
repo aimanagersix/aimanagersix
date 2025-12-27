@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback, useEffect } from 'react';
 import { Collaborator, Instituicao, Entidade, Assignment, TicketStatus, ConfigItem, Supplier } from '../../types';
 import * as dataService from '../../services/dataService';
@@ -110,7 +109,6 @@ const OrganizationManager: React.FC<OrganizationManagerProps> = ({ activeTab, ap
             delete supplierData.contacts;
 
             let resultSupplier;
-            // FIX: If 's' already contains an 'id', it must be an UPDATE regardless of the parent state
             if (supplierToEdit || s.id) {
                 const id = s.id || supplierToEdit?.id;
                 await dataService.updateSupplier(id, supplierData);
@@ -128,6 +126,20 @@ const OrganizationManager: React.FC<OrganizationManagerProps> = ({ activeTab, ap
         } catch (err) {
             console.error("[OrgManager] Erro ao gravar fornecedor:", err);
             throw err;
+        }
+    };
+
+    const handleToggleSupplierStatus = async (id: string) => {
+        try {
+            const supplier = appData.suppliers.find((s: Supplier) => s.id === id);
+            if (supplier) {
+                const newStatus = supplier.is_active === false;
+                await dataService.updateSupplier(id, { is_active: newStatus });
+                refreshData();
+            }
+        } catch (e) {
+            console.error("Failed to toggle supplier status", e);
+            alert("Erro ao alterar estado do fornecedor.");
         }
     };
     
@@ -173,7 +185,7 @@ const OrganizationManager: React.FC<OrganizationManagerProps> = ({ activeTab, ap
             )}
 
             {activeTab === 'organizacao.suppliers' && (
-                <SupplierDashboard suppliers={appData.suppliers} businessServices={appData.businessServices} onEdit={checkPermission('org_suppliers', 'edit') ? (s) => { setSupplierToEdit(s); setShowAddSupplierModal(true); } : undefined} onDelete={checkPermission('org_suppliers', 'delete') ? async (id) => { if (confirm("Apagar?")) { await dataService.deleteSupplier(id); refreshData(); } } : undefined} onCreate={checkPermission('org_suppliers', 'create') ? () => { setSupplierToEdit(null); setShowAddSupplierModal(true); } : undefined} />
+                <SupplierDashboard suppliers={appData.suppliers} businessServices={appData.businessServices} onEdit={checkPermission('org_suppliers', 'edit') ? (s) => { setSupplierToEdit(s); setShowAddSupplierModal(true); } : undefined} onDelete={checkPermission('org_suppliers', 'delete') ? async (id) => { if (confirm("Apagar?")) { await dataService.deleteSupplier(id); refreshData(); } } : undefined} onCreate={checkPermission('org_suppliers', 'create') ? () => { setSupplierToEdit(null); setShowAddSupplierModal(true); } : undefined} onToggleStatus={checkPermission('org_suppliers', 'edit') ? handleToggleSupplierStatus : undefined} />
             )}
 
             {showAddInstituicaoModal && <AddInstituicaoModal onClose={() => setShowAddInstituicaoModal(false)} onSave={async (inst) => { if (instituicaoToEdit) await dataService.updateInstituicao(instituicaoToEdit.id, inst); else await dataService.addInstituicao(inst); refreshData(); }} instituicaoToEdit={instituicaoToEdit} />}

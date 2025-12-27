@@ -4,8 +4,9 @@ import { FaDatabase, FaCheck, FaCopy, FaExclamationTriangle, FaCode, FaBolt, FaS
 import * as dataService from '../services/dataService';
 
 /**
- * DB Manager UI - v46.0 (Resource Contacts Title Fix)
+ * DB Manager UI - v47.0 (Supplier Lifecycle & Active Status)
  * -----------------------------------------------------------------------------
+ * - FIX: Adição da coluna 'is_active' na tabela 'suppliers'.
  * - FIX: Adição da coluna 'title' em resource_contacts.
  * - AUDITORIA: Garantia de sincronia entre código e base de dados real.
  * -----------------------------------------------------------------------------
@@ -62,24 +63,19 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
                     }
                 } catch (e: any) {
                     report += `  ❌ ERRO: ${e.message || 'RPC inspect_table_columns não encontrada.'}\n`;
-                    report += `  DICA: Execute o Patch v46.0 para criar esta função e colunas.\n`;
+                    report += `  DICA: Execute o Patch v47.0 para criar esta função e colunas.\n`;
                 }
                 report += `\n`;
             }
 
-            report += `[3/3] ANÁLISE DE CONTACTOS ADICIONAIS:\n`;
+            report += `[3/3] ANÁLISE DE ESTADOS ADICIONAIS:\n`;
             try {
-                const cols = await dataService.fetchTableSchema('resource_contacts');
-                const hasType = cols.some(c => c.column_name === 'resource_type');
-                const hasId = cols.some(c => c.column_name === 'resource_id');
-                const hasTitle = cols.some(c => c.column_name === 'title');
-                const idType = cols.find(c => c.column_name === 'resource_id')?.data_type;
-                
-                if (hasType && hasId && hasTitle) {
-                    report += ` ✅ Estrutura de resource_contacts está 100% OK.\n`;
+                const cols = await dataService.fetchTableSchema('suppliers');
+                const hasActive = cols.some(c => c.column_name === 'is_active');
+                if (hasActive) {
+                    report += ` ✅ Coluna 'is_active' presente em Suppliers.\n`;
                 } else {
-                    report += ` ❌ ESTRUTURA INCOMPLETA detetada em resource_contacts.\n`;
-                    if (!hasTitle) report += `  - Coluna 'title' em falta. Execute o Patch v46.0.\n`;
+                    report += ` ❌ Campo de estado em falta em Fornecedores. Execute o Patch v47.0.\n`;
                 }
             } catch (e) {}
 
@@ -92,8 +88,8 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
         }
     };
 
-    const automationPatch = `-- 🤖 AIMANAGER - AUTOMATION & FIX PATCH (v46.0)
--- Este script instala a função de diagnóstico e corrige a tabela de contactos.
+    const automationPatch = `-- 🤖 AIMANAGER - AUTOMATION & FIX PATCH (v47.0)
+-- Este script instala a função de diagnóstico e corrige a tabela de fornecedores e contactos.
 
 -- 1. FUNÇÃO DE INSPEÇÃO DE SCHEMA
 CREATE OR REPLACE FUNCTION public.inspect_table_columns(t_name text)
@@ -112,8 +108,9 @@ BEGIN
 END;
 $$;
 
--- 2. CORREÇÃO DE SCHEMA (resource_contacts)
--- Adiciona coluna 'title' (Sr, Dr, etc) e garante UUID no resource_id
+-- 2. CORREÇÃO DE SCHEMA (suppliers & resource_contacts)
+-- Adiciona coluna 'is_active' para fornecedores e 'title' para contactos
+ALTER TABLE IF EXISTS public.suppliers ADD COLUMN IF NOT EXISTS is_active boolean DEFAULT true;
 ALTER TABLE IF EXISTS public.resource_contacts ADD COLUMN IF NOT EXISTS title text;
 
 DO $$ 
@@ -171,7 +168,7 @@ COMMIT;`;
         <Modal title="Gestão de Infraestrutura (Enterprise)" onClose={onClose} maxWidth="max-w-6xl">
             <div className="space-y-4 h-[85vh] flex flex-col">
                 <div className="flex-shrink-0 flex border-b border-gray-700 bg-gray-900/50 rounded-t-lg overflow-x-auto custom-scrollbar whitespace-nowrap">
-                    <button onClick={() => setActiveTab('automation_patch')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'automation_patch' ? 'border-brand-secondary text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaBolt /> Patch Automação (v46.0)</button>
+                    <button onClick={() => setActiveTab('automation_patch')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'automation_patch' ? 'border-brand-secondary text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaBolt /> Patch Automação (v47.0)</button>
                     <button onClick={() => setActiveTab('full')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'full' ? 'border-indigo-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaCode /> Inicialização</button>
                     <button onClick={() => setActiveTab('live_diag')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'live_diag' ? 'border-blue-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaStethoscope /> Diagnóstico</button>
                 </div>
@@ -179,8 +176,8 @@ COMMIT;`;
                 <div className="flex-grow overflow-hidden flex flex-col gap-4">
                     {activeTab === 'automation_patch' && (
                         <div className="bg-brand-primary/10 border border-brand-primary/30 p-4 rounded-lg mb-2">
-                            <h4 className="text-brand-secondary font-bold flex items-center gap-2 text-sm uppercase mb-1"><FaRobot /> PATCH v46.0: CORREÇÃO COLUNA TITLE</h4>
-                            <p className="text-[11px] text-gray-300">Adiciona a coluna 'title' necessária para gravar tratos honoríficos nos contactos adicionais.</p>
+                            <h4 className="text-brand-secondary font-bold flex items-center gap-2 text-sm uppercase mb-1"><FaRobot /> PATCH v47.0: ESTADO DOS FORNECEDORES</h4>
+                            <p className="text-[11px] text-gray-300">Adiciona a coluna 'is_active' aos fornecedores para permitir a suspensão de parceiros conforme diretivas NIS2.</p>
                         </div>
                     )}
 

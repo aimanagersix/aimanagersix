@@ -7,10 +7,9 @@ import { ContactList } from './common/ContactList';
 import * as dataService from '../services/dataService';
 
 /**
- * ADD SUPPLIER MODAL - V12.0 (Legacy Full Restoration)
+ * ADD SUPPLIER MODAL - V13.0 (Active Status Control)
  * -----------------------------------------------------------------------------
- * Organização em Cards (Contextos) para reduzir carga cognitiva.
- * Abas Fixas no topo com formulário scrollable independente.
+ * IMPLEMENTAÇÃO: Campo de estado Ativo/Inativo no formulário (Pedido 3).
  * -----------------------------------------------------------------------------
  */
 
@@ -59,7 +58,8 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
         attachments: [],
         other_certifications: [],
         contracts: [],
-        contacts: []
+        contacts: [],
+        is_active: true
     });
 
     const [errors, setErrors] = useState<Record<string, string>>({});
@@ -68,11 +68,11 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
     const [attachments, setAttachments] = useState<{ name: string; dataUrl: string; size: number }[]>([]);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [isSaving, setIsSaving] = useState(false);
+    const [successMessage, setSuccessMessage] = useState('');
     const [emailSuggestion, setEmailSuggestion] = useState('');
     const [newCertName, setNewCertName] = useState('');
     const [newCertDate, setNewCertDate] = useState('');
     const [showExtraCerts, setShowExtraCerts] = useState(false);
-    const [successMessage, setSuccessMessage] = useState('');
 
     const [newContract, setNewContract] = useState<Partial<SupplierContract>>({
         ref_number: '',
@@ -96,7 +96,8 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
                 locality: supplierToEdit.locality || '',
                 other_certifications: supplierToEdit.other_certifications || [],
                 contracts: supplierToEdit.contracts || [],
-                contacts: supplierToEdit.contacts || []
+                contacts: supplierToEdit.contacts || [],
+                is_active: supplierToEdit.is_active !== false
             });
             if (supplierToEdit.attachments) {
                 setAttachments(supplierToEdit.attachments.map(a => ({ ...a, size: 0 })));
@@ -161,7 +162,7 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
 
     const handleFetchNifData = async () => {
         if (!formData.nif?.trim()) return;
-        const nif = formData.nif.trim().replace(/[^0-9/]/g, '');
+        const nif = formData.nif.trim().replace(/[^0-9]/g, '');
         if (nif.length !== 9) return;
         setIsFetchingNif(true);
         try {
@@ -300,6 +301,16 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
                                         <FaGlobe className="absolute left-4 top-3.5 text-gray-600" />
                                         <input type="text" name="website" value={formData.website} onChange={handleChange} placeholder="www.exemplo.com" className="w-full bg-gray-900 border border-gray-700 text-white rounded-lg p-3 pl-12 text-sm focus:border-brand-primary outline-none" />
                                     </div>
+                                </div>
+                                <div className="md:col-span-4 bg-black/20 p-4 rounded-lg border border-gray-700 flex items-center justify-between">
+                                    <div>
+                                        <h5 className="text-white font-bold text-sm">Estado do Fornecedor</h5>
+                                        <p className="text-[10px] text-gray-500 uppercase tracking-widest">Suspender parceiros inativos para auditoria NIS2</p>
+                                    </div>
+                                    <label className="flex items-center cursor-pointer group">
+                                        <input type="checkbox" name="is_active" checked={formData.is_active} onChange={handleChange} className="h-6 w-6 rounded bg-gray-900 border-gray-700 text-brand-primary focus:ring-offset-0 focus:ring-0" />
+                                        <span className="ml-3 text-sm font-black text-white uppercase tracking-widest group-hover:text-brand-secondary transition-colors">Fornecedor Ativo</span>
+                                    </label>
                                 </div>
                             </div>
                         </div>
@@ -460,7 +471,7 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                     <div>
                                         <label className="block text-[10px] font-black text-gray-500 uppercase mb-2">Ref. do Acordo / Contrato</label>
-                                        <input type="text" value={newContract.ref_number} onChange={e => setNewContract({...newContract, ref_number: e.target.value})} className="w-full bg-gray-700 border border-gray-600 rounded-lg p-3 text-white text-sm" placeholder="CTR-2024-..." />
+                                        <input type="text" value={newContract.ref_number} onChange={e => setNewContract({...newContract, ref_number: e.target.value})} className="w-full bg-gray-700 border border-gray-700 rounded-lg p-3 text-white text-sm" placeholder="CTR-2024-..." />
                                     </div>
                                     <div>
                                         <label className="block text-[10px] font-black text-gray-500 uppercase mb-2">Descrição Resumida do Objeto</label>

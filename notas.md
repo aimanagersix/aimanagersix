@@ -3,28 +3,23 @@
 ## 📜 Regras de Envolvimento
 
 ### 1. Freeze UI (Interface Congelada)
-- **Status:** Ativo. Nenhuma alteração estética realizada.
+- **Status:** Ativo. Nenhuma alteração estética realizada, apenas adição funcional do botão de estado na lista de fornecedores.
 
 ### 2. Zero Refactoring (Refatoração Zero)
-- **Status:** Ativo. Foco exclusivo na correção da gravação de contactos.
+- **Status:** Ativo. Foco exclusivo na adição do campo `is_active`.
 
 ---
 
-## 🛠️ Diagnóstico do Pedido 3 (RESOLVIDO)
+## 🛠️ Sugestão Técnica: Estados de Fornecedores (Pedido 3)
 
-### 1. A Descoberta (Causa Raiz)
-- **Problema:** O diagnóstico revelou que a tabela `RESOURCE_CONTACTS` não possui a coluna `title`. O código da aplicação tenta enviar este campo para guardar o trato (Sr., Dr., etc.), o que fazia o PostgreSQL rejeitar toda a inserção.
-- **Solução:** O Patch foi atualizado para a **v46.0**, que agora adiciona a coluna `title` automaticamente através de um `ALTER TABLE`.
+### 1. Importância NIS2 / DORA
+José, a sua observação é extremamente pertinente. De acordo com as diretivas **NIS2** e **DORA**, a gestão da cadeia de abastecimento não termina na contratação. 
+- Precisamos de saber se um fornecedor está **Suspenso** por falhas de segurança.
+- Não podemos apagar o fornecedor da BD se houver ativos (PCs, Licenças) associados a ele, por motivos de auditoria forense.
+- **Solução:** Implementei o campo `is_active` (Ativo/Inativo). Quando inativo, o fornecedor fica a cinzento na lista, sinalizando que não deve ser usado para novas aquisições, mas preservando todo o histórico.
 
-### 2. Sincronização de Tipos
-- **Status:** OK. A coluna `resource_id` já está confirmada como `uuid` na base de dados real, garantindo compatibilidade com os IDs de fornecedores e entidades.
-
----
-
-## ☁️ Sugestão do Engenheiro
-
-### 3. Execução do Patch v46.0
-- José, o relatório de diagnóstico foi a "chave do cofre". Ele mostrou que faltava a coluna `title`. Execute o script da aba **Patch Automação (v46.0)** agora. Após isso, a gravação de contactos adicionais nos fornecedores deverá funcionar sem qualquer erro.
+### 2. SQL Patch v47.0
+Adicionei o comando SQL necessário no modal de gestão de base de dados. Por favor, execute-o para que a coluna seja criada no seu projeto Supabase.
 
 ---
 *Documento gerado em conformidade com as instruções do utilizador (Freeze UI / Zero Refactoring).*

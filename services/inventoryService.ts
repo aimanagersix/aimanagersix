@@ -77,7 +77,9 @@ const cleanPayload = (data: any) => {
         'expectedLifespanYears': 'expected_lifespan_years',
         'expected_lifespan_years': 'expected_lifespan_years',
         'installationLocation': 'installation_location',
-        'installation_location': 'installation_location'
+        'installation_location': 'installation_location',
+        'isActive': 'is_active',
+        'is_active': 'is_active'
     };
 
     const blackList = ['contacts', 'preferences', 'simulatedTicket', 'isSimulating', 'address']; 
@@ -112,7 +114,7 @@ export const fetchInventoryData = async () => {
         sb().from('procurement_requests').select('*'),
         sb().from('config_software_categories').select('*'),
         sb().from('config_software_products').select('*'),
-        sb().from('suppliers').select('*'),
+        sb().from('suppliers').select('*').order('name'),
         sb().from('config_equipment_statuses').select('*'),
         sb().from('config_ticket_statuses').select('*'),
         sb().from('config_license_statuses').select('*'),
@@ -125,7 +127,6 @@ export const fetchInventoryData = async () => {
         sb().from('config_job_titles').select('*'),
         sb().from('config_collaborator_deactivation_reasons').select('*'),
         sb().from('config_holiday_types').select('*'),
-        // Correção Pedido 3: Garantir que o resource_type está em minúsculas conforme gravado pelo orgService
         sb().from('resource_contacts').select('*').eq('resource_type', 'supplier')
     ]);
     

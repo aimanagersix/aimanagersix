@@ -8,10 +8,10 @@ import SupplierDetailModal from './SupplierDetailModal';
 import SortableHeader from './common/SortableHeader';
 
 /**
- * SUPPLIER DASHBOARD - V8.0 (Legacy DORA Alignment)
+ * SUPPLIER DASHBOARD - V9.0 (Active Status & Actionable Lifecycle)
  * -----------------------------------------------------------------------------
- * STATUS DE BLOQUEIO RIGOROSO (Freeze UI):
- * - PEDIDO 3: RESTAURAÇÃO DO WIDGET DE CONCENTRAÇÃO E LAYOUT DE CARDS.
+ * IMPLEMENTAÇÃO: Sistema de Estados Ativo/Inativo (Pedido 3).
+ * CONFORMIDADE: Art. 28º DORA - Gestão do Ciclo de Vida do Fornecedor.
  * -----------------------------------------------------------------------------
  */
 
@@ -188,7 +188,6 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ suppliers, onEdit
                                     </td>
                                     <td className="px-6 py-5 align-top">
                                         <div className="flex flex-col gap-1">
-                                            {/* Fix: Usage of FaUserTie after import */}
                                             {supplier.contact_name && <div className="text-gray-300 font-bold text-xs flex items-center gap-2"><FaUserTie className="text-gray-500" size={10}/> {supplier.contact_name}</div>}
                                             {supplier.contact_email && <div className="text-gray-500 text-[11px] flex items-center gap-2"><FaEnvelope size={10}/> {supplier.contact_email}</div>}
                                         </div>
@@ -213,7 +212,7 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ suppliers, onEdit
                                     <td className="px-6 py-5 text-center" onClick={e => e.stopPropagation()}>
                                         <div className="flex justify-center items-center gap-4">
                                             {onToggleStatus && (
-                                                <button onClick={() => onToggleStatus(supplier.id)} className={`text-xl transition-transform hover:scale-125 ${isActive ? 'text-green-400' : 'text-gray-500'}`} title={isActive ? 'Suspender' : 'Reativar'}>{isActive ? <FaToggleOn /> : <FaToggleOff />}</button>
+                                                <button onClick={() => onToggleStatus(supplier.id)} className={`text-xl transition-transform hover:scale-125 ${isActive ? 'text-green-400' : 'text-gray-500'}`} title={isActive ? 'Suspender Fornecedor' : 'Reativar Fornecedor'}>{isActive ? <FaToggleOn /> : <FaToggleOff />}</button>
                                             )}
                                             {onEdit && <button onClick={() => onEdit(supplier)} className="p-2 bg-gray-800 rounded-lg text-blue-400 hover:bg-blue-600 hover:text-white transition-all shadow-md"><EditIcon /></button>}
                                             {onDelete && <button onClick={() => onDelete(supplier.id)} className="p-2 bg-gray-800 rounded-lg text-red-400 hover:bg-red-600 hover:text-white transition-all shadow-md"><DeleteIcon /></button>}
