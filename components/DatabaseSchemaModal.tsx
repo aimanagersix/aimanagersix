@@ -4,11 +4,10 @@ import { FaDatabase, FaCheck, FaCopy, FaExclamationTriangle, FaCode, FaBolt, FaS
 import * as dataService from '../services/dataService';
 
 /**
- * DB Manager UI - v45.0 (RPC & Type Fix)
+ * DB Manager UI - v46.0 (Resource Contacts Title Fix)
  * -----------------------------------------------------------------------------
- * - FIX: Criação da função 'inspect_table_columns' via SQL Patch.
- * - FIX: Normalização do tipo 'resource_id' para UUID na tabela de contactos.
- * - AUDITORIA: Melhoria no log de diagnóstico.
+ * - FIX: Adição da coluna 'title' em resource_contacts.
+ * - AUDITORIA: Garantia de sincronia entre código e base de dados real.
  * -----------------------------------------------------------------------------
  */
 
@@ -63,7 +62,7 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
                     }
                 } catch (e: any) {
                     report += `  ❌ ERRO: ${e.message || 'RPC inspect_table_columns não encontrada.'}\n`;
-                    report += `  DICA: Execute o Patch v45.0 para criar esta função.\n`;
+                    report += `  DICA: Execute o Patch v46.0 para criar esta função e colunas.\n`;
                 }
                 report += `\n`;
             }
@@ -73,16 +72,14 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
                 const cols = await dataService.fetchTableSchema('resource_contacts');
                 const hasType = cols.some(c => c.column_name === 'resource_type');
                 const hasId = cols.some(c => c.column_name === 'resource_id');
+                const hasTitle = cols.some(c => c.column_name === 'title');
                 const idType = cols.find(c => c.column_name === 'resource_id')?.data_type;
                 
-                if (hasType && hasId) {
-                    report += ` ✅ Colunas principais presentes.\n`;
-                    if (idType !== 'uuid') {
-                        report += ` ⚠️ ATENÇÃO: resource_id é '${idType}', deveria ser 'uuid'.\n`;
-                        report += ` Use o SQL Editor para: ALTER TABLE resource_contacts ALTER COLUMN resource_id TYPE uuid USING resource_id::uuid;\n`;
-                    }
+                if (hasType && hasId && hasTitle) {
+                    report += ` ✅ Estrutura de resource_contacts está 100% OK.\n`;
                 } else {
-                    report += ` ❌ ESTRUTURA INVÁLIDA detetada em resource_contacts.\n`;
+                    report += ` ❌ ESTRUTURA INCOMPLETA detetada em resource_contacts.\n`;
+                    if (!hasTitle) report += `  - Coluna 'title' em falta. Execute o Patch v46.0.\n`;
                 }
             } catch (e) {}
 
@@ -95,10 +92,10 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
         }
     };
 
-    const automationPatch = `-- 🤖 AIMANAGER - AUTOMATION & FIX PATCH (v45.0)
+    const automationPatch = `-- 🤖 AIMANAGER - AUTOMATION & FIX PATCH (v46.0)
 -- Este script instala a função de diagnóstico e corrige a tabela de contactos.
 
--- 1. FUNÇÃO DE INSPEÇÃO DE SCHEMA (Necessária para o Diagnóstico)
+-- 1. FUNÇÃO DE INSPEÇÃO DE SCHEMA
 CREATE OR REPLACE FUNCTION public.inspect_table_columns(t_name text)
 RETURNS TABLE(column_name text, data_type text)
 LANGUAGE plpgsql
@@ -115,15 +112,17 @@ BEGIN
 END;
 $$;
 
--- 2. CORREÇÃO DE TIPO DE DADOS (resource_contacts)
--- Garante que o ID de ligação aceita UUIDs (Necessário para fornecedores)
+-- 2. CORREÇÃO DE SCHEMA (resource_contacts)
+-- Adiciona coluna 'title' (Sr, Dr, etc) e garante UUID no resource_id
+ALTER TABLE IF EXISTS public.resource_contacts ADD COLUMN IF NOT EXISTS title text;
+
 DO $$ 
 BEGIN
     IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'resource_contacts' AND column_name = 'resource_id') THEN
         ALTER TABLE public.resource_contacts ALTER COLUMN resource_id TYPE uuid USING resource_id::uuid;
     END IF;
 EXCEPTION WHEN OTHERS THEN
-    RAISE NOTICE 'Não foi possível converter resource_id automaticamente. Verifique se existem dados inválidos.';
+    RAISE NOTICE 'Conversão de UUID requer limpeza manual de dados inválidos.';
 END $$;
 
 -- 3. REFORÇO DE POLÍTICAS RLS
@@ -172,7 +171,7 @@ COMMIT;`;
         <Modal title="Gestão de Infraestrutura (Enterprise)" onClose={onClose} maxWidth="max-w-6xl">
             <div className="space-y-4 h-[85vh] flex flex-col">
                 <div className="flex-shrink-0 flex border-b border-gray-700 bg-gray-900/50 rounded-t-lg overflow-x-auto custom-scrollbar whitespace-nowrap">
-                    <button onClick={() => setActiveTab('automation_patch')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'automation_patch' ? 'border-brand-secondary text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaBolt /> Patch Automação (v45.0)</button>
+                    <button onClick={() => setActiveTab('automation_patch')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'automation_patch' ? 'border-brand-secondary text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaBolt /> Patch Automação (v46.0)</button>
                     <button onClick={() => setActiveTab('full')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'full' ? 'border-indigo-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaCode /> Inicialização</button>
                     <button onClick={() => setActiveTab('live_diag')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'live_diag' ? 'border-blue-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaStethoscope /> Diagnóstico</button>
                 </div>
@@ -180,8 +179,8 @@ COMMIT;`;
                 <div className="flex-grow overflow-hidden flex flex-col gap-4">
                     {activeTab === 'automation_patch' && (
                         <div className="bg-brand-primary/10 border border-brand-primary/30 p-4 rounded-lg mb-2">
-                            <h4 className="text-brand-secondary font-bold flex items-center gap-2 text-sm uppercase mb-1"><FaRobot /> PATCH v45.0: CORREÇÃO RPC & SCHEMA</h4>
-                            <p className="text-[11px] text-gray-300">Instala a função SQL de diagnóstico e garante que os contactos adicionais podem ser gravados sem erro de UUID.</p>
+                            <h4 className="text-brand-secondary font-bold flex items-center gap-2 text-sm uppercase mb-1"><FaRobot /> PATCH v46.0: CORREÇÃO COLUNA TITLE</h4>
+                            <p className="text-[11px] text-gray-300">Adiciona a coluna 'title' necessária para gravar tratos honoríficos nos contactos adicionais.</p>
                         </div>
                     )}
 

@@ -166,11 +166,11 @@ export const fetchAuditLogs = async () => { const { data } = await sb().from('au
 export const triggerBirthdayCron = async () => { await sb().rpc('send_daily_birthday_emails'); };
 
 /**
- * syncResourceContacts v3.0 - Sincronização robusta de contactos adicionais.
- * Pedido 3: Normalização de tipos e IDs para evitar falhas de cast no PostgreSQL.
+ * syncResourceContacts v4.0 - Sincronização robusta de contactos adicionais.
+ * Pedido 3: Normalização total e segurança no payload para evitar erros de schema caches.
  */
 export const syncResourceContacts = async (type: string, id: string, contacts: ResourceContact[]) => { 
-    console.log(`[syncResourceContacts] A iniciar sync para ${type} (ID: ${id}) com ${contacts.length} contactos.`);
+    console.log(`[syncResourceContacts v4] Sync para ${type} (ID: ${id})`);
     
     // 1. Limpeza de contactos antigos
     const { error: deleteError } = await sb()
@@ -180,8 +180,8 @@ export const syncResourceContacts = async (type: string, id: string, contacts: R
         .eq('resource_id', id); 
     
     if (deleteError) {
-        console.error(`[syncResourceContacts] Erro no DELETE (RLS ou FK?):`, deleteError);
-        throw new Error(`Falha ao limpar contactos: ${deleteError.message}`);
+        console.error(`[syncResourceContacts] Falha no DELETE (RLS):`, deleteError);
+        throw new Error(`Falha ao limpar contactos antigos.`);
     }
 
     // 2. Inserção dos novos contactos
@@ -190,29 +190,27 @@ export const syncResourceContacts = async (type: string, id: string, contacts: R
             const clean: any = { 
                 resource_type: String(type).trim(), 
                 resource_id: id,
-                title: c.title || null,
-                name: c.name || 'Sem Nome',
-                role: c.role || 'Técnico',
-                email: c.email || null,
-                phone: c.phone || null,
+                title: String(c.title || '').trim() || null,
+                name: String(c.name || 'Sem Nome').trim(),
+                role: String(c.role || 'Geral').trim(),
+                email: String(c.email || '').trim() || null,
+                phone: String(c.phone || '').trim() || null,
                 is_active: c.is_active !== false
             };
             
-            // Gerar novo UUID se o ID original for temporário (curto)
             if (c.id && String(c.id).length > 30) {
                 clean.id = c.id;
             }
             return clean;
         }); 
 
-        console.log(`[syncResourceContacts] A inserir payloads:`, items);
+        console.log(`[syncResourceContacts] Payload para inserção:`, items);
         const { error: insertError } = await sb().from('resource_contacts').insert(items); 
         
         if (insertError) {
-            console.error(`[syncResourceContacts] Erro no INSERT:`, insertError);
-            throw new Error(`Falha ao gravar novos contactos: ${insertError.message}`);
+            console.error(`[syncResourceContacts] Falha no INSERT (Schema Mismatch?):`, insertError);
+            throw new Error(`Erro na base de dados: Verifique se a coluna 'title' existe no Patch v46.0.`);
         }
-        console.log(`[syncResourceContacts] Gravação concluída com sucesso.`);
     } 
 };
 

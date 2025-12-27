@@ -6,26 +6,25 @@
 - **Status:** Ativo. Nenhuma alteração estética realizada.
 
 ### 2. Zero Refactoring (Refatoração Zero)
-- **Status:** Ativo. Foco exclusivo na correção da RPC e schema.
+- **Status:** Ativo. Foco exclusivo na correção da gravação de contactos.
 
 ---
 
-## 🛠️ Diagnóstico do Pedido 3
+## 🛠️ Diagnóstico do Pedido 3 (RESOLVIDO)
 
-### 1. Falha na RPC (Causa do Erro Vermelho)
-- **Problema:** A aplicação tentou usar a função `inspect_table_columns` para validar os nomes das colunas, mas a função não existia na base de dados.
-- **Solução:** O script de automação foi atualizado para a **v45.0**, que agora cria esta função no Supabase.
+### 1. A Descoberta (Causa Raiz)
+- **Problema:** O diagnóstico revelou que a tabela `RESOURCE_CONTACTS` não possui a coluna `title`. O código da aplicação tenta enviar este campo para guardar o trato (Sr., Dr., etc.), o que fazia o PostgreSQL rejeitar toda a inserção.
+- **Solução:** O Patch foi atualizado para a **v46.0**, que agora adiciona a coluna `title` automaticamente através de um `ALTER TABLE`.
 
-### 2. Persistência de Contactos
-- **Problema:** Suspeita de erro de tipo (Mismatch). Se a tabela foi criada manualmente com a coluna `resource_id` como `TEXT` em vez de `UUID`, o Supabase recusa a inserção.
-- **Solução:** O Patch v45.0 tenta converter automaticamente a coluna para o tipo correto.
+### 2. Sincronização de Tipos
+- **Status:** OK. A coluna `resource_id` já está confirmada como `uuid` na base de dados real, garantindo compatibilidade com os IDs de fornecedores e entidades.
 
 ---
 
 ## ☁️ Sugestão do Engenheiro
 
-### 3. Sincronização de Schema
-- José, recomendo que execute o script v45.0 imediatamente. Ele é o "médico" que faltava na base de dados. Assim que o Diagnóstico funcionar (ficar tudo verde), conseguiremos ver exatamente se o nome de alguma coluna na tabela `resource_contacts` está diferente do esperado pelo código (ex: `phone` vs `telefone`).
+### 3. Execução do Patch v46.0
+- José, o relatório de diagnóstico foi a "chave do cofre". Ele mostrou que faltava a coluna `title`. Execute o script da aba **Patch Automação (v46.0)** agora. Após isso, a gravação de contactos adicionais nos fornecedores deverá funcionar sem qualquer erro.
 
 ---
 *Documento gerado em conformidade com as instruções do utilizador (Freeze UI / Zero Refactoring).*
