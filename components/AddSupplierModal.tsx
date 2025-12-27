@@ -7,10 +7,10 @@ import { ContactList } from './common/ContactList';
 import * as dataService from '../services/dataService';
 
 /**
- * ADD SUPPLIER MODAL - V9.0 (Legacy Full Restoration & DORA Core)
+ * ADD SUPPLIER MODAL - V11.0 (Legacy UI Full Restoration)
  * -----------------------------------------------------------------------------
- * STATUS DE BLOQUEIO RIGOROSO (Freeze UI):
- * - PEDIDO 3: RESTAURAÇÃO DOS CARDS TÉCNICOS E AUTOMAÇÃO CP.
+ * Organização por Blocos Lógicos (Cards) na aba de Detalhes.
+ * Abas Responsivas e Correção de Clipping de Menus.
  * -----------------------------------------------------------------------------
  */
 
@@ -72,6 +72,8 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
     const [newCertName, setNewCertName] = useState('');
     const [newCertDate, setNewCertDate] = useState('');
     const [showExtraCerts, setShowExtraCerts] = useState(false);
+    // Fix: added missing successMessage state
+    const [successMessage, setSuccessMessage] = useState('');
 
     const [newContract, setNewContract] = useState<Partial<SupplierContract>>({
         ref_number: '',
@@ -106,9 +108,23 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
         }
     }, [supplierToEdit]);
 
+    const validate = () => {
+        const newErrors: Record<string, string> = {};
+        if (!formData.name?.trim()) newErrors.name = "Obrigatório";
+        if (!formData.nif?.trim()) newErrors.nif = "Obrigatório";
+        if (formData.is_iso27001_certified && !formData.iso_certificate_expiry) {
+            newErrors.iso_certificate_expiry = "Validade necessária";
+        }
+        setErrors(newErrors);
+        return Object.keys(newErrors).length === 0;
+    };
+
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value, type } = e.target;
-        setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value }));
+        setFormData(prev => ({ 
+            ...prev, 
+            [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value 
+        }));
         if (name === 'contact_email') {
             setEmailSuggestion('');
             if (value.endsWith('@') && formData.website) {
@@ -140,13 +156,13 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
                         setFormData((prev: any) => ({ ...prev, city: data.Concelho, locality: data.Freguesia || (data.part && data.part[0]) || '' }));
                     }
                 }
-            } catch (err) { console.error("CP Fetch Error", err); } finally { setIsFetchingCP(false); }
+            } finally { setIsFetchingCP(false); }
         }
     };
 
     const handleFetchNifData = async () => {
         if (!formData.nif?.trim()) return;
-        const nif = formData.nif.trim().replace(/[^0-9]/g, '');
+        const nif = formData.nif.trim().replace(/[^0-9/]/g, '');
         if (nif.length !== 9) return;
         setIsFetchingNif(true);
         try {
@@ -170,7 +186,7 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
                     }));
                 }
             }
-        } catch (err) { console.error("NIF Fetch Error", err); } finally { setIsFetchingNif(false); }
+        } finally { setIsFetchingNif(false); }
     };
 
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -190,58 +206,77 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
 
     const handleAddCertificate = () => {
         if (!newCertName.trim()) return;
-        setFormData(prev => ({ ...prev, other_certifications: [...(prev.other_certifications || []), { name: newCertName.trim(), expiryDate: newCertDate }] }));
-        setNewCertName(''); setNewCertDate('');
+        setFormData(prev => ({
+            ...prev,
+            other_certifications: [...(prev.other_certifications || []), { name: newCertName, expiryDate: newCertDate }]
+        }));
+        setNewCertName('');
+        setNewCertDate('');
     };
 
     const handleAddContract = () => {
         if (!newContract.ref_number?.trim() || !newContract.end_date) return;
-        setFormData(prev => ({ ...prev, contracts: [...(prev.contracts || []), { ...newContract, id: crypto.randomUUID(), is_active: true } as SupplierContract] }));
+        setFormData(prev => ({
+            ...prev,
+            contracts: [...(prev.contracts || []), { ...newContract, id: crypto.randomUUID(), is_active: true } as SupplierContract]
+        }));
         setNewContract({ ref_number: '', description: '', start_date: '', end_date: '', notice_period_days: 90, exit_strategy: '', supported_service_ids: [], is_active: true });
     };
 
     const handleServiceToggle = (serviceId: string) => {
         setNewContract(prev => {
             const current = prev.supported_service_ids || [];
-            if (current.includes(serviceId)) return { ...prev, supported_service_ids: current.filter(id => id !== serviceId) };
-            return { ...prev, supported_service_ids: [...current, serviceId] };
+            if (current.includes(serviceId)) {
+                return { ...prev, supported_service_ids: current.filter(id => id !== serviceId) };
+            } else {
+                return { ...prev, supported_service_ids: [...current, serviceId] };
+            }
         });
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (!validate()) return;
         setIsSaving(true);
         const dataToSave: any = { ...formData, attachments: attachments.map(({ name, dataUrl }) => ({ name, dataUrl })) };
         try {
             await onSave(dataToSave);
-            onClose();
-        } catch (err) { alert("Erro ao gravar."); } finally { setIsSaving(false); }
+            // Fix: added missing setSuccessMessage usage
+            setSuccessMessage('Fornecedor gravado com sucesso!');
+            setTimeout(() => setSuccessMessage(''), 3000);
+        } finally { setIsSaving(false); }
     };
 
     return (
-        <Modal title={supplierToEdit ? "Ficha Estratégica de Fornecedor" : "Registar Novo Fornecedor Crítico"} onClose={onClose} maxWidth="max-w-6xl">
+        <Modal title={supplierToEdit ? "Ficha Técnica de Fornecedor" : "Registar Novo Fornecedor Estratégico"} onClose={onClose} maxWidth="max-w-6xl">
             <div className="flex flex-col h-[85vh]">
                 
-                <div className="sm:hidden mb-6 px-1">
+                {/* Mobile Selector */}
+                <div className="sm:hidden mb-4 px-1">
                     <label className="block text-[10px] font-black text-gray-500 uppercase mb-2 tracking-widest">Secção</label>
-                    <select value={activeTab} onChange={(e) => setActiveTab(e.target.value as any)} className="w-full bg-gray-800 border border-gray-700 text-white rounded p-3 text-sm font-black focus:border-brand-secondary outline-none shadow-inner">
+                    <select 
+                        value={activeTab} 
+                        onChange={(e) => setActiveTab(e.target.value as any)}
+                        className="w-full bg-gray-700 border border-gray-600 text-white rounded p-3 text-sm font-black focus:border-brand-secondary outline-none shadow-inner"
+                    >
                         <option value="details">Identificação e Segurança</option>
                         <option value="contacts">Pessoas de Contacto</option>
                         <option value="contracts">Contratos e DORA</option>
                     </select>
                 </div>
 
-                <div className="hidden sm:flex border-b border-gray-700 mb-8 overflow-x-auto whitespace-nowrap px-1">
-                    <button type="button" onClick={() => setActiveTab('details')} className={`px-8 py-3 text-sm font-black uppercase tracking-[0.2em] border-b-2 transition-all flex-shrink-0 ${activeTab === 'details' ? 'border-brand-secondary text-white bg-gray-800/40' : 'border-transparent text-gray-500 hover:text-white'}`}>Identificação e Segurança</button>
-                    <button type="button" onClick={() => setActiveTab('contacts')} className={`px-8 py-3 text-sm font-black uppercase tracking-[0.2em] border-b-2 transition-all flex-shrink-0 ${activeTab === 'contacts' ? 'border-brand-secondary text-white bg-gray-800/40' : 'border-transparent text-gray-500 hover:text-white'}`}>Pessoas de Contacto</button>
-                    <button type="button" onClick={() => setActiveTab('contracts')} className={`px-8 py-3 text-sm font-black uppercase tracking-[0.2em] border-b-2 transition-all flex-shrink-0 ${activeTab === 'contracts' ? 'border-brand-secondary text-white bg-gray-800/40' : 'border-transparent text-gray-500 hover:text-white'}`}>Contratos e DORA</button>
+                {/* Desktop Tabs */}
+                <div className="hidden sm:flex border-b border-gray-700 mb-6 overflow-x-auto whitespace-nowrap px-1">
+                    <button type="button" onClick={() => setActiveTab('details')} className={`px-8 py-3 text-sm font-black uppercase tracking-[0.2em] border-b-2 transition-all flex-shrink-0 ${activeTab === 'details' ? 'border-brand-secondary text-white bg-gray-800/40' : 'border-transparent text-gray-400 hover:text-white'}`}>Identificação e Segurança</button>
+                    <button type="button" onClick={() => setActiveTab('contacts')} className={`px-8 py-3 text-sm font-black uppercase tracking-[0.2em] border-b-2 transition-all flex-shrink-0 ${activeTab === 'contacts' ? 'border-brand-secondary text-white bg-gray-800/40' : 'border-transparent text-gray-400 hover:text-white'}`}>Pessoas de Contacto</button>
+                    <button type="button" onClick={() => setActiveTab('contracts')} className={`px-8 py-3 text-sm font-black uppercase tracking-[0.2em] border-b-2 transition-all flex-shrink-0 ${activeTab === 'contracts' ? 'border-brand-secondary text-white bg-gray-800/40' : 'border-transparent text-gray-400 hover:text-white'}`}>Contratos e DORA</button>
                 </div>
 
-                <form onSubmit={handleSubmit} className="flex-grow overflow-y-auto custom-scrollbar pr-3 space-y-10">
+                <form onSubmit={handleSubmit} className="flex-grow overflow-y-auto custom-scrollbar pr-3 space-y-8">
                     {activeTab === 'details' && (
                     <div className="space-y-10 animate-fade-in">
                         
-                        {/* CARD 1: Identificação Institucional */}
+                        {/* CARD 1: Identificação Principal */}
                         <div className="bg-gray-800/40 p-8 rounded-2xl border border-gray-700 shadow-2xl relative overflow-hidden">
                             <div className="absolute top-0 left-0 w-1 h-full bg-brand-primary opacity-50"></div>
                             <h4 className="text-[11px] font-black text-brand-secondary uppercase tracking-[0.3em] mb-6 flex items-center gap-3"><FaLandmark className="text-gray-400"/> Identificação Institucional</h4>
@@ -249,13 +284,13 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
                                 <div className="md:col-span-1">
                                     <label className="block text-[10px] font-black text-gray-500 uppercase mb-2 tracking-widest">NIF Corporativo</label>
                                     <div className="flex shadow-inner rounded-lg overflow-hidden">
-                                        <input type="text" name="nif" value={formData.nif} onChange={handleChange} className="flex-grow bg-gray-900 border-none text-white p-3 text-sm focus:ring-0 font-mono" placeholder="500..." />
+                                        <input type="text" name="nif" value={formData.nif} onChange={handleChange} className={`flex-grow bg-gray-900 border-none text-white p-3 text-sm focus:ring-0 font-mono ${errors.nif ? 'border-red-500' : ''}`} placeholder="500..." />
                                         <button type="button" onClick={handleFetchNifData} className="bg-gray-700 px-4 hover:bg-brand-primary text-white transition-all border-l border-gray-600">{isFetchingNif ? <SpinnerIcon /> : <SearchIcon />}</button>
                                     </div>
                                 </div>
                                 <div className="md:col-span-3">
                                     <label className="block text-[10px] font-black text-gray-500 uppercase mb-2 tracking-widest">Nome Comercial / Firma</label>
-                                    <input type="text" name="name" value={formData.name} onChange={handleChange} className="w-full bg-gray-900 border border-gray-700 text-white rounded-lg p-3 text-sm focus:border-brand-primary outline-none shadow-inner" placeholder="Nome oficial da entidade..." />
+                                    <input type="text" name="name" value={formData.name} onChange={handleChange} className={`w-full bg-gray-900 border border-gray-700 text-white rounded-lg p-3 text-sm focus:border-brand-primary outline-none shadow-inner ${errors.name ? 'border-red-500' : ''}`} placeholder="Nome oficial da entidade..." />
                                 </div>
                                 <div className="md:col-span-4">
                                     <label className="block text-[10px] font-black text-gray-500 uppercase mb-2 tracking-widest">Website Oficial (Auditoria Digital)</label>
@@ -288,7 +323,7 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
                             </div>
                         </div>
 
-                        {/* CARD 3: Localização e Sede */}
+                        {/* CARD 3: Localização Física */}
                         <div className="bg-gray-800/40 p-8 rounded-2xl border border-gray-700 shadow-2xl">
                             <h4 className="text-[11px] font-black text-brand-secondary uppercase tracking-[0.3em] mb-6 flex items-center gap-3"><FaAddressCard className="text-gray-400"/> Localização e Sede Social</h4>
                             <div className="space-y-6">
@@ -339,7 +374,7 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
                                     <div className="ml-10 grid grid-cols-1 sm:grid-cols-2 gap-6 animate-fade-in">
                                         <div>
                                             <label className="block text-[10px] font-black text-gray-500 uppercase mb-2">Validade do Certificado</label>
-                                            <input type="date" name="iso_certificate_expiry" value={formData.iso_certificate_expiry} onChange={handleChange} className="w-full bg-gray-900 border border-gray-700 text-white rounded-lg p-3 text-sm shadow-inner" />
+                                            <input type="date" name="iso_certificate_expiry" value={formData.iso_certificate_expiry} onChange={handleChange} className={`w-full bg-gray-900 border border-gray-700 text-white rounded-lg p-3 text-sm shadow-inner ${errors.iso_certificate_expiry ? 'border-red-500' : ''}`} />
                                         </div>
                                         <div className="bg-blue-900/10 p-4 rounded-lg border border-blue-500/20 flex items-start gap-3">
                                             <FaRobot className="text-brand-secondary mt-1 shrink-0" />
@@ -374,21 +409,44 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
                                 )}
                             </div>
                         </div>
+
+                        {/* Observações e Anexos */}
+                        <div className="space-y-4">
+                            <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest">Evidências e Ficheiros de Auditoria</label>
+                            <div className="bg-gray-950 p-6 rounded-xl border border-gray-700 border-dashed text-center">
+                                {attachments.length > 0 && (
+                                    <ul className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6 text-left">
+                                        {attachments.map((file, index) => (
+                                            <li key={index} className="flex flex-col gap-1 p-3 bg-gray-800 rounded-lg border border-gray-700 relative group">
+                                                <span className="truncate text-white font-bold text-[10px]">{file.name}</span>
+                                                <span className="text-[9px] text-gray-500">Snapshot Anexo</span>
+                                                <button type="button" onClick={() => setAttachments(prev => prev.filter((_, i) => i !== index))} className="absolute -top-2 -right-2 bg-red-600 text-white p-1.5 rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"><FaTimes size={8}/></button>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                )}
+                                <input type="file" multiple ref={fileInputRef} onChange={handleFileSelect} className="hidden" accept="image/*,application/pdf" />
+                                <button type="button" onClick={() => fileInputRef.current?.click()} className="px-8 py-3 text-xs font-black uppercase tracking-widest bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-full border border-gray-600 transition-all mb-4 shadow-lg">+ Carregar Documentos ({attachments.length}/{MAX_FILES})</button>
+                                <textarea name="notes" value={formData.notes} onChange={handleChange} placeholder="Insira aqui observações críticas, notas de negociação ou referências contratuais importantes para a governança de TI..." rows={4} className="w-full bg-gray-900 border border-gray-700 text-white rounded-xl p-4 text-sm focus:border-brand-primary outline-none custom-scrollbar shadow-inner"></textarea>
+                            </div>
+                        </div>
                     </div>
                     )}
 
                     {activeTab === 'contacts' && (
-                        <div className="animate-fade-in min-h-[500px]">
-                            <div className="bg-blue-900/10 p-5 rounded-xl border border-blue-500/20 mb-8 flex items-start gap-4">
-                                <FaInfoCircle className="text-brand-secondary mt-1 text-xl" />
-                                <p className="text-sm text-gray-300 leading-relaxed italic">Estes contactos alimentam a <strong>Agenda Global</strong> e são fundamentais para planos de continuidade (DRP).</p>
+                        <div className="animate-fade-in min-h-[450px]">
+                            <div className="bg-gray-900/30 p-4 rounded-lg border border-gray-700 mb-6 flex items-start gap-3">
+                                <FaInfoCircle className="text-brand-secondary mt-1" />
+                                <p className="text-xs text-gray-400 leading-relaxed">
+                                    Adicione as pessoas de contacto para diversos departamentos (Comercial, Suporte Técnico, DPO). Estes contactos ficarão disponíveis na <strong>Agenda Global</strong> e vinculados a este fornecedor.
+                                </p>
                             </div>
                             <ContactList contacts={formData.contacts || []} onChange={(c) => setFormData({...formData, contacts: c})} resourceType="supplier" />
                         </div>
                     )}
 
                     {activeTab === 'contracts' && (
-                        <div className="space-y-10 animate-fade-in">
+                        <div className="space-y-8 animate-fade-in">
                             <div className="bg-blue-900/10 border border-blue-500/30 p-6 rounded-2xl shadow-2xl">
                                 <h4 className="text-white font-black text-sm uppercase tracking-[0.3em] mb-2 flex items-center gap-3"><FaFileSignature className="text-blue-400"/> Monitorização de Acordos Outsourcing</h4>
                                 <p className="text-[11px] text-blue-200/70 italic">Conformidade Art. 28º DORA: Avaliação de dependência tecnológica e saída segura.</p>
@@ -457,6 +515,9 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
                         </div>
                     )}
                 </form>
+
+                {// Fix: added check for successMessage existence
+                successMessage && <div className="p-4 bg-green-500/20 text-green-300 rounded-lg border border-green-500/40 text-center font-black text-xs animate-fade-in mt-6 shadow-lg">{successMessage}</div>}
 
                 <div className="flex justify-end gap-6 pt-10 border-t border-gray-700 mt-auto flex-shrink-0">
                     <button type="button" onClick={onClose} className="px-10 py-3 bg-gray-700 text-white rounded-xl font-bold hover:bg-gray-600 transition-all uppercase text-xs tracking-widest shadow-lg">Cancelar</button>
