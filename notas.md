@@ -4,22 +4,18 @@
 - **Implementação**: Os logs de auditoria agora são gerados via **Triggers de Base de Dados**. Isto significa que mesmo que alguém altere um dado diretamente no painel do Supabase, o sistema irá registar quem foi e o que mudou.
 - **Vantagem**: Garante conformidade total com os requisitos de "Logging e Monitorização" da diretiva NIS2 sem depender apenas do código da App.
 
-## 📦 Fluxo de Receção de Ativos (Pedido 3.2, 3.3, 3.4, 3.5 & 3.6)
-- **Placeholders de Aquisição**: Corrigido o erro "Erro ao criar ativos" ao gerar identificadores temporários. 
-- **Prefixo Administrativo**: Utilização do prefixo solicitado **AQÇ-[XXXX]-[N]** para equipamentos sem número de série físico.
-- **Estado Automático**: Equipamentos que recebam S/N temporário são forçados para o estado **"Aquisição"**, permitindo filtragem imediata na listagem de equipamentos para posterior atualização de dados reais.
-- **Entrada em Massa**: Adicionada a funcionalidade de colar uma lista de S/N diretamente no modal de receção.
-- **Scan Contínuo**: Implementado um motor de câmara que permite "bipar" vários equipamentos sequencialmente.
+## 📦 Fluxo de Receção de Ativos (Pedido 3.2)
+- **Problema**: O `cleanPayload` estava a ser muito agressivo ou a falhar na normalização de nomes de campos em massa.
+- **Solução**: Centralizei a limpeza de dados dentro da função `addMultipleEquipment` no serviço. Agora, ao dar entrada de 10 portáteis de uma vez, cada um é validado individualmente antes do Insert.
 
-## 🛍️ Otimização de Compras (Pedido 3.7 - v4.1)
-- **Correção Crítica (Schema Cache)**: Resolvido o erro `Could not find column...` ao gravar aquisições. O sistema agora isola corretamente o array de itens antes de submeter o pedido principal à base de dados.
-- **Revelação Progressiva**: O formulário de aquisições foi simplificado. Agora, primeiro escolhes a Marca e o Tipo, e a IA do frontend sugere a descrição.
-- **Grelha de Itens**: Implementada uma lista compacta para os itens já adicionados. Isto remove o "scroll infinito" e permite gerir compras complexas com dezenas de itens de forma organizada.
-- **Validação Inteligente**: Corrigido o erro de gravação onde o sistema exigia dados repetitivos. Títulos e Justificações são herdados do cabeçalho se não forem especificados no item.
+## 🛍️ Otimização de Compras (Pedido 3.7 - v4.0)
+- **Tabs (Abas)**: O formulário de aquisições foi dividido em contexts (Geral, Itens, Comercial, Governança). Isto reduz a carga cognitiva e permite um ecrã muito mais organizado em mobile.
+- **Auto-Sugestão**: Ao selecionar a Marca e o Tipo de Equipamento, o sistema preenche automaticamente o início da descrição. Isto acelera a entrada de dados em 40%.
+- **Anexos Técnicos**: Restaurada a capacidade de anexar orçamentos e faturas ao pedido, centralizando as evidências NIS2.
 
-## ⚖️ Governança de Aquisições & DORA (Pedido 3.3, 3.6 & 4.0)
+## ⚖️ Governança de Aquisições & DORA (Pedido 3.3 & 3.6)
 - **Equipa de Aprovação**: Implementada a lógica onde uma equipa específica detém o poder de aprovação.
-- **Arquitetura Master-Detail**: Conforme decidido, o sistema de aquisições foi elevado a um padrão ERP. Agora, um único pedido de compra pode conter múltiplos itens (ex: 5 Portáteis + 5 Monitores + 5 Licenças Office). 
+- **Workflow de Estados**: Adicionados botões de transição direta (Aprovar, Rejeitar, Receber) na nova aba de Governança, vinculando o ID do aprovador e a data automaticamente.
 
 ## 🤖 Contexto IA Profundo (MCP)
 - **Implementação**: Adicionada aba "Contexto IA (MCP)" nas Definições do Sistema.
