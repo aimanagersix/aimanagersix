@@ -1,4 +1,3 @@
-
 import React, { useMemo } from 'react';
 import { 
     FaList, FaTicketAlt, FaKey, FaBroom, FaLandmark, FaLeaf, FaMicrochip, FaMemory, FaHdd, FaUserTie, FaUserTag, FaUserSlash, FaTags, FaCalendarAlt 
@@ -21,6 +20,7 @@ import CronJobsTab from './CronJobsTab';
 import SoftwareProductDashboard from './SoftwareProductDashboard';
 import GenericConfigDashboard from './GenericConfigDashboard';
 import HolidaysConfigDashboard from '../../components/HolidaysConfigDashboard';
+import McpConfigTab from './McpConfigTab';
 
 interface SettingsRouterProps {
     selectedMenuId: string;
@@ -62,7 +62,7 @@ const SettingsRouter: React.FC<SettingsRouterProps> = ({
         'config_collaborator_deactivation_reasons': { label: 'Motivos de Saída (RH)', icon: <FaUserSlash/>, data: safeData(appData.configCollaboratorDeactivationReasons) },
         'contact_roles': { label: 'Papéis de Contacto Externo', icon: <FaUserTag/>, data: safeData(appData.contactRoles) },
         'contact_titles': { label: 'Tratos Honoríficos', icon: <FaUserTag/>, data: safeData(appData.contactTitles) },
-        'config_holiday_types': { label: 'Tipos de Ausência / Feriados', icon: <FaTags/>, data: safeData(appData.configHolidayTypes), colorField: true }, // Pedido 3
+        'config_holiday_types': { label: 'Tipos de Ausência / Feriados', icon: <FaTags/>, data: safeData(appData.configHolidayTypes), colorField: true },
     }), [appData]);
 
     if (simpleConfigTables[selectedMenuId as keyof typeof simpleConfigTables]) {
@@ -83,6 +83,7 @@ const SettingsRouter: React.FC<SettingsRouterProps> = ({
             />
         );
         case 'config_automation': return <AutomationRulesDashboard />;
+        case 'ai_context': return <McpConfigTab />;
         case 'brands': return <BrandDashboard brands={safeData(appData.brands)} equipment={safeData(appData.equipment)} onCreate={() => onEditBrand(null)} onEdit={onEditBrand} />;
         case 'equipment_types': return <EquipmentTypeDashboard equipmentTypes={safeData(appData.equipmentTypes)} equipment={safeData(appData.equipment)} onCreate={() => onEditType(null)} onEdit={onEditType} />;
         case 'ticket_categories': return <CategoryDashboard categories={safeData(appData.ticketCategories)} tickets={safeData(appData.tickets)} teams={safeData(appData.teams)} onCreate={() => onEditCategory(null)} onEdit={onEditCategory} onToggleStatus={()=>{}} onDelete={()=>{}} />;

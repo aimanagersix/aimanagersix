@@ -14,5 +14,10 @@
 - **Facilidade de Configuração**: Adicionada a opção de definir a equipa aprovadora diretamente no modal de edição da equipa, sincronizando automaticamente com as definições globais do sistema.
 - **Sugestão de Continuidade**: Recomendo que a equipa aprovadora seja composta por perfis com "Budget Authority" para que o fluxo DORA seja juridicamente vinculativo dentro da app.
 
+## 🤖 Contexto IA Profundo (MCP)
+- **Implementação**: Adicionada aba "Contexto IA (MCP)" nas Definições do Sistema.
+- **Objetivo**: Fornecer ao administrador os links e comandos necessários para ligar ferramentas de IA externas (Gemini CLI, Cursor, etc.) diretamente à base de dados Supabase.
+- **Sugestão do Engenheiro**: Ao configurar o MCP no seu ambiente local, poderá pedir à IA para "Analisar tendências de avarias nos últimos 6 meses" e ela terá acesso direto aos dados reais para gerar o relatório, sem que tenha de exportar CSVs.
+
 ---
 *Documento gerado em conformidade com as instruções do utilizador (Freeze UI / Zero Refactoring).*

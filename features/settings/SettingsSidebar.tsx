@@ -1,10 +1,9 @@
-
 import React from 'react';
 import { 
     FaHeartbeat, FaTags, FaShapes, FaList, FaShieldAlt, FaTicketAlt, FaServer, 
     FaPalette, FaRobot, FaKey, FaNetworkWired, FaClock, FaBroom, FaCompactDisc, 
     FaLandmark, FaUserTie, FaBolt, FaUsers, FaUserTag, FaMicrochip, FaMemory, FaHdd,
-    FaBoxOpen, FaUserSlash, FaLeaf, FaCalendarAlt
+    FaBoxOpen, FaUserSlash, FaLeaf, FaCalendarAlt, FaBrain
 } from 'react-icons/fa';
 
 interface SettingsSidebarProps {
@@ -19,6 +18,7 @@ const SettingsSidebar: React.FC<SettingsSidebarProps> = ({ selectedMenuId, onSel
             items: [
                 { id: 'general', label: 'Geral & Scans', icon: <FaRobot /> },
                 { id: 'config_automation', label: 'Regras de Automação', icon: <FaBolt /> },
+                { id: 'ai_context', label: 'Contexto IA (MCP)', icon: <FaBrain className="text-purple-400" /> },
                 { id: 'connections', label: 'Conexões & APIs', icon: <FaKey /> },
                 { id: 'agents', label: 'Agentes (PowerShell)', icon: <FaRobot /> },
                 { id: 'webhooks', label: 'Webhooks (SIEM)', icon: <FaNetworkWired /> },
@@ -65,7 +65,7 @@ const SettingsSidebar: React.FC<SettingsSidebarProps> = ({ selectedMenuId, onSel
                 { id: 'config_job_titles', label: 'Cargos / Funções', icon: <FaUserTie /> },
                 { id: 'config_collaborator_deactivation_reasons', label: 'Motivos de Saída', icon: <FaUserSlash /> },
                 { id: 'holidays', label: 'Feriados & Ausências', icon: <FaCalendarAlt /> }, 
-                { id: 'config_holiday_types', label: 'Tipos de Ausência', icon: <FaTags /> }, // Pedido 3
+                { id: 'config_holiday_types', label: 'Tipos de Ausência', icon: <FaTags /> },
                 { id: 'contact_roles', label: 'Papéis Contacto', icon: <FaUserTag /> },
                 { id: 'contact_titles', label: 'Tratos / Títulos', icon: <FaUserTag /> },
             ]
