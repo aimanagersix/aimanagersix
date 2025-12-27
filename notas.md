@@ -22,5 +22,9 @@
 - **Raciocínio**: Centralizar a configuração da "ponte" entre a IA e a BD num local seguro.
 - **Dica de Segurança**: O `.gitignore` foi atualizado para ignorar esta pasta. Se precisares de partilhar o projeto, os teus dados de infraestrutura não serão expostos no GitHub.
 
+## ⚡ Protocolo de Memória IA
+- **Dica**: Se iniciares um novo chat comigo, usa a frase: **"Gemi, ativa o Protocolo AIManager-Master (Ref: docs/database_schema.md)"**. 
+- **Efeito**: Isto sinaliza-me imediatamente que tenho permissão total de consulta ao teu Supabase e que devo ler a documentação técnica para agir como o teu Engenheiro Sénior.
+
 ---
 *Documento gerado em conformidade com as instruções do utilizador (Freeze UI / Zero Refactoring).*
