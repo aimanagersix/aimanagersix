@@ -1,29 +1,25 @@
 # 📝 Notas e Sugestões do Engenheiro - AIManager
 
-## 🛠️ Concluído no Pedido 3 (v42.0)
+## 🛠️ Concluído no Pedido 3 (Restauração Supplier Modal)
 
-### 1. Unificação de Idioma (Frontend -> DB)
-- **Ações:** Todos os serviços foram remapeados para usar `institutions` e `entities`. O Inventário agora é 100% funcional.
-- **Filosofia:** Mantivemos as interfaces em Português para evitar quebras em massa (Zero Refactoring), mas o transporte de dados está em Inglês.
+### 1. Reestruturação Visual (Suppliers)
+- **Ações:** O modal de fornecedores foi reconstruído com base no layout de alta performance do projeto anterior.
+- **Destaque:** Implementação de **Cards de Contexto** (Identificação, Canais, Localização, Risco) para reduzir a carga cognitiva do utilizador.
+- **NIS2/DORA:** Reforço do bloco de conformidade com dropdowns coloridos para níveis de risco e campos obrigatórios para validade de certificados ISO.
 
-### 2. Automação de Conformidade
-- **ISO 27001:** Procedure SQL injetada no modal para gerar tickets proativos.
-- **Auditoria NIS2:** Trigger de auditoria reativado para as tabelas `equipment` e `tickets`.
+### 2. Gestão de Contratos (DORA Art. 28º)
+- **Melhoria:** O formulário de contratos agora inclui explicitamente o mapeamento de **Serviços Críticos Suportados** e **Estratégias de Saída**.
+- **UX:** Adicionada transição visual nas abas (Abas Responsivas) para melhorar a navegação em dispositivos móveis e ecrãs pequenos.
 
 ---
 
-## ☁️ Respostas de Arquitetura (Pedido 3)
+## ☁️ Sugestões do Engenheiro
 
-### 3. CamelCase vs Snake_case
-- **Decisão:** Manter o mapeamento manual no `cleanPayload`. 
-- **Razão:** Permite que o código TypeScript seja "limpo" (camelCase) enquanto a DB respeita o padrão PostgreSQL (snake_case). É a forma mais escalável de gerir o projeto.
+### 3. Automatização de NIF (Aviso)
+- Notei que a consulta de NIF via API externa (`nif.pt`) utiliza uma chave de demonstração. Para produção, recomendo que o cliente obtenha uma chave Pro para evitar limites de taxa (rate limiting) durante auditorias massivas.
 
-### 4. Linguagem do Código
-- **Decisão:** Manter UI em PT_PT e nomes de tabelas em Inglês.
-- **Sugestão:** Para novas funcionalidades, recomendo criar as variáveis e campos em Inglês. O utilizador final nunca verá isso, e facilita o uso de ferramentas de IA (como o Gemini) que interpretam melhor termos técnicos em Inglês.
-
-### 5. Pedido 2 (Autorização)
-- Mantido como instrução permanente para análise de metadados e logs do projeto `yyiwkrkuhlkqibhowdmq`.
+### 4. Gestão de Documentos (Attachments)
+- O sistema atual armazena arquivos como `base64` no JSON (coluna `attachments`). Para o projeto `yyiw...`, sugiro migrar futuramente para o **Supabase Storage** (Bucket `supplier-documents`) para garantir performance ao carregar fichas de fornecedores com muitos anexos.
 
 ---
 *Documento gerado em conformidade com as instruções do utilizador (Freeze UI / Zero Refactoring).*
