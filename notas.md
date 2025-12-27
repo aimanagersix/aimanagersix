@@ -16,16 +16,16 @@
 
 ---
 
-## 🛠️ Concluído no Pedido 3 (Restauração Supplier Modal)
+## 🛠️ Concluído no Pedido 3 (Restauração Supplier UI Legacy)
 
 ### 1. Reestruturação Visual (Suppliers)
-- **Ações:** O modal de fornecedores foi reconstruído com base no layout de alta performance do projeto anterior.
+- **Ações:** O modal de fornecedores foi reconstruído com base no layout de alta performance do projeto anterior (GitHub).
 - **Destaque:** Implementação de **Cards de Contexto** (Identificação, Canais, Localização, Risco) para reduzir a carga cognitiva do utilizador.
 - **NIS2/DORA:** Reforço do bloco de conformidade com dropdowns coloridos para níveis de risco e campos obrigatórios para validade de certificados ISO.
 
-### 2. Correção de Visibilidade
-- **Problema:** As abas de navegação internas da ficha técnica estavam a ser cortadas ou omitidas em resoluções menores ou durante a edição.
-- **Solução:** Otimização do contentor flexível e restauração do seletor responsivo para mobile.
+### 2. Correção de Erro de Clipping
+- **Problema:** As abas de navegação internas da ficha técnica estavam a ser cortadas ou omitidas devido a conflitos de `overflow` no componente Modal.
+- **Solução:** O cabeçalho das Tabs foi desacoplado do formulário scrollable, garantindo visibilidade 100% em qualquer resolução, incluindo Mobile.
 
 ---
 

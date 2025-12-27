@@ -7,10 +7,10 @@ import { ContactList } from './common/ContactList';
 import * as dataService from '../services/dataService';
 
 /**
- * ADD SUPPLIER MODAL - V11.0 (Legacy UI Full Restoration)
+ * ADD SUPPLIER MODAL - V12.0 (Legacy Full Restoration)
  * -----------------------------------------------------------------------------
- * Organização por Blocos Lógicos (Cards) na aba de Detalhes.
- * Abas Responsivas e Correção de Clipping de Menus.
+ * Organização em Cards (Contextos) para reduzir carga cognitiva.
+ * Abas Fixas no topo com formulário scrollable independente.
  * -----------------------------------------------------------------------------
  */
 
@@ -72,7 +72,6 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
     const [newCertName, setNewCertName] = useState('');
     const [newCertDate, setNewCertDate] = useState('');
     const [showExtraCerts, setShowExtraCerts] = useState(false);
-    // Fix: added missing successMessage state
     const [successMessage, setSuccessMessage] = useState('');
 
     const [newContract, setNewContract] = useState<Partial<SupplierContract>>({
@@ -241,42 +240,45 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
         const dataToSave: any = { ...formData, attachments: attachments.map(({ name, dataUrl }) => ({ name, dataUrl })) };
         try {
             await onSave(dataToSave);
-            // Fix: added missing setSuccessMessage usage
             setSuccessMessage('Fornecedor gravado com sucesso!');
             setTimeout(() => setSuccessMessage(''), 3000);
+            onClose();
         } finally { setIsSaving(false); }
     };
 
     return (
-        <Modal title={supplierToEdit ? "Ficha Técnica de Fornecedor" : "Registar Novo Fornecedor Estratégico"} onClose={onClose} maxWidth="max-w-6xl">
+        <Modal title={supplierToEdit ? "Ficha Estratégica de Fornecedor" : "Registar Novo Fornecedor Crítico"} onClose={onClose} maxWidth="max-w-6xl">
             <div className="flex flex-col h-[85vh]">
                 
-                {/* Mobile Selector */}
-                <div className="sm:hidden mb-4 px-1">
-                    <label className="block text-[10px] font-black text-gray-500 uppercase mb-2 tracking-widest">Secção</label>
-                    <select 
-                        value={activeTab} 
-                        onChange={(e) => setActiveTab(e.target.value as any)}
-                        className="w-full bg-gray-700 border border-gray-600 text-white rounded p-3 text-sm font-black focus:border-brand-secondary outline-none shadow-inner"
-                    >
-                        <option value="details">Identificação e Segurança</option>
-                        <option value="contacts">Pessoas de Contacto</option>
-                        <option value="contracts">Contratos e DORA</option>
-                    </select>
+                {/* Cabeçalho de Navegação Fixo */}
+                <div className="flex-shrink-0">
+                    {/* Mobile Selector */}
+                    <div className="sm:hidden mb-4 px-1">
+                        <label className="block text-[10px] font-black text-gray-500 uppercase mb-2 tracking-widest">Secção</label>
+                        <select 
+                            value={activeTab} 
+                            onChange={(e) => setActiveTab(e.target.value as any)}
+                            className="w-full bg-gray-700 border border-gray-600 text-white rounded p-3 text-sm font-black focus:border-brand-secondary outline-none shadow-inner"
+                        >
+                            <option value="details">Identificação e Segurança</option>
+                            <option value="contacts">Pessoas de Contacto</option>
+                            <option value="contracts">Contratos e DORA</option>
+                        </select>
+                    </div>
+
+                    {/* Desktop Tabs */}
+                    <div className="hidden sm:flex border-b border-gray-700 mb-6 overflow-x-auto whitespace-nowrap px-1">
+                        <button type="button" onClick={() => setActiveTab('details')} className={`px-8 py-3 text-sm font-black uppercase tracking-[0.2em] border-b-2 transition-all flex-shrink-0 ${activeTab === 'details' ? 'border-brand-secondary text-white bg-gray-800/40' : 'border-transparent text-gray-400 hover:text-white'}`}>Identificação e Segurança</button>
+                        <button type="button" onClick={() => setActiveTab('contacts')} className={`px-8 py-3 text-sm font-black uppercase tracking-[0.2em] border-b-2 transition-all flex-shrink-0 ${activeTab === 'contacts' ? 'border-brand-secondary text-white bg-gray-800/40' : 'border-transparent text-gray-400 hover:text-white'}`}>Pessoas de Contacto</button>
+                        <button type="button" onClick={() => setActiveTab('contracts')} className={`px-8 py-3 text-sm font-black uppercase tracking-[0.2em] border-b-2 transition-all flex-shrink-0 ${activeTab === 'contracts' ? 'border-brand-secondary text-white bg-gray-800/40' : 'border-transparent text-gray-400 hover:text-white'}`}>Contratos e DORA</button>
+                    </div>
                 </div>
 
-                {/* Desktop Tabs */}
-                <div className="hidden sm:flex border-b border-gray-700 mb-6 overflow-x-auto whitespace-nowrap px-1">
-                    <button type="button" onClick={() => setActiveTab('details')} className={`px-8 py-3 text-sm font-black uppercase tracking-[0.2em] border-b-2 transition-all flex-shrink-0 ${activeTab === 'details' ? 'border-brand-secondary text-white bg-gray-800/40' : 'border-transparent text-gray-400 hover:text-white'}`}>Identificação e Segurança</button>
-                    <button type="button" onClick={() => setActiveTab('contacts')} className={`px-8 py-3 text-sm font-black uppercase tracking-[0.2em] border-b-2 transition-all flex-shrink-0 ${activeTab === 'contacts' ? 'border-brand-secondary text-white bg-gray-800/40' : 'border-transparent text-gray-400 hover:text-white'}`}>Pessoas de Contacto</button>
-                    <button type="button" onClick={() => setActiveTab('contracts')} className={`px-8 py-3 text-sm font-black uppercase tracking-[0.2em] border-b-2 transition-all flex-shrink-0 ${activeTab === 'contracts' ? 'border-brand-secondary text-white bg-gray-800/40' : 'border-transparent text-gray-400 hover:text-white'}`}>Contratos e DORA</button>
-                </div>
-
-                <form onSubmit={handleSubmit} className="flex-grow overflow-y-auto custom-scrollbar pr-3 space-y-8">
+                <form onSubmit={handleSubmit} className="flex-grow overflow-y-auto custom-scrollbar pr-3 space-y-10">
                     {activeTab === 'details' && (
                     <div className="space-y-10 animate-fade-in">
                         
-                        {/* CARD 1: Identificação Principal */}
+                        {/* CARD 1: Identificação Institucional */}
                         <div className="bg-gray-800/40 p-8 rounded-2xl border border-gray-700 shadow-2xl relative overflow-hidden">
                             <div className="absolute top-0 left-0 w-1 h-full bg-brand-primary opacity-50"></div>
                             <h4 className="text-[11px] font-black text-brand-secondary uppercase tracking-[0.3em] mb-6 flex items-center gap-3"><FaLandmark className="text-gray-400"/> Identificação Institucional</h4>
@@ -323,7 +325,7 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
                             </div>
                         </div>
 
-                        {/* CARD 3: Localização Física */}
+                        {/* CARD 3: Localização e Sede */}
                         <div className="bg-gray-800/40 p-8 rounded-2xl border border-gray-700 shadow-2xl">
                             <h4 className="text-[11px] font-black text-brand-secondary uppercase tracking-[0.3em] mb-6 flex items-center gap-3"><FaAddressCard className="text-gray-400"/> Localização e Sede Social</h4>
                             <div className="space-y-6">
@@ -334,16 +336,18 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                     <div className="relative">
                                         <label className="block text-[10px] font-black text-gray-500 uppercase mb-2 tracking-widest">Código Postal</label>
-                                        <input type="text" name="postal_code" value={formData.postal_code} onChange={handlePostalCodeChange} placeholder="0000-000" className="w-full bg-gray-900 border border-gray-700 text-white rounded-lg p-3 text-sm font-mono" />
+                                        <div className="flex">
+                                            <input type="text" name="postal_code" value={formData.postal_code} onChange={handlePostalCodeChange} placeholder="0000-000" className="w-full bg-gray-900 border border-gray-700 text-white rounded-lg p-3 text-sm font-mono" />
+                                        </div>
                                         {isFetchingCP && <SpinnerIcon className="absolute right-3 top-10 h-4 w-4"/>}
                                     </div>
                                     <div>
                                         <label className="block text-[10px] font-black text-gray-500 uppercase mb-2 tracking-widest">Concelho / Cidade</label>
-                                        <input type="text" name="city" value={formData.city} onChange={handleChange} className="w-full bg-gray-900 border border-gray-700 text-white rounded-lg p-3 text-sm" />
+                                        <input type="text" name="city" value={formData.city} onChange={handleChange} className="w-full bg-gray-900 border border-gray-700 text-white rounded-lg p-3 text-sm shadow-inner" />
                                     </div>
                                     <div>
                                         <label className="block text-[10px] font-black text-gray-500 uppercase mb-2 tracking-widest">Freguesia / Localidade</label>
-                                        <input type="text" name="locality" value={formData.locality} onChange={handleChange} className="w-full bg-gray-900 border border-gray-700 text-white rounded-lg p-3 text-sm" />
+                                        <input type="text" name="locality" value={formData.locality} onChange={handleChange} className="w-full bg-gray-900 border border-gray-700 text-white rounded-lg p-3 text-sm shadow-inner" />
                                     </div>
                                 </div>
                             </div>
@@ -456,7 +460,7 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                     <div>
                                         <label className="block text-[10px] font-black text-gray-500 uppercase mb-2">Ref. do Acordo / Contrato</label>
-                                        <input type="text" value={newContract.ref_number} onChange={e => setNewContract({...newContract, ref_number: e.target.value})} className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-white text-sm" placeholder="CTR-2024-..." />
+                                        <input type="text" value={newContract.ref_number} onChange={e => setNewContract({...newContract, ref_number: e.target.value})} className="w-full bg-gray-700 border border-gray-600 rounded-lg p-3 text-white text-sm" placeholder="CTR-2024-..." />
                                     </div>
                                     <div>
                                         <label className="block text-[10px] font-black text-gray-500 uppercase mb-2">Descrição Resumida do Objeto</label>
@@ -516,8 +520,7 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
                     )}
                 </form>
 
-                {// Fix: added check for successMessage existence
-                successMessage && <div className="p-4 bg-green-500/20 text-green-300 rounded-lg border border-green-500/40 text-center font-black text-xs animate-fade-in mt-6 shadow-lg">{successMessage}</div>}
+                {successMessage && <div className="p-4 bg-green-500/20 text-green-300 rounded-lg border border-green-500/40 text-center font-black text-xs animate-fade-in mt-6 shadow-lg">{successMessage}</div>}
 
                 <div className="flex justify-end gap-6 pt-10 border-t border-gray-700 mt-auto flex-shrink-0">
                     <button type="button" onClick={onClose} className="px-10 py-3 bg-gray-700 text-white rounded-xl font-bold hover:bg-gray-600 transition-all uppercase text-xs tracking-widest shadow-lg">Cancelar</button>
