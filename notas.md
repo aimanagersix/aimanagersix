@@ -7,6 +7,7 @@
 ## 📦 Fluxo de Receção de Ativos (Pedido 3.2)
 - **Problema**: O `cleanPayload` estava a ser muito agressivo ou a falhar na normalização de nomes de campos em massa.
 - **Solução**: Centralizei a limpeza de dados dentro da função `addMultipleEquipment` no serviço. Agora, ao dar entrada de 10 portáteis de uma vez, cada um é validado individualmente antes do Insert.
+- **Correção Adicional**: Sincronização de chaves *camelCase* para *snake_case* no `ReceiveAssetsModal.tsx` para evitar perda de dados durante o salvamento.
 
 ## ⚖️ Governança de Aquisições & DORA (Pedido 3.3)
 - **Equipa de Aprovação**: Implementada a lógica onde uma equipa específica detém o poder de aprovação.

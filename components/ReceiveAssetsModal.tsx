@@ -3,6 +3,14 @@ import Modal from './common/Modal';
 import { ProcurementRequest, Brand, EquipmentType, EquipmentStatus, CriticalityLevel, LicenseStatus } from '../types';
 import { FaBoxOpen, FaCheck, FaKey, FaLaptop, FaListOl, FaTags, FaCalendarAlt } from 'react-icons/fa';
 
+/**
+ * RECEIVE ASSETS MODAL - V2.0 (snake_case sync)
+ * -----------------------------------------------------------------------------
+ * STATUS DE BLOQUEIO RIGOROSO (Freeze UI):
+ * - PEDIDO 3: CORREÇÃO DE MAPEAMENTO E RESTAURAÇÃO DE GARANTIA.
+ * -----------------------------------------------------------------------------
+ */
+
 interface ReceiveAssetsModalProps {
     onClose: () => void;
     request: ProcurementRequest;
@@ -24,10 +32,10 @@ const ReceiveAssetsModal: React.FC<ReceiveAssetsModalProps> = ({ onClose, reques
 
     const [licenseMode, setLicenseMode] = useState<'individual' | 'single'>('individual');
     const [bulkData, setBulkData] = useState({
-        productName: request.title || '',
-        licenseKey: '',
+        product_name: request.title || '',
+        license_key: '',
         description: '',
-        isOem: false
+        is_oem: false
     });
 
     useEffect(() => {
@@ -94,7 +102,7 @@ const ReceiveAssetsModal: React.FC<ReceiveAssetsModalProps> = ({ onClose, reques
     const handleSubmit = async () => {
         if (isSoftware) {
             if (licenseMode === 'single') {
-                if (!bulkData.productName || !bulkData.licenseKey) return alert("Preencha os dados da licença.");
+                if (!bulkData.product_name || !bulkData.license_key) return alert("Preencha os dados da licença.");
             } else {
                 if (items.some(i => !i.license_key || !i.product_name)) return alert("Preencha todas as chaves.");
             }
@@ -120,12 +128,12 @@ const ReceiveAssetsModal: React.FC<ReceiveAssetsModalProps> = ({ onClose, reques
                 if (licenseMode === 'single') {
                      assetsToCreate = [{
                         ...baseSoftwareData,
-                        product_name: bulkData.productName,
-                        license_key: bulkData.licenseKey,
+                        product_name: bulkData.product_name,
+                        license_key: bulkData.license_key,
                         total_seats: request.quantity,
                         status: LicenseStatus.Ativo,
                         unit_cost: request.estimated_cost ? (request.estimated_cost / request.quantity) : 0,
-                        is_oem: bulkData.isOem
+                        is_oem: bulkData.is_oem
                      }];
                 } else {
                      assetsToCreate = items.map(item => ({
@@ -206,19 +214,19 @@ const ReceiveAssetsModal: React.FC<ReceiveAssetsModalProps> = ({ onClose, reques
                     {isSoftware && licenseMode === 'single' ? (
                          <div className="bg-gray-800/50 p-6 space-y-4">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <input type="text" value={bulkData.productName} onChange={(e) => setBulkData({...bulkData, productName: e.target.value})} className="bg-gray-700 border border-gray-600 text-white rounded p-2" placeholder="Nome do Produto" />
-                                <input type="text" value={bulkData.licenseKey} onChange={(e) => setBulkData({...bulkData, licenseKey: e.target.value})} className="bg-gray-700 border border-gray-600 text-yellow-300 font-mono rounded p-2" placeholder="Chave de Volume" />
+                                <input type="text" value={bulkData.product_name} onChange={(e) => setBulkData({...bulkData, product_name: e.target.value})} className="bg-gray-700 border border-gray-600 text-white rounded p-2" placeholder="Nome do Produto" />
+                                <input type="text" value={bulkData.license_key} onChange={(e) => setBulkData({...bulkData, license_key: e.target.value})} className="bg-gray-700 border border-gray-600 text-yellow-300 font-mono rounded p-2" placeholder="Chave de Volume" />
                             </div>
                          </div>
                     ) : (
                         <table className="w-full text-sm text-left">
-                            <thead className="bg-gray-700 text-gray-300 uppercase text-[10px] font-black">
+                            <thead className="bg-gray-700 text-gray-300 uppercase text-[10px] font-black sticky top-0 z-10">
                                 <tr>
                                     <th className="p-3 w-10">#</th>
                                     {isSoftware ? (
                                         <><th className="p-3">Produto</th><th className="p-3">Chave</th></>
                                     ) : (
-                                        <><th className="p-3">Nº Série</th><th className="p-3">Marca</th><th className="p-3">Tipo</th><th className="p-3">Descrição</th></>
+                                        <><th className="p-3">Nº Série</th><th className="p-3">Marca</th><th className="p-3">Tipo</th><th className="p-3">Descrição</th><th className="p-3">Garantia</th></>
                                     )}
                                 </tr>
                             </thead>
@@ -237,6 +245,14 @@ const ReceiveAssetsModal: React.FC<ReceiveAssetsModalProps> = ({ onClose, reques
                                                 <td className="p-3"><select value={item.brand_id} onChange={(e) => handleItemChange(idx, 'brand_id', e.target.value)} className="bg-gray-800 border border-gray-600 text-white rounded p-1 w-full">{brands.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}</select></td>
                                                 <td className="p-3"><select value={item.type_id} onChange={(e) => handleItemChange(idx, 'type_id', e.target.value)} className="bg-gray-800 border border-gray-600 text-white rounded p-1 w-full">{types.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}</select></td>
                                                 <td className="p-3"><input type="text" value={item.description} onChange={(e) => handleItemChange(idx, 'description', e.target.value)} className="bg-gray-800 border border-gray-600 text-white rounded p-1 w-full" /></td>
+                                                <td className="p-3">
+                                                    <input 
+                                                        type="date" 
+                                                        value={item.warranty_end_date} 
+                                                        onChange={(e) => handleItemChange(idx, 'warranty_end_date', e.target.value)}
+                                                        className="bg-gray-800 border border-gray-600 text-white rounded p-1 w-full text-xs"
+                                                    />
+                                                </td>
                                             </>
                                         )}
                                     </tr>
