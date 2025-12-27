@@ -417,6 +417,8 @@ export interface ProcurementItem {
     brand_id?: string;
     equipment_type_id?: string;
     software_category_id?: string;
+    // Fix: Added software_product_id to ProcurementItem to resolve type error in AddProcurementModal
+    software_product_id?: string;
     specifications: any;
 }
 
