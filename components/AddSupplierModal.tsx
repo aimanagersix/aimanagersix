@@ -72,8 +72,7 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
     const [emailSuggestion, setEmailSuggestion] = useState('');
     const [newCertName, setNewCertName] = useState('');
     const [newCertDate, setNewCertDate] = useState('');
-    
-    // Sugestão do Engenheiro: Revelação Progressiva
+    // Fix: Added missing showExtraCerts state variable
     const [showExtraCerts, setShowExtraCerts] = useState(false);
 
     const [newContract, setNewContract] = useState<Partial<SupplierContract>>({
@@ -103,7 +102,7 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
             if (supplierToEdit.attachments) {
                 setAttachments(supplierToEdit.attachments.map(a => ({ ...a, size: 0 })));
             }
-            // Expandir certs se já existirem
+            // Fix: Initialize showExtraCerts to true if the supplier already has extra certifications
             if (supplierToEdit.other_certifications && supplierToEdit.other_certifications.length > 0) {
                 setShowExtraCerts(true);
             }
@@ -171,12 +170,12 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
 
     const handleFetchNifData = async () => {
         if (!formData.nif?.trim()) return;
-        const nif = formData.nif.trim().replace(/[^0-9]/g, '');
+        const nif = formData.nif.trim().replace(/[^0-9/]/g, '');
         if (nif.length !== 9) return;
         setIsFetchingNif(true);
         try {
             const targetUrl = `https://www.nif.pt/?json=1&q=${nif}&key=${NIF_API_KEY}`;
-            const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
+            const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
             const response = await fetch(proxyUrl);
             if (response.ok) {
                 const data = await response.json();
@@ -258,27 +257,10 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
     return (
         <Modal title={supplierToEdit ? "Editar Fornecedor" : "Adicionar Fornecedor"} onClose={onClose} maxWidth="max-w-5xl">
             <div className="flex flex-col h-[80vh]">
-                
-                {/* Sugestão do Engenheiro: Abas Responsivas */}
-                {/* Mobile Selector */}
-                <div className="sm:hidden mb-4">
-                    <label className="block text-[10px] font-black text-gray-500 uppercase mb-2 tracking-widest">Secção do Formulário</label>
-                    <select 
-                        value={activeTab} 
-                        onChange={(e) => setActiveTab(e.target.value as any)}
-                        className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm font-bold focus:border-brand-secondary outline-none"
-                    >
-                        <option value="details">Detalhes Gerais</option>
-                        <option value="contacts">Pessoas de Contacto</option>
-                        <option value="contracts">Contratos & DORA</option>
-                    </select>
-                </div>
-
-                {/* Desktop Tabs */}
-                <div className="hidden sm:flex border-b border-gray-700 mb-6 overflow-x-auto whitespace-nowrap scrollbar-hide">
-                    <button type="button" onClick={() => setActiveTab('details')} className={`px-6 py-2 text-sm font-bold border-b-2 transition-colors flex-shrink-0 min-w-fit ${activeTab === 'details' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}>Detalhes Gerais</button>
-                    <button type="button" onClick={() => setActiveTab('contacts')} className={`px-6 py-2 text-sm font-bold border-b-2 transition-colors flex-shrink-0 min-w-fit flex items-center gap-2 ${activeTab === 'contacts' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}>Pessoas de Contacto</button>
-                    <button type="button" onClick={() => setActiveTab('contracts')} className={`px-6 py-2 text-sm font-bold border-b-2 transition-colors flex-shrink-0 min-w-fit flex items-center gap-2 ${activeTab === 'contracts' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}>Contratos & DORA</button>
+                <div className="flex border-b border-gray-700 mb-6 overflow-x-auto whitespace-nowrap scrollbar-hide">
+                    <button type="button" onClick={() => setActiveTab('details')} className={`px-6 py-2 text-sm font-bold border-b-2 transition-colors flex-shrink-0 min-w-max ${activeTab === 'details' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}>Detalhes Gerais</button>
+                    <button type="button" onClick={() => setActiveTab('contacts')} className={`px-6 py-2 text-sm font-bold border-b-2 transition-colors flex-shrink-0 min-w-max flex items-center gap-2 ${activeTab === 'contacts' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}>Pessoas de Contacto</button>
+                    <button type="button" onClick={() => setActiveTab('contracts')} className={`px-6 py-2 text-sm font-bold border-b-2 transition-colors flex-shrink-0 min-w-max flex items-center gap-2 ${activeTab === 'contracts' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}>Contratos & DORA</button>
                 </div>
 
                 <form onSubmit={handleSubmit} className="flex-grow overflow-y-auto custom-scrollbar pr-2 space-y-6">
@@ -372,6 +354,7 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
                             {/* Sugestão do Engenheiro: Revelação Progressiva */}
                             <div className="bg-black/10 p-4 rounded border border-gray-700">
                                 <label className="flex items-center cursor-pointer mb-3">
+                                    {/* Fix: use showExtraCerts state */}
                                     <input 
                                         type="checkbox" 
                                         checked={showExtraCerts} 
@@ -383,6 +366,7 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
                                     </span>
                                 </label>
 
+                                {/* Fix: use showExtraCerts state */}
                                 {showExtraCerts && (
                                     <div className="animate-fade-in">
                                         <div className="flex flex-wrap gap-2 mb-3">

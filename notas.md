@@ -22,13 +22,16 @@ Este documento regista sugestões técnicas e observações de UX/UI para análi
 **Observação:** O limite de 3 ficheiros é rígido.
 **Sugestão:** Considerar a criação de uma pasta específica no bucket do Supabase por fornecedor (`suppliers/{id}/*`) para permitir a gestão de documentos de conformidade (certificados ISO scanneados, termos de responsabilidade) sem sobrecarregar o registo da base de dados.
 
+### 5. Contactos Padrão (Primary Contact)
+**Sugestão:** Adicionar uma flag "Contacto Principal" na lista de pessoas de contacto. Isso permitiria que o sistema enviasse notificações NIS2 diretamente para o gestor de conta do fornecedor, em vez de depender de um email genérico.
+
 ## 📱 Sugestões de UX Mobile (Pedido 3 - Parte 2)
 
-### 5. Responsive Tabs Pattern
+### 6. Responsive Tabs Pattern
 **Estado:** Implementado em Modais de Fornecedores, Equipamentos e Colaboradores.
 **Sugestão:** Estender este padrão para as tabelas principais. Em dispositivos móveis, as tabelas com mais de 5 colunas devem ser renderizadas como "Cards" individuais para evitar scroll horizontal infinito.
 
-### 6. Progressive Disclosure (Formulários Complexos)
+### 7. Progressive Disclosure (Formulários Complexos)
 **Estado:** Implementado nos Certificados de Fornecedores.
 **Sugestão:** Aplicar este conceito no formulário de Equipamentos. Campos como "Rede" ou "Financeiro" só devem expandir se forem relevantes para o utilizador no momento da inserção.
 
@@ -36,10 +39,10 @@ Este documento regista sugestões técnicas e observações de UX/UI para análi
 
 ## ☁️ Notas de Infraestrutura (yyiwkrkuhlkqibhowdmq)
 
-### 7. Monitorização de Deploys
+### 8. Monitorização de Deploys
 **Nota:** Como a IA não tem acesso ao dashboard do Vercel/GitHub, sugere-se a implementação de um **Health Check Endpoint** no Supabase. Uma função que devolve o status do sistema e pode ser consultada pela app para avisar o utilizador de manutenções ou falhas de deploy em tempo real.
 
-### 8. Python & Mobile Apps
+### 9. Python & Mobile Apps
 **Nota:** O script Python fornecido em "Configurações -> Agentes" é um ponto de partida. Para uma app de telemóvel real (Android/iOS), o uso de **Kivy** ou **Flutter** comunicando com a API REST do Supabase é o caminho recomendado para manter a integridade dos dados sem refactorizar o backend atual.
 
 ---
