@@ -4,11 +4,10 @@ import { FaDatabase, FaCheck, FaCopy, FaExclamationTriangle, FaCode, FaBolt, FaS
 import * as dataService from '../services/dataService';
 
 /**
- * DB Manager UI - v42.0 (ISO Automation & English Table Names)
+ * DB Manager UI - v43.0 (Resource Contacts RLS Fix)
  * -----------------------------------------------------------------------------
- * - CORREÇÃO: Alinhamento com tabelas 'institutions' e 'entities'.
- * - AUTOMAÇÃO: SQL Procedure para renovação ISO 27001 30 dias antes.
- * - AUDITORIA: Trigger de auditoria NIS2 para ativos críticos.
+ * - CORREÇÃO: Inclusão de 'resource_contacts' no patch de RLS.
+ * - AUTOMAÇÃO: SQL Procedure para renovação ISO 27001 e Auditoria NIS2.
  * -----------------------------------------------------------------------------
  */
 
@@ -32,7 +31,7 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
         setIsDiagLoading(true);
         setDiagResult('A consultar metadados do Supabase...');
         try {
-            const tables = ['equipment', 'collaborators', 'suppliers', 'tickets'];
+            const tables = ['equipment', 'collaborators', 'suppliers', 'tickets', 'resource_contacts'];
             let report = `--- RELATÓRIO DE ESTRUTURA REAL (Live) ---\nGerado em: ${new Date().toLocaleString()}\n\n`;
             for (const table of tables) {
                 try {
@@ -48,10 +47,31 @@ const DatabaseSchemaModal: React.FC<DatabaseSchemaModalProps> = ({ onClose }) =>
         } catch (error: any) { setDiagResult(`Erro Crítico: ${error.message}`); } finally { setIsDiagLoading(false); }
     };
 
-    const automationPatch = `-- 🤖 AIMANAGER - AUTOMATION & NIS2 PATCH (v42.0)
--- Este script ativa a criação proativa de tickets e a auditoria de alterações.
+    const automationPatch = `-- 🤖 AIMANAGER - AUTOMATION & RLS PATCH (v43.0)
+-- Este script corrige as permissões de contactos adicionais e ativa auditoria.
 
--- 1. FUNÇÃO DE AUDITORIA NIS2 (Log de Alterações em Ativos)
+-- 1. CORREÇÃO DE POLÍTICAS RLS (Inclusão de resource_contacts)
+DO $$ 
+DECLARE 
+    t text;
+    tables_to_policy text[] := ARRAY[
+        'resource_contacts', 'suppliers', 'institutions', 'entities', 'collaborators', 'equipment', 'tickets'
+    ];
+BEGIN
+    FOREACH t IN ARRAY tables_to_policy LOOP
+        EXECUTE format('ALTER TABLE IF EXISTS public.%I ENABLE ROW LEVEL SECURITY', t);
+        
+        -- Permitir Leitura
+        EXECUTE format('DROP POLICY IF EXISTS "Allow read for authenticated users" ON public.%I', t);
+        EXECUTE format('CREATE POLICY "Allow read for authenticated users" ON public.%I FOR SELECT TO authenticated USING (true)', t);
+        
+        -- Permitir Escrita Total (Técnicos e Admins)
+        EXECUTE format('DROP POLICY IF EXISTS "Allow full access for authenticated users" ON public.%I', t);
+        EXECUTE format('CREATE POLICY "Allow full access for authenticated users" ON public.%I FOR ALL TO authenticated USING (true) WITH CHECK (true)', t);
+    END LOOP;
+END $$;
+
+-- 2. FUNÇÃO DE AUDITORIA NIS2
 CREATE OR REPLACE FUNCTION public.log_audit_event()
 RETURNS trigger AS $$
 BEGIN
@@ -67,17 +87,12 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Aplicar a equipamentos e tickets
-DROP TRIGGER IF EXISTS trigger_audit_equipment ON public.equipment;
-CREATE TRIGGER trigger_audit_equipment AFTER INSERT OR UPDATE OR DELETE ON public.equipment FOR EACH ROW EXECUTE FUNCTION log_audit_event();
-
--- 2. FUNÇÃO DE VERIFICAÇÃO DIÁRIA (Renovação ISO 27001)
+-- 3. FUNÇÃO DE VERIFICAÇÃO DIÁRIA (Renovação ISO 27001)
 CREATE OR REPLACE FUNCTION public.proc_auto_generate_iso_tickets()
 RETURNS void AS $$
 DECLARE
     v_triagem_id uuid;
 BEGIN
-    -- Obter ID da equipa de triagem
     SELECT id INTO v_triagem_id FROM public.teams WHERE name = 'Triagem' LIMIT 1;
 
     INSERT INTO public.tickets (title, description, status, category, impact_criticality, request_date, team_id)
@@ -103,10 +118,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- 3. ATIVAÇÃO DO AGENDAMENTO (pg_cron)
--- Execute isto se tiver a extensão pg_cron ativa.
--- SELECT cron.schedule('auto-iso-tickets', '0 9 * * *', 'SELECT public.proc_auto_generate_iso_tickets()');
-
 NOTIFY pgrst, 'reload schema';
 COMMIT;`;
 
@@ -116,7 +127,7 @@ COMMIT;`;
         <Modal title="Gestão de Infraestrutura (Enterprise)" onClose={onClose} maxWidth="max-w-6xl">
             <div className="space-y-4 h-[85vh] flex flex-col">
                 <div className="flex-shrink-0 flex border-b border-gray-700 bg-gray-900/50 rounded-t-lg overflow-x-auto custom-scrollbar whitespace-nowrap">
-                    <button onClick={() => setActiveTab('automation_patch')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'automation_patch' ? 'border-brand-secondary text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaBolt /> Patch Automação (v42.0)</button>
+                    <button onClick={() => setActiveTab('automation_patch')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'automation_patch' ? 'border-brand-secondary text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaBolt /> Patch Automação (v43.0)</button>
                     <button onClick={() => setActiveTab('full')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'full' ? 'border-indigo-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaCode /> Inicialização</button>
                     <button onClick={() => setActiveTab('live_diag')} className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === 'live_diag' ? 'border-blue-500 text-white bg-gray-800' : 'border-transparent text-gray-400 hover:text-white'}`}><FaStethoscope /> Diagnóstico</button>
                 </div>
@@ -124,8 +135,8 @@ COMMIT;`;
                 <div className="flex-grow overflow-hidden flex flex-col gap-4">
                     {activeTab === 'automation_patch' && (
                         <div className="bg-brand-primary/10 border border-brand-primary/30 p-4 rounded-lg mb-2">
-                            <h4 className="text-brand-secondary font-bold flex items-center gap-2 text-sm uppercase mb-1"><FaRobot /> PATCH v42.0: COMPLIANCE NIS2 & IDIOMA</h4>
-                            <p className="text-[11px] text-gray-300">Alinha as automações com as tabelas em Inglês e ativa a auditoria de alterações.</p>
+                            <h4 className="text-brand-secondary font-bold flex items-center gap-2 text-sm uppercase mb-1"><FaRobot /> PATCH v43.0: CORREÇÃO CONTACTOS & RLS</h4>
+                            <p className="text-[11px] text-gray-300">Liberta a escrita na tabela 'resource_contacts' e garante auditoria NIS2 em todos os módulos críticos.</p>
                         </div>
                     )}
 

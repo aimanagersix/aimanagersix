@@ -16,16 +16,16 @@
 
 ---
 
-## 🛠️ Concluído no Pedido 3 (Restauração Supplier UI Legacy)
+## 🛠️ Concluído no Pedido 3 (Correção de Contactos Adicionais)
 
-### 1. Reestruturação Visual (Suppliers)
-- **Ações:** O modal de fornecedores foi reconstruído com base no layout de alta performance do projeto anterior (GitHub).
+### 1. Persistência de Contactos (Fix)
+- **Problema:** Os contactos adicionais dos fornecedores não eram gravados na base de dados (silent failure).
+- **Causa:** A tabela `resource_contacts` não tinha as políticas de Row Level Security (RLS) configuradas para permitir `INSERT` e `DELETE` por utilizadores autenticados.
+- **Solução:** Atualização do `orgService.ts` com logs de erro reais e inclusão da tabela no script de Patch Automação (v43.0).
+
+### 2. Restauração UI (Suppliers)
+- **Ações:** O modal de fornecedores foi reconstruído com base no layout de alta performance do projeto anterior.
 - **Destaque:** Implementação de **Cards de Contexto** (Identificação, Canais, Localização, Risco) para reduzir a carga cognitiva do utilizador.
-- **NIS2/DORA:** Reforço do bloco de conformidade com dropdowns coloridos para níveis de risco e campos obrigatórios para validade de certificados ISO.
-
-### 2. Correção de Erro de Clipping
-- **Problema:** As abas de navegação internas da ficha técnica estavam a ser cortadas ou omitidas devido a conflitos de `overflow` no componente Modal.
-- **Solução:** O cabeçalho das Tabs foi desacoplado do formulário scrollable, garantindo visibilidade 100% em qualquer resolução, incluindo Mobile.
 
 ---
 

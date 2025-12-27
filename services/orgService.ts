@@ -1,4 +1,3 @@
-
 import { getSupabase } from './supabaseClient';
 import { ResourceContact } from '../types';
 import { adminProvisionUser } from './authService';
@@ -29,7 +28,7 @@ export const fetchOrganizationData = async () => {
         sb().from('contact_roles').select('*').order('name'),
         sb().from('collaborator_history').select('*').order('start_date', { ascending: false }),
         // Adição: Buscar contactos para instituições e entidades
-        sb().from('resource_contacts').select('*').in('resource_type', ['entidade', 'instituicao'])
+        sb().from('resource_contacts').select('*').in('resource_type', ['entidade', 'instituicao', 'supplier'])
     ]);
 
     const allContacts = results[7].data || [];
@@ -165,11 +164,38 @@ export const fetchLastRiskAcknowledgement = async () => { const { data } = await
 export const logAction = async (action: string, resourceType: string, details?: string, resourceId?: string) => { await sb().from('audit_log').insert({ action, resource_type: resourceType, details, resource_id: resourceId }); };
 export const fetchAuditLogs = async () => { const { data } = await sb().from('audit_log').select('*').order('timestamp', { ascending: false }); return data || []; };
 export const triggerBirthdayCron = async () => { await sb().rpc('send_daily_birthday_emails'); };
+
+/**
+ * syncResourceContacts v2.0 - Sincronização robusta de contactos adicionais.
+ * Pedido 3: Adicionado tratamento de erro explícito para RLS.
+ */
 export const syncResourceContacts = async (type: string, id: string, contacts: ResourceContact[]) => { 
-    await sb().from('resource_contacts').delete().eq('resource_type', type).eq('resource_id', id); 
+    // 1. Limpeza de contactos antigos
+    const { error: deleteError } = await sb()
+        .from('resource_contacts')
+        .delete()
+        .eq('resource_type', type)
+        .eq('resource_id', id); 
+    
+    if (deleteError) {
+        console.error(`[syncResourceContacts] Erro ao limpar contactos (RLS?):`, deleteError);
+        throw new Error(`Falha ao atualizar base de dados de contactos: ${deleteError.message}`);
+    }
+
+    // 2. Inserção dos novos contactos
     if (contacts.length > 0) { 
-        const items = contacts.map(c => ({ ...c, resource_type: type, resource_id: id })); 
-        await sb().from('resource_contacts').insert(items); 
+        const items = contacts.map(c => {
+            const clean = { ...c, resource_type: type, resource_id: id };
+            // Remover ID se for novo para deixar o Postgres gerar UUID
+            if (String(clean.id).length > 30) { /* manter uuid existente */ } else { delete (clean as any).id; }
+            return clean;
+        }); 
+
+        const { error: insertError } = await sb().from('resource_contacts').insert(items); 
+        if (insertError) {
+            console.error(`[syncResourceContacts] Erro ao inserir novos contactos:`, insertError);
+            throw new Error(`Falha ao gravar novos contactos: ${insertError.message}`);
+        }
     } 
 };
 
