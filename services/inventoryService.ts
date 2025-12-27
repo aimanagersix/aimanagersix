@@ -83,7 +83,7 @@ const cleanPayload = (data: any) => {
         'procurement_request_id': 'procurement_request_id'
     };
 
-    const blackList = ['contacts', 'preferences', 'simulatedTicket', 'isSimulating', 'address']; 
+    const blackList = ['contacts', 'preferences', 'simulatedTicket', 'isSimulating', 'address', 'items']; 
     const numericFields = ['acquisition_cost', 'residual_value', 'unit_cost', 'total_seats', 'estimated_cost', 'quantity', 'expected_lifespan_years'];
 
     Object.keys(data).forEach(key => {
@@ -344,8 +344,6 @@ export const updateProcurement = async (id: string, updates: any) => {
 };
 
 export const deleteProcurement = async (id: string) => { 
-    const { error: delItemsErr } = await sb().from('procurement_items').delete().eq('procurement_id', id);
-    if (delItemsErr) throw delItemsErr;
     const { error } = await sb().from('procurement_requests').delete().eq('id', id); 
     if (error) throw error;
 };
