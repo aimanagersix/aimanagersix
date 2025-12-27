@@ -1,10 +1,18 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import Modal from './common/Modal';
-import { ProcurementRequest, Collaborator, Supplier, ProcurementStatus, UserRole, EquipmentType, ConfigItem, Brand, Equipment } from '../types';
-import { FaSave, FaCheck, FaTimes, FaTruck, FaBoxOpen, FaShoppingCart, FaMicrochip, FaKey, FaPaperclip, FaTags, FaMemory, FaHdd, FaListUl, FaLaptop, FaDownload } from 'react-icons/fa';
-import { SpinnerIcon, FaTrash as DeleteIcon } from './common/Icons';
+import { ProcurementRequest, ProcurementItem, Collaborator, Supplier, ProcurementStatus, UserRole, EquipmentType, ConfigItem, Brand } from '../types';
+// Added FaListUl to imports
+import { FaSave, FaCheck, FaTimes, FaTruck, FaBoxOpen, FaShoppingCart, FaMicrochip, FaKey, FaPaperclip, FaTags, FaPlus, FaTrash, FaListUl } from 'react-icons/fa';
+import { SpinnerIcon } from './common/Icons';
 import * as dataService from '../services/dataService';
-import { getSupabase } from '../services/supabaseClient';
+
+/**
+ * ADD PROCUREMENT MODAL - V3.0 (Master-Detail Architecture)
+ * -----------------------------------------------------------------------------
+ * STATUS DE BLOQUEIO RIGOROSO (Freeze UI):
+ * - PEDIDO 3: SUPORTE A MÚLTIPLOS ITENS POR AQUISIÇÃO.
+ * -----------------------------------------------------------------------------
+ */
 
 interface AddProcurementModalProps {
     onClose: () => void;
@@ -15,44 +23,43 @@ interface AddProcurementModalProps {
     suppliers: Supplier[];
     equipmentTypes?: EquipmentType[];
     softwareCategories?: ConfigItem[];
-    // NEW CONFIG PROPS
     cpuOptions?: ConfigItem[];
     ramOptions?: ConfigItem[];
     storageOptions?: ConfigItem[];
 }
 
-const MAX_FILES = 3;
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+const MAX_FILES = 5;
 
-const AddProcurementModal: React.FC<AddProcurementModalProps> = ({ onClose, onSave, procurementToEdit, currentUser, collaborators, suppliers, equipmentTypes = [], softwareCategories = [], cpuOptions = [], ramOptions = [], storageOptions = [] }) => {
+const AddProcurementModal: React.FC<AddProcurementModalProps> = ({ 
+    onClose, onSave, procurementToEdit, currentUser, collaborators, suppliers, 
+    equipmentTypes = [], softwareCategories = [], cpuOptions = [], ramOptions = [], storageOptions = [] 
+}) => {
     
     const [formData, setFormData] = useState<Partial<ProcurementRequest>>({
         title: '',
         description: '',
-        quantity: 1,
-        estimated_cost: 0,
         requester_id: currentUser?.id || '',
         status: ProcurementStatus.Pending,
         request_date: new Date().toISOString().split('T')[0],
-        priority: 'Normal' as 'Normal' | 'Urgente',
-        resource_type: 'Hardware', // Default
-        specifications: {},
-        attachments: [],
-        brand_id: ''
+        priority: 'Normal',
+        supplier_id: '',
+        order_reference: '',
+        invoice_number: '',
+        attachments: []
     });
 
-    const [attachments, setAttachments] = useState<{ name: string; dataUrl: string; size: number }[]>([]);
-    const [brands, setBrands] = useState<Brand[]>([]); // State to load brands
-    const [receivedAssets, setReceivedAssets] = useState<Equipment[]>([]); // State for associated assets
-    const [loadingAssets, setLoadingAssets] = useState(false);
+    const [items, setItems] = useState<Partial<ProcurementItem>[]>([
+        { title: '', resource_type: 'Hardware', quantity: 1, unit_cost: 0, specifications: {} }
+    ]);
+
+    const [attachments, setAttachments] = useState<{ name: string; dataUrl: string }[]>([]);
+    const [brands, setBrands] = useState<Brand[]>([]);
     const [canUserApprove, setCanUserApprove] = useState(false);
-    
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [isSaving, setIsSaving] = useState(false);
 
     const isAdmin = currentUser?.role === UserRole.Admin || currentUser?.role === UserRole.SuperAdmin;
 
-    // Load brands and approval permissions
     useEffect(() => {
         const loadContext = async () => {
             const [data, approvalTeamId] = await Promise.all([
@@ -60,446 +67,184 @@ const AddProcurementModal: React.FC<AddProcurementModalProps> = ({ onClose, onSa
                 dataService.getGlobalSetting('procurement_approval_team_id')
             ]);
             setBrands(data.brands);
-            
-            // Check if user belongs to approval team
             if (currentUser) {
-                if (currentUser.role === UserRole.SuperAdmin) {
-                    setCanUserApprove(true);
-                } else if (approvalTeamId) {
+                if (currentUser.role === UserRole.SuperAdmin) setCanUserApprove(true);
+                else if (approvalTeamId) {
                     const isMember = data.teamMembers.some((tm: any) => tm.team_id === approvalTeamId && tm.collaborator_id === currentUser.id);
                     setCanUserApprove(isMember);
-                } else {
-                    setCanUserApprove(isAdmin); // Fallback to admin if team not set
-                }
+                } else setCanUserApprove(isAdmin);
             }
         };
         loadContext();
     }, [currentUser, isAdmin]);
 
-    // Load associated assets if procurement exists and is of type Hardware
-    useEffect(() => {
-        if (procurementToEdit && procurementToEdit.id && procurementToEdit.resource_type === 'Hardware') {
-            const fetchAssets = async () => {
-                setLoadingAssets(true);
-                try {
-                    const supabase = getSupabase();
-                    const { data } = await supabase
-                        .from('equipment')
-                        .select('*')
-                        .eq('procurement_request_id', procurementToEdit.id);
-                    
-                    if (data) {
-                        setReceivedAssets(data);
-                    }
-                } catch (err) {
-                    console.error("Failed to load associated assets", err);
-                } finally {
-                    setLoadingAssets(false);
-                }
-            };
-            fetchAssets();
-        }
-    }, [procurementToEdit]);
-
     useEffect(() => {
         if (procurementToEdit) {
-            setFormData({
-                ...procurementToEdit,
-                specifications: procurementToEdit.specifications || {},
-                software_category_id: procurementToEdit.software_category_id || '',
-                brand_id: procurementToEdit.brand_id || ''
-            });
-            if (procurementToEdit.attachments) {
-                setAttachments(procurementToEdit.attachments.map(a => ({ ...a, size: 0 })));
+            setFormData({ ...procurementToEdit });
+            setAttachments(procurementToEdit.attachments || []);
+            if (procurementToEdit.items && procurementToEdit.items.length > 0) {
+                setItems(procurementToEdit.items);
             }
         }
     }, [procurementToEdit]);
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-        const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value }));
-    };
-    
-    const handleSpecChange = (key: string, value: any) => {
-        setFormData(prev => ({
-            ...prev,
-            specifications: {
-                ...(prev.specifications || {}),
-                [key]: value
-            }
-        }));
+    const handleAddItem = () => {
+        setItems([...items, { title: '', resource_type: 'Hardware', quantity: 1, unit_cost: 0, specifications: {} }]);
     };
 
-    const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const files = e.target.files;
-        if (!files) return;
-
-        if (attachments.length + files.length > MAX_FILES) {
-            alert(`Não pode anexar mais de ${MAX_FILES} ficheiros.`);
-            return;
-        }
-        
-        for (let i = 0; i < files.length; i++) {
-            const file = files[i];
-            if (file.size > MAX_FILE_SIZE) {
-                alert(`O ficheiro "${file.name}" é demasiado grande. O limite é de 5MB.`);
-                continue;
-            }
-
-            const reader = new FileReader();
-            reader.onload = (loadEvent) => {
-                const dataUrl = loadEvent.target?.result as string;
-                setAttachments(prev => [...prev, { name: file.name, dataUrl, size: file.size }]);
-            };
-            reader.readAsDataURL(file);
-        }
-        e.target.value = '';
+    const handleRemoveItem = (idx: number) => {
+        if (items.length === 1) return;
+        setItems(items.filter((_, i) => i !== idx));
     };
 
-    const handleRemoveAttachment = (indexToRemove: number) => {
-        setAttachments(prev => prev.filter((_, index) => index !== indexToRemove));
+    const handleItemChange = (idx: number, field: string, value: any) => {
+        const newItems = [...items];
+        newItems[idx] = { ...newItems[idx], [field]: value };
+        setItems(newItems);
     };
 
-    // State Transition Handlers
-    const handleApprove = () => {
-        setFormData(prev => ({ 
-            ...prev, 
-            status: ProcurementStatus.Approved, 
-            approval_date: new Date().toISOString().split('T')[0],
-            approver_id: currentUser?.id
-        }));
-    };
+    const totalEstimatedCost = useMemo(() => {
+        return items.reduce((sum, item) => sum + ((item.quantity || 0) * (item.unit_cost || 0)), 0);
+    }, [items]);
 
-    const handleReject = () => {
-        if (confirm("Tem a certeza que deseja rejeitar este pedido?")) {
-            setFormData(prev => ({ ...prev, status: ProcurementStatus.Rejected }));
-        }
-    };
-
-    const handleOrder = () => {
-        if (!formData.supplier_id) {
-            alert("Por favor, selecione um fornecedor antes de marcar como Encomendado.");
-            return;
-        }
-        setFormData(prev => ({ 
-            ...prev, 
-            status: ProcurementStatus.Ordered, 
-            order_date: new Date().toISOString().split('T')[0] 
-        }));
-    };
-
-    const handleReceive = () => {
-         setFormData(prev => ({ 
-            ...prev, 
-            status: ProcurementStatus.Received, 
-            received_date: new Date().toISOString().split('T')[0] 
-        }));
-    };
+    const totalQuantity = useMemo(() => {
+        return items.reduce((sum, item) => sum + (item.quantity || 0), 0);
+    }, [items]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!formData.title || !formData.quantity) return;
+        if (!formData.title || items.some(i => !i.title)) return alert("Preencha o título do pedido e de todos os itens.");
 
         setIsSaving(true);
-        
-        const dataToSave = {
-            ...formData,
-            quantity: Number(formData.quantity),
-            estimated_cost: Number(formData.estimated_cost),
-            attachments: attachments.map(({ name, dataUrl }) => ({ name, dataUrl }))
-        };
-
-        // Explicitly set undefined/null for empty strings on UUID fields to avoid Postgres errors
-        if (!dataToSave.supplier_id) dataToSave.supplier_id = undefined;
-        if (!dataToSave.approver_id) dataToSave.approver_id = undefined;
-        if (!dataToSave.equipment_type_id) dataToSave.equipment_type_id = undefined;
-        if (!dataToSave.software_category_id) dataToSave.software_category_id = undefined;
-        if (!dataToSave.brand_id) dataToSave.brand_id = undefined;
-
         try {
-            await onSave(procurementToEdit ? { ...procurementToEdit, ...dataToSave } as ProcurementRequest : dataToSave as any);
+            const dataToSave = {
+                ...formData,
+                quantity: totalQuantity,
+                estimated_cost: totalEstimatedCost,
+                items: items as ProcurementItem[],
+                attachments: attachments
+            };
+            await onSave(dataToSave as any);
             onClose();
         } catch(e: any) {
-            console.error(e);
-            alert(`Erro ao gravar pedido: ${e.message || 'Verifique os dados preenchidos.'}`);
+            alert(`Erro: ${e.message}`);
         } finally {
             setIsSaving(false);
         }
     };
-    
-    // Status Steps Visualization
-    const steps: ProcurementStatus[] = [ProcurementStatus.Pending, ProcurementStatus.Approved, ProcurementStatus.Ordered, ProcurementStatus.Received, ProcurementStatus.Completed];
-    const currentStepIdx = steps.indexOf((formData.status as ProcurementStatus) || ProcurementStatus.Pending);
-    const isRejected = formData.status === ProcurementStatus.Rejected;
-    const isCompleted = formData.status === ProcurementStatus.Completed;
-
-    const selectedType = equipmentTypes.find(t => t.id === formData.equipment_type_id);
 
     return (
-        <Modal title={procurementToEdit ? "Gerir Pedido de Aquisição" : "Novo Pedido de Aquisição"} onClose={onClose} maxWidth="max-w-4xl">
-            <div className="flex flex-col h-[80vh]">
-                <div className="flex-grow overflow-y-auto custom-scrollbar pr-2 pb-4">
-                    <form onSubmit={handleSubmit} className="space-y-6">
-                        {/* Progress Bar */}
-                        {!isRejected && (
-                            <div className="flex items-center justify-between mb-6 relative px-4">
-                                <div className="absolute left-0 top-1/2 transform -translate-y-1/2 w-full h-1 bg-gray-700 -z-10"></div>
-                                {steps.map((step, idx) => (
-                                    <div key={step} className={`flex flex-col items-center gap-1 ${idx <= currentStepIdx ? 'text-brand-secondary' : 'text-gray-500'}`}>
-                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs ${idx <= currentStepIdx ? 'bg-brand-primary text-white border-brand-secondary shadow-[0_0_10px_rgba(25,118,210,0.5)]' : 'bg-gray-800 border border-gray-600'}`}>
-                                            {idx + 1}
+        <Modal title={procurementToEdit ? "Gerir Compra" : "Novo Pedido de Compra"} onClose={onClose} maxWidth="max-w-6xl">
+            <form onSubmit={handleSubmit} className="flex flex-col h-[85vh]">
+                <div className="flex-grow overflow-y-auto custom-scrollbar pr-2 space-y-6">
+                    
+                    {/* Header Info Card */}
+                    <div className="bg-gray-800/40 p-6 rounded-xl border border-gray-700 grid grid-cols-1 md:grid-cols-3 gap-6 shadow-lg">
+                        <div className="md:col-span-2">
+                            <label className="block text-[10px] font-black text-gray-500 uppercase mb-1 tracking-widest">Título do Pedido / Identificador de Compra</label>
+                            <input type="text" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} className="w-full bg-gray-900 border border-gray-700 text-white rounded p-2 text-sm focus:border-brand-primary outline-none" placeholder="Ex: Upgrade Servidores Q4 ou Kit Onboarding Novos Colaboradores" required />
+                        </div>
+                        <div>
+                            <label className="block text-[10px] font-black text-gray-500 uppercase mb-1">Data do Pedido</label>
+                            <input type="date" value={formData.request_date} onChange={e => setFormData({...formData, request_date: e.target.value})} className="w-full bg-gray-900 border border-gray-700 text-white rounded p-2 text-sm" />
+                        </div>
+                        <div className="md:col-span-3">
+                            <label className="block text-[10px] font-black text-gray-500 uppercase mb-1">Justificação da Compra</label>
+                            <textarea value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} rows={2} className="w-full bg-gray-900 border border-gray-700 text-white rounded p-2 text-sm" placeholder="Breve nota sobre a necessidade desta aquisição..." />
+                        </div>
+                    </div>
+
+                    {/* Master-Detail Items Grid */}
+                    <div className="space-y-4">
+                        <div className="flex justify-between items-center">
+                            <h3 className="text-white font-black text-xs uppercase tracking-widest flex items-center gap-2">
+                                <FaListUl className="text-brand-secondary"/> Itens da Compra
+                            </h3>
+                            <button type="button" onClick={handleAddItem} className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-1 rounded text-xs flex items-center gap-2 transition-all">
+                                <FaPlus /> Adicionar Item
+                            </button>
+                        </div>
+
+                        <div className="space-y-3">
+                            {items.map((item, idx) => (
+                                <div key={idx} className="bg-gray-800/30 p-4 rounded-lg border border-gray-700 flex flex-col gap-4 animate-fade-in relative group">
+                                    <button type="button" onClick={() => handleRemoveItem(idx)} className="absolute -right-2 -top-2 bg-red-600 text-white p-1.5 rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"><FaTrash size={10}/></button>
+                                    
+                                    <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+                                        <div className="md:col-span-2">
+                                            <select value={item.resource_type} onChange={e => handleItemChange(idx, 'resource_type', e.target.value)} className="w-full bg-gray-900 border border-gray-600 text-white rounded p-2 text-xs font-bold uppercase">
+                                                <option value="Hardware">Hardware</option>
+                                                <option value="Software">Software</option>
+                                            </select>
                                         </div>
-                                        <span className="text-[10px] font-black uppercase tracking-tighter">{step}</span>
+                                        <div className="md:col-span-4">
+                                            <input type="text" value={item.title} onChange={e => handleItemChange(idx, 'title', e.target.value)} className="w-full bg-gray-900 border border-gray-600 text-white rounded p-2 text-xs" placeholder="Nome do item..." />
+                                        </div>
+                                        <div className="md:col-span-2">
+                                            <input type="number" value={item.quantity} onChange={e => handleItemChange(idx, 'quantity', parseInt(e.target.value))} className="w-full bg-gray-900 border border-gray-600 text-white rounded p-2 text-xs text-center" placeholder="Qtd" />
+                                        </div>
+                                        <div className="md:col-span-2">
+                                            <input type="number" value={item.unit_cost} onChange={e => handleItemChange(idx, 'unit_cost', parseFloat(e.target.value))} className="w-full bg-gray-900 border border-gray-600 text-white rounded p-2 text-xs text-right" placeholder="Preço Unit." />
+                                        </div>
+                                        <div className="md:col-span-2 flex items-center justify-end font-mono text-xs text-brand-secondary font-bold">
+                                            € {((item.quantity || 0) * (item.unit_cost || 0)).toLocaleString()}
+                                        </div>
                                     </div>
-                                ))}
-                            </div>
-                        )}
-                        
-                        {isRejected && (
-                            <div className="bg-red-900/20 p-4 rounded border border-red-500/50 text-center text-red-400 font-bold mb-4">
-                                PEDIDO REJEITADO
-                            </div>
-                        )}
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div className="space-y-4">
-                                <h3 className="text-white font-bold border-b border-gray-700 pb-2">Detalhes do Pedido</h3>
-                                
-                                <div className="bg-gray-800 p-3 rounded border border-gray-700 mb-4">
-                                    <label className="block text-xs text-gray-400 mb-2 uppercase">Tipo de Recurso</label>
-                                    <div className="flex gap-4">
-                                        <label className={`flex-1 cursor-pointer border p-2 rounded text-center text-sm ${formData.resource_type === 'Hardware' ? 'bg-blue-600 border-blue-500 text-white' : 'bg-gray-700 border-gray-600 text-gray-300'}`}>
-                                            <input 
-                                                type="radio" 
-                                                name="resource_type" 
-                                                value="Hardware" 
-                                                checked={formData.resource_type === 'Hardware'} 
-                                                onChange={handleChange} 
-                                                className="hidden"
-                                                disabled={!!procurementToEdit} // Lock type on edit
-                                            />
-                                            <FaMicrochip className="inline mr-2"/> Hardware
-                                        </label>
-                                        <label className={`flex-1 cursor-pointer border p-2 rounded text-center text-sm ${formData.resource_type === 'Software' ? 'bg-purple-600 border-purple-500 text-white' : 'bg-gray-700 border-gray-600 text-gray-300'}`}>
-                                            <input 
-                                                type="radio" 
-                                                name="resource_type" 
-                                                value="Software" 
-                                                checked={formData.resource_type === 'Software'} 
-                                                onChange={handleChange} 
-                                                className="hidden"
-                                                disabled={!!procurementToEdit}
-                                            />
-                                            <FaKey className="inline mr-2"/> Software
-                                        </label>
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm text-gray-400 mb-1">Título do Pedido</label>
-                                    <input 
-                                        type="text" 
-                                        name="title" 
-                                        value={formData.title} 
-                                        onChange={handleChange} 
-                                        className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2"
-                                        required
-                                        placeholder={formData.resource_type === 'Hardware' ? "Ex: Portátil Dell Latitude 5420" : "Ex: Licença Adobe CC"}
-                                    />
-                                </div>
-                                
-                                {formData.resource_type === 'Hardware' && (
-                                    <div className="bg-blue-900/20 p-3 rounded border border-blue-500/30 animate-fade-in space-y-3">
-                                        <div className="grid grid-cols-2 gap-3">
+                                    {/* Item Specs - Conditional Rendering */}
+                                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pt-3 border-t border-gray-700/50">
+                                        <div>
+                                            <label className="block text-[9px] text-gray-500 uppercase font-black mb-1">Marca</label>
+                                            <select value={item.brand_id || ''} onChange={e => handleItemChange(idx, 'brand_id', e.target.value)} className="w-full bg-gray-900 border border-gray-700 text-white rounded p-1.5 text-[11px]">
+                                                <option value="">-- Selecione --</option>
+                                                {brands.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                                            </select>
+                                        </div>
+                                        {item.resource_type === 'Hardware' ? (
                                             <div>
-                                                <label className="block text-xs text-blue-200 mb-1 flex items-center gap-1"><FaMicrochip/> Tipo</label>
-                                                <select name="equipment_type_id" value={formData.equipment_type_id || ''} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm">
-                                                    <option value="">-- Selecione Tipo --</option>
+                                                <label className="block text-[9px] text-gray-500 uppercase font-black mb-1">Tipo Equipamento</label>
+                                                <select value={item.equipment_type_id || ''} onChange={e => handleItemChange(idx, 'equipment_type_id', e.target.value)} className="w-full bg-gray-900 border border-gray-700 text-white rounded p-1.5 text-[11px]">
+                                                    <option value="">-- Selecione --</option>
                                                     {equipmentTypes.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                                                 </select>
                                             </div>
+                                        ) : (
                                             <div>
-                                                <label className="block text-xs text-blue-200 mb-1">Marca</label>
-                                                <select name="brand_id" value={formData.brand_id || ''} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm">
-                                                    <option value="">-- Selecione Marca --</option>
-                                                    {brands.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                                                <label className="block text-[9px] text-gray-500 uppercase font-black mb-1">Categoria Software</label>
+                                                <select value={item.software_category_id || ''} onChange={e => handleItemChange(idx, 'software_category_id', e.target.value)} className="w-full bg-gray-900 border border-gray-700 text-white rounded p-1.5 text-[11px]">
+                                                    <option value="">-- Selecione --</option>
+                                                    {softwareCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                                                 </select>
                                             </div>
-                                        </div>
-
-                                        {selectedType && (
-                                            <div className="grid grid-cols-3 gap-2 pt-2 border-t border-blue-500/20">
-                                                {selectedType.requires_ram_size && (
-                                                    <div>
-                                                        <label className="block text-[10px] text-gray-400 uppercase flex items-center gap-1"><FaMemory/> RAM</label>
-                                                        <select value={formData.specifications?.ram_size || ''} onChange={(e) => handleSpecChange('ram_size', e.target.value)} className="w-full bg-gray-800 border border-gray-600 text-white rounded p-1 text-xs">
-                                                            <option value="">--</option>
-                                                            {ramOptions.map(o => <option key={o.id} value={o.name}>{o.name}</option>)}
-                                                        </select>
-                                                    </div>
-                                                )}
-                                                {selectedType.requires_cpu_info && (
-                                                    <div>
-                                                        <label className="block text-[10px] text-gray-400 uppercase flex items-center gap-1"><FaMicrochip/> CPU</label>
-                                                        <select value={formData.specifications?.cpu_info || ''} onChange={(e) => handleSpecChange('cpu_info', e.target.value)} className="w-full bg-gray-800 border border-gray-600 text-white rounded p-1 text-xs">
-                                                            <option value="">--</option>
-                                                            {cpuOptions.map(o => <option key={o.id} value={o.name}>{o.name}</option>)}
-                                                        </select>
-                                                    </div>
-                                                )}
-                                                {selectedType.requires_disk_info && (
-                                                    <div>
-                                                        <label className="block text-[10px] text-gray-400 uppercase flex items-center gap-1"><FaHdd/> Disco</label>
-                                                        <select value={formData.specifications?.disk_info || ''} onChange={(e) => handleSpecChange('disk_info', e.target.value)} className="w-full bg-gray-800 border border-gray-600 text-white rounded p-1 text-xs">
-                                                            <option value="">--</option>
-                                                            {storageOptions.map(o => <option key={o.id} value={o.name}>{o.name}</option>)}
-                                                        </select>
-                                                    </div>
-                                                )}
-                                            </div>
                                         )}
                                     </div>
-                                )}
-
-                                {formData.resource_type === 'Software' && (
-                                    <div className="bg-purple-900/20 p-3 rounded border border-purple-500/30 animate-fade-in">
-                                        <div>
-                                            <label className="block text-xs text-purple-200 mb-1 flex items-center gap-1"><FaTags/> Categoria Software</label>
-                                            <select name="software_category_id" value={formData.software_category_id || ''} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2 text-sm">
-                                                <option value="">-- Selecione Categoria --</option>
-                                                {softwareCategories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
-                                            </select>
-                                        </div>
-                                    </div>
-                                )}
-                                
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-sm text-gray-400 mb-1">Quantidade</label>
-                                        <input type="number" name="quantity" value={formData.quantity} onChange={handleChange} min="1" className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2" />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm text-gray-400 mb-1">Custo Est. (€)</label>
-                                        <input type="number" name="estimated_cost" value={formData.estimated_cost} onChange={handleChange} min="0" step="0.01" className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2" />
-                                    </div>
                                 </div>
-
-                                <div>
-                                    <label className="block text-sm text-gray-400 mb-1">Justificação</label>
-                                    <textarea name="description" value={formData.description} onChange={handleChange} rows={3} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2" />
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-sm text-gray-400 mb-1">Prioridade</label>
-                                        <select name="priority" value={formData.priority} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2">
-                                            <option value="Normal">Normal</option>
-                                            <option value="Urgente">Urgente</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm text-gray-400 mb-1">Data</label>
-                                        <input type="date" name="request_date" value={formData.request_date} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2" />
-                                    </div>
-                                </div>
-                                <div>
-                                    <label className="block text-sm text-gray-400 mb-1">Requerente</label>
-                                    <select name="requester_id" value={formData.requester_id} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2">
-                                        {collaborators.map(c => <option key={c.id} value={c.id}>{c.full_name}</option>)}
-                                    </select>
-                                </div>
-                            </div>
-
-                            <div className="space-y-4">
-                                <h3 className="text-white font-bold border-b border-gray-700 pb-2">Processamento & Gestão</h3>
-                                
-                                <div>
-                                    <label className="block text-sm text-gray-400 mb-1">Fornecedor</label>
-                                    <select name="supplier_id" value={formData.supplier_id || ''} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2" disabled={!isAdmin} >
-                                        <option value="">-- Selecione --</option>
-                                        {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                                    </select>
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-sm text-gray-400 mb-1">Encomenda</label>
-                                        <input type="text" name="order_reference" value={formData.order_reference || ''} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2" disabled={!isAdmin} />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm text-gray-400 mb-1">Fatura</label>
-                                        <input type="text" name="invoice_number" value={formData.invoice_number || ''} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 text-white rounded p-2" disabled={!isAdmin} />
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-on-surface-dark-secondary mb-2 flex items-center gap-2"><FaPaperclip /> Anexos Documentais</label>
-                                    <div className="bg-gray-900/50 p-3 rounded-lg border border-gray-700">
-                                        {attachments.length > 0 && (
-                                            <ul className="space-y-2 mb-3">
-                                                {attachments.map((file, index) => (
-                                                    <li key={index} className="flex justify-between items-center text-sm p-2 bg-surface-dark rounded-md">
-                                                        <span className="truncate text-on-surface-dark-secondary">{file.name}</span>
-                                                        <button type="button" onClick={() => handleRemoveAttachment(index)} className="text-red-400 p-1"><DeleteIcon className="h-4 w-4" /></button>
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        )}
-                                        <input type="file" multiple ref={fileInputRef} onChange={handleFileSelect} className="hidden" accept="image/*,application/pdf" />
-                                        <button type="button" onClick={() => fileInputRef.current?.click()} disabled={attachments.length >= MAX_FILES} className="w-full px-4 py-2 text-sm bg-gray-600 text-white rounded-md hover:bg-gray-500 border border-dashed border-gray-500">+ Adicionar Documento</button>
-                                    </div>
-                                </div>
-
-                                {(canUserApprove || isAdmin) && !isRejected && (
-                                    <div className="pt-4 mt-4 border-t border-gray-700 grid grid-cols-2 gap-3">
-                                        {formData.status === ProcurementStatus.Pending && (
-                                            <>
-                                                <button type="button" onClick={handleApprove} className="bg-green-600 text-white py-2 rounded hover:bg-green-500 flex items-center justify-center gap-2"><FaCheck/> Aprovar</button>
-                                                <button type="button" onClick={handleReject} className="bg-red-600 text-white py-2 rounded hover:bg-red-500 flex items-center justify-center gap-2"><FaTimes/> Rejeitar</button>
-                                            </>
-                                        )}
-                                        {formData.status === ProcurementStatus.Approved && (
-                                            <button type="button" onClick={handleOrder} className="col-span-2 bg-purple-600 text-white py-2 rounded hover:bg-purple-500 flex items-center justify-center gap-2"><FaShoppingCart/> Registar Encomenda</button>
-                                        )}
-                                        {formData.status === ProcurementStatus.Ordered && (
-                                            <button type="button" onClick={handleReceive} className="col-span-2 bg-teal-600 text-white py-2 rounded hover:bg-teal-500 flex items-center justify-center gap-2"><FaTruck/> Marcar Recebido</button>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
+                            ))}
                         </div>
-
-                        {receivedAssets.length > 0 && (
-                            <div className="mt-6 border-t border-gray-700 pt-6">
-                                <h3 className="text-white font-bold mb-4 flex items-center gap-2"><FaListUl className="text-green-400"/> Ativos Gerados</h3>
-                                <div className="bg-gray-800/50 rounded-lg overflow-hidden border border-gray-700">
-                                    <table className="w-full text-sm text-left">
-                                        <thead className="text-xs uppercase bg-gray-700 text-gray-300">
-                                            <tr><th className="px-4 py-2">Descrição</th><th className="px-4 py-2">S/N</th><th className="px-4 py-2 text-center">Estado</th></tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-gray-700">
-                                            {receivedAssets.map(asset => (
-                                                <tr key={asset.id} className="hover:bg-gray-700/50">
-                                                    <td className="px-4 py-2 text-white">{asset.description}</td>
-                                                    <td className="px-4 py-2 text-gray-300 font-mono text-xs">{asset.serial_number || 'Pendente'}</td>
-                                                    <td className="px-4 py-2 text-center text-gray-400">{asset.status}</td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        )}
-                    </form>
+                    </div>
                 </div>
 
-                <div className="flex justify-end gap-4 pt-4 border-t border-gray-700 flex-shrink-0">
-                    <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500" disabled={isSaving}>Cancelar</button>
-                    <button type="button" onClick={handleSubmit} disabled={isSaving} className="px-6 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary flex items-center gap-2 disabled:opacity-50">
-                        {isSaving ? <SpinnerIcon className="h-4 w-4"/> : <FaSave />} Guardar
-                    </button>
+                {/* Footer Section - Totals and Actions */}
+                <div className="flex-shrink-0 mt-6 pt-4 border-t border-gray-700 flex flex-col md:flex-row justify-between items-center gap-6">
+                    <div className="flex gap-10">
+                        <div className="text-center">
+                            <p className="text-[10px] text-gray-500 uppercase font-black">Total Itens</p>
+                            <p className="text-xl font-black text-white">{totalQuantity}</p>
+                        </div>
+                        <div className="text-center">
+                            <p className="text-[10px] text-gray-500 uppercase font-black">Estimativa Total</p>
+                            <p className="text-xl font-black text-brand-secondary">€ {totalEstimatedCost.toLocaleString()}</p>
+                        </div>
+                    </div>
+                    
+                    <div className="flex gap-3">
+                        <button type="button" onClick={onClose} className="px-6 py-2 bg-gray-700 text-white rounded font-bold hover:bg-gray-600 transition-all">Cancelar</button>
+                        <button type="submit" disabled={isSaving} className="px-10 py-2 bg-brand-primary text-white rounded font-black uppercase tracking-widest hover:bg-brand-secondary shadow-lg flex items-center gap-2">
+                            {isSaving ? <SpinnerIcon className="h-4 w-4"/> : <FaSave />} Gravar Aquisição
+                        </button>
+                    </div>
                 </div>
-            </div>
+            </form>
         </Modal>
     );
 };

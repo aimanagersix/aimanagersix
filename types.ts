@@ -407,6 +407,19 @@ export interface PolicyAcceptance {
     accepted_at: string;
 }
 
+export interface ProcurementItem {
+    id: string;
+    procurement_id: string;
+    title: string;
+    resource_type: 'Hardware' | 'Software';
+    quantity: number;
+    unit_cost: number;
+    brand_id?: string;
+    equipment_type_id?: string;
+    software_category_id?: string;
+    specifications: any;
+}
+
 export interface ProcurementRequest {
     id: string;
     title: string;
@@ -430,6 +443,7 @@ export interface ProcurementRequest {
     software_category_id?: string;
     order_date?: string;
     attachments?: { name: string; dataUrl: string }[];
+    items?: ProcurementItem[];
 }
 
 export interface CalendarEvent {
