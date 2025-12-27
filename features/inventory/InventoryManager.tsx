@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Equipment, Brand, EquipmentType, Collaborator, SoftwareLicense, Assignment, defaultTooltipConfig, ModuleKey, PermissionAction, LicenseAssignment, ConfigItem, ProcurementRequest, EquipmentStatus } from '../../types';
 import * as dataService from '../../services/dataService';
@@ -154,7 +153,23 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({ activeTab, appData,
             {showAssignModal && equipmentToAssign && <AssignEquipmentModal equipment={equipmentToAssign} brandMap={new Map(appData.brands.map((b: Brand) => [b.id, b.name]))} equipmentTypeMap={new Map(appData.equipmentTypes.map((t: EquipmentType) => [t.id, t.name]))} escolasDepartamentos={appData.entidades} instituicoes={appData.instituicoes} collaborators={appData.collaborators} onClose={() => setShowAssignModal(false)} onAssign={async (a) => { await dataService.addAssignment(a); fetchEquipment(); refreshGlobalData(); }} />}
             {detailEquipment && <EquipmentHistoryModal equipment={detailEquipment} assignments={appData.assignments} collaborators={appData.collaborators} escolasDepartamentos={appData.entidades} tickets={appData.tickets} ticketActivities={appData.ticketActivities} onClose={() => setDetailEquipment(null)} onEdit={(eq) => { setDetailEquipment(null); setEquipmentToEdit(eq); setShowAddEquipmentModal(true); }} businessServices={appData.businessServices} serviceDependencies={appData.serviceDependencies} softwareLicenses={appData.softwareLicenses} licenseAssignments={appData.licenseAssignments} vulnerabilities={appData.vulnerabilities} suppliers={appData.suppliers} onViewItem={onViewItem} accountingCategories={appData.configAccountingCategories} conservationStates={appData.configConservationStates} />}
             {showAddLicenseModal && <AddLicenseModal onClose={() => setShowAddLicenseModal(false)} onSave={async (lic: any) => { if (licenseToEdit) await dataService.updateLicense(licenseToEdit.id, lic); else await dataService.addLicense(lic); refreshGlobalData(); }} licenseToEdit={licenseToEdit} suppliers={appData.suppliers} categories={appData.softwareCategories} />}
-            {showAddProcurementModal && <AddProcurementModal onClose={() => setShowAddProcurementModal(false)} onSave={async (req: any) => { if (procurementToEdit) await dataService.updateProcurement(procurementToEdit.id, req); else await dataService.addProcurement(req); refreshGlobalData(); }} procurementToEdit={procurementToEdit} currentUser={currentUser} collaborators={appData.collaborators} suppliers={appData.suppliers} equipmentTypes={appData.equipmentTypes} softwareCategories={appData.softwareCategories} cpuOptions={appData.configCpus} ramOptions={appData.configRamSizes} storageOptions={appData.configStorageTypes} />}
+            {showAddProcurementModal && (
+                /* Fix: Removed unused cpuOptions, ramOptions, and storageOptions props from AddProcurementModal to resolve TypeScript error on line 157 */
+                <AddProcurementModal 
+                    onClose={() => setShowAddProcurementModal(false)} 
+                    onSave={async (req: any) => { 
+                        if (procurementToEdit) await dataService.updateProcurement(procurementToEdit.id, req); 
+                        else await dataService.addProcurement(req); 
+                        refreshGlobalData(); 
+                    }} 
+                    procurementToEdit={procurementToEdit} 
+                    currentUser={currentUser} 
+                    collaborators={appData.collaborators} 
+                    suppliers={appData.suppliers} 
+                    equipmentTypes={appData.equipmentTypes} 
+                    softwareCategories={appData.softwareCategories} 
+                />
+            )}
             {showReceiveAssetsModal && procurementToReceive && <ReceiveAssetsModal onClose={() => setShowReceiveAssetsModal(false)} request={procurementToReceive} brands={appData.brands} types={appData.equipmentTypes} onSave={async (assets: any[]) => { if (procurementToReceive.resource_type === 'Software') await dataService.addMultipleLicenses(assets); else await dataService.addMultipleEquipment(assets); await dataService.updateProcurement(procurementToReceive.id, { status: 'Concluído' }); fetchEquipment(); refreshGlobalData(); }} />}
         </>
     );

@@ -83,7 +83,7 @@ const cleanPayload = (data: any) => {
         'procurement_request_id': 'procurement_request_id'
     };
 
-    const blackList = ['contacts', 'preferences', 'simulatedTicket', 'isSimulating', 'address']; 
+    const blackList = ['contacts', 'preferences', 'simulatedTicket', 'isSimulating', 'address', 'items']; 
     const numericFields = ['acquisition_cost', 'residual_value', 'unit_cost', 'total_seats', 'estimated_cost', 'quantity', 'expected_lifespan_years'];
 
     Object.keys(data).forEach(key => {
@@ -112,7 +112,7 @@ export const fetchInventoryData = async () => {
         sb().from('assignments').select('*'),
         sb().from('software_licenses').select('*'),
         sb().from('license_assignments').select('*'),
-        sb().from('procurement_requests').select('*'),
+        sb().from('procurement_requests').select('*, procurement_items(*)'),
         sb().from('config_software_categories').select('*'),
         sb().from('config_software_products').select('*'),
         sb().from('suppliers').select('*').order('name'),
@@ -146,7 +146,11 @@ export const fetchInventoryData = async () => {
         assignments: results[3].data || [], 
         softwareLicenses: results[4].data || [], 
         licenseAssignments: results[5].data || [], 
-        procurementRequests: results[6].data || [],
+        // Normalização de retorno do Master-Detail
+        procurementRequests: (results[6].data || []).map((p: any) => ({
+            ...p,
+            items: p.procurement_items || []
+        })),
         softwareCategories: results[7].data || [], 
         softwareProducts: results[8].data || [],
         suppliers: hydratedSuppliers, 
@@ -302,29 +306,66 @@ export const deleteLicense = async (id: string) => {
     const { error } = await sb().from('software_licenses').delete().eq('id', id); 
     if (error) throw error;
 };
+
+/**
+ * SERVIÇO DE AQUISIÇÕES MASTER-DETAIL v2.0
+ */
 export const addProcurement = async (p: any) => { 
-    const { data, error } = await sb().from('procurement_requests').insert(cleanPayload(p)).select().single(); 
-    if (error) throw error;
-    return data; 
+    const items = p.items || [];
+    const payload = cleanPayload(p);
+    
+    const { data: proc, error: procErr } = await sb().from('procurement_requests').insert(payload).select().single(); 
+    if (procErr) throw procErr;
+
+    if (items.length > 0) {
+        // Garantir que todos os itens têm o ID do pedido pai e o título preenchido (mesmo que herdado)
+        const itemPayloads = items.map((i: any) => ({ 
+            ...cleanPayload(i), 
+            procurement_id: proc.id,
+            title: i.title || p.title // Fallback para título global se faltar no item
+        }));
+        const { error: itemsErr } = await sb().from('procurement_items').insert(itemPayloads);
+        if (itemsErr) throw itemsErr;
+    }
+    return proc; 
 };
+
 export const updateProcurement = async (id: string, updates: any) => { 
-    const { error } = await sb().from('procurement_requests').update(cleanPayload(updates)).eq('id', id); 
-    if (error) throw error;
+    const items = updates.items || [];
+    const payload = cleanPayload(updates);
+    
+    const { error: procErr } = await sb().from('procurement_requests').update(payload).eq('id', id); 
+    if (procErr) throw procErr;
+
+    // Sincronização Master-Detail simplificada: Apagar e Reinserir
+    const { error: delErr } = await sb().from('procurement_items').delete().eq('procurement_id', id);
+    if (delErr) throw delErr;
+
+    if (items.length > 0) {
+        const itemPayloads = items.map((i: any) => ({ 
+            ...cleanPayload(i), 
+            procurement_id: id,
+            title: i.title || updates.title // Fallback
+        }));
+        const { error: itemsErr } = await sb().from('procurement_items').insert(itemPayloads);
+        if (itemsErr) throw itemsErr;
+    }
 };
+
 export const deleteProcurement = async (id: string) => { 
     const { error } = await sb().from('procurement_requests').delete().eq('id', id); 
     if (error) throw error;
 };
 export const addSoftwareProduct = async (p: any) => { 
-    const { error = null } = await sb().from('config_software_products').insert(cleanPayload(p)); 
+    const { error } = await sb().from('config_software_products').insert(cleanPayload(p)); 
     if (error) throw error;
 };
 export const updateSoftwareProduct = async (id: string, updates: any) => { 
-    const { error = null } = await sb().from('config_software_products').update(cleanPayload(updates)).eq('id', id); 
+    const { error } = await sb().from('config_software_products').update(cleanPayload(updates)).eq('id', id); 
     if (error) throw error;
 };
 export const deleteSoftwareProduct = async (id: string) => { 
-    const { error = null } = await sb().from('config_software_products').delete().eq('id', id); 
+    const { error } = await sb().from('config_software_products').delete().eq('id', id); 
     if (error) throw error;
 };
 export const addSupplier = async (sup: any) => { 

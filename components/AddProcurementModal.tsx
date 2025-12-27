@@ -1,16 +1,17 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import Modal from './common/Modal';
 import { ProcurementRequest, ProcurementItem, Collaborator, Supplier, ProcurementStatus, UserRole, EquipmentType, ConfigItem, Brand } from '../types';
-// Added FaListUl to imports
-import { FaSave, FaCheck, FaTimes, FaTruck, FaBoxOpen, FaShoppingCart, FaMicrochip, FaKey, FaPaperclip, FaTags, FaPlus, FaTrash, FaListUl } from 'react-icons/fa';
+import { FaSave, FaPlus, FaTrash, FaListUl, FaMicrochip, FaKey, FaCheckCircle } from 'react-icons/fa';
 import { SpinnerIcon } from './common/Icons';
 import * as dataService from '../services/dataService';
 
 /**
- * ADD PROCUREMENT MODAL - V3.0 (Master-Detail Architecture)
+ * ADD PROCUREMENT MODAL - V4.0 (Ergonomics & Auto-Gen)
  * -----------------------------------------------------------------------------
  * STATUS DE BLOQUEIO RIGOROSO (Freeze UI):
- * - PEDIDO 3: SUPORTE A MÚLTIPLOS ITENS POR AQUISIÇÃO.
+ * - PEDIDO 3: REORDENAÇÃO DE CAMPOS (MARCA/TIPO PRIMEIRO).
+ * - PEDIDO 3: AUTO-PREENCHIMENTO DE DESCRIÇÃO.
+ * - PEDIDO 3: GRELHA DE ITENS COMPACTA.
  * -----------------------------------------------------------------------------
  */
 
@@ -23,16 +24,11 @@ interface AddProcurementModalProps {
     suppliers: Supplier[];
     equipmentTypes?: EquipmentType[];
     softwareCategories?: ConfigItem[];
-    cpuOptions?: ConfigItem[];
-    ramOptions?: ConfigItem[];
-    storageOptions?: ConfigItem[];
 }
-
-const MAX_FILES = 5;
 
 const AddProcurementModal: React.FC<AddProcurementModalProps> = ({ 
     onClose, onSave, procurementToEdit, currentUser, collaborators, suppliers, 
-    equipmentTypes = [], softwareCategories = [], cpuOptions = [], ramOptions = [], storageOptions = [] 
+    equipmentTypes = [], softwareCategories = []
 }) => {
     
     const [formData, setFormData] = useState<Partial<ProcurementRequest>>({
@@ -48,59 +44,82 @@ const AddProcurementModal: React.FC<AddProcurementModalProps> = ({
         attachments: []
     });
 
-    const [items, setItems] = useState<Partial<ProcurementItem>[]>([
-        { title: '', resource_type: 'Hardware', quantity: 1, unit_cost: 0, specifications: {} }
-    ]);
+    // Item sendo editado no momento (Entry Form)
+    const [currentItem, setCurrentItem] = useState<Partial<ProcurementItem>>({
+        resource_type: 'Hardware',
+        title: '',
+        quantity: 1,
+        unit_cost: 0,
+        brand_id: '',
+        equipment_type_id: '',
+        software_category_id: '',
+        specifications: {}
+    });
 
-    const [attachments, setAttachments] = useState<{ name: string; dataUrl: string }[]>([]);
+    // Lista de itens já confirmados
+    const [items, setItems] = useState<Partial<ProcurementItem>[]>([]);
+
     const [brands, setBrands] = useState<Brand[]>([]);
-    const [canUserApprove, setCanUserApprove] = useState(false);
-    const fileInputRef = useRef<HTMLInputElement>(null);
     const [isSaving, setIsSaving] = useState(false);
-
-    const isAdmin = currentUser?.role === UserRole.Admin || currentUser?.role === UserRole.SuperAdmin;
 
     useEffect(() => {
         const loadContext = async () => {
-            const [data, approvalTeamId] = await Promise.all([
-                dataService.fetchAllData(),
-                dataService.getGlobalSetting('procurement_approval_team_id')
-            ]);
+            const data = await dataService.fetchAllData();
             setBrands(data.brands);
-            if (currentUser) {
-                if (currentUser.role === UserRole.SuperAdmin) setCanUserApprove(true);
-                else if (approvalTeamId) {
-                    const isMember = data.teamMembers.some((tm: any) => tm.team_id === approvalTeamId && tm.collaborator_id === currentUser.id);
-                    setCanUserApprove(isMember);
-                } else setCanUserApprove(isAdmin);
-            }
         };
         loadContext();
-    }, [currentUser, isAdmin]);
+    }, []);
 
     useEffect(() => {
         if (procurementToEdit) {
             setFormData({ ...procurementToEdit });
-            setAttachments(procurementToEdit.attachments || []);
             if (procurementToEdit.items && procurementToEdit.items.length > 0) {
                 setItems(procurementToEdit.items);
             }
         }
     }, [procurementToEdit]);
 
+    // Lógica de auto-preenchimento da descrição do item
+    useEffect(() => {
+        if (currentItem.brand_id || currentItem.equipment_type_id || currentItem.software_category_id) {
+            const brandName = brands.find(b => b.id === currentItem.brand_id)?.name || '';
+            let typeName = '';
+            
+            if (currentItem.resource_type === 'Hardware') {
+                typeName = equipmentTypes.find(t => t.id === currentItem.equipment_type_id)?.name || '';
+            } else {
+                typeName = softwareCategories.find(c => c.id === currentItem.software_category_id)?.name || '';
+            }
+
+            // Apenas preenche se o título estiver vazio ou se for apenas a sugestão anterior
+            const suggestion = `${brandName} ${typeName}`.trim();
+            if (suggestion && (!currentItem.title || items.every(i => i.title !== currentItem.title))) {
+                setCurrentItem(prev => ({ ...prev, title: suggestion + " " }));
+            }
+        }
+    }, [currentItem.brand_id, currentItem.equipment_type_id, currentItem.software_category_id, currentItem.resource_type]);
+
     const handleAddItem = () => {
-        setItems([...items, { title: '', resource_type: 'Hardware', quantity: 1, unit_cost: 0, specifications: {} }]);
+        if (!currentItem.title?.trim() || !currentItem.quantity) {
+            alert("Preencha a descrição e quantidade do item.");
+            return;
+        }
+        setItems([...items, { ...currentItem, id: crypto.randomUUID() }]);
+        // Reset form mas mantém o tipo de recurso para rapidez
+        setCurrentItem({
+            resource_type: currentItem.resource_type,
+            title: '',
+            quantity: 1,
+            unit_cost: 0,
+            brand_id: '',
+            equipment_type_id: '',
+            software_category_id: '',
+            specifications: {}
+        });
     };
 
-    const handleRemoveItem = (idx: number) => {
-        if (items.length === 1) return;
-        setItems(items.filter((_, i) => i !== idx));
-    };
-
-    const handleItemChange = (idx: number, field: string, value: any) => {
-        const newItems = [...items];
-        newItems[idx] = { ...newItems[idx], [field]: value };
-        setItems(newItems);
+    const handleRemoveItem = (id: string | undefined) => {
+        setItems(items.filter(i => i.id !== id));
     };
 
     const totalEstimatedCost = useMemo(() => {
@@ -113,7 +132,15 @@ const AddProcurementModal: React.FC<AddProcurementModalProps> = ({
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!formData.title || items.some(i => !i.title)) return alert("Preencha o título do pedido e de todos os itens.");
+        
+        // Se houver algo no form atual mas não na lista, tentamos adicionar automaticamente
+        let finalItems = [...items];
+        if (currentItem.title?.trim() && finalItems.length === 0) {
+            finalItems.push(currentItem);
+        }
+
+        if (!formData.title) return alert("Preencha o identificador/título do pedido.");
+        if (finalItems.length === 0) return alert("Adicione pelo menos um item à compra.");
 
         setIsSaving(true);
         try {
@@ -121,8 +148,7 @@ const AddProcurementModal: React.FC<AddProcurementModalProps> = ({
                 ...formData,
                 quantity: totalQuantity,
                 estimated_cost: totalEstimatedCost,
-                items: items as ProcurementItem[],
-                attachments: attachments
+                items: finalItems as ProcurementItem[]
             };
             await onSave(dataToSave as any);
             onClose();
@@ -134,113 +160,157 @@ const AddProcurementModal: React.FC<AddProcurementModalProps> = ({
     };
 
     return (
-        <Modal title={procurementToEdit ? "Gerir Compra" : "Novo Pedido de Compra"} onClose={onClose} maxWidth="max-w-6xl">
+        <Modal title={procurementToEdit ? "Gerir Aquisição" : "Nova Requisição de Compra"} onClose={onClose} maxWidth="max-w-6xl">
             <form onSubmit={handleSubmit} className="flex flex-col h-[85vh]">
-                <div className="flex-grow overflow-y-auto custom-scrollbar pr-2 space-y-6">
+                <div className="flex-grow overflow-y-auto custom-scrollbar pr-2 space-y-8">
                     
-                    {/* Header Info Card */}
+                    {/* SECÇÃO 1: Identificador Geral */}
                     <div className="bg-gray-800/40 p-6 rounded-xl border border-gray-700 grid grid-cols-1 md:grid-cols-3 gap-6 shadow-lg">
                         <div className="md:col-span-2">
-                            <label className="block text-[10px] font-black text-gray-500 uppercase mb-1 tracking-widest">Título do Pedido / Identificador de Compra</label>
-                            <input type="text" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} className="w-full bg-gray-900 border border-gray-700 text-white rounded p-2 text-sm focus:border-brand-primary outline-none" placeholder="Ex: Upgrade Servidores Q4 ou Kit Onboarding Novos Colaboradores" required />
+                            <label className="block text-[10px] font-black text-gray-500 uppercase mb-1 tracking-widest">Identificador da Compra / Fatura</label>
+                            <input type="text" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} className="w-full bg-gray-900 border border-gray-700 text-white rounded p-2 text-sm focus:border-brand-primary outline-none" placeholder="Ex: Fatura 2024/001 ou Projeto Expansão" required />
                         </div>
                         <div>
                             <label className="block text-[10px] font-black text-gray-500 uppercase mb-1">Data do Pedido</label>
                             <input type="date" value={formData.request_date} onChange={e => setFormData({...formData, request_date: e.target.value})} className="w-full bg-gray-900 border border-gray-700 text-white rounded p-2 text-sm" />
                         </div>
                         <div className="md:col-span-3">
-                            <label className="block text-[10px] font-black text-gray-500 uppercase mb-1">Justificação da Compra</label>
-                            <textarea value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} rows={2} className="w-full bg-gray-900 border border-gray-700 text-white rounded p-2 text-sm" placeholder="Breve nota sobre a necessidade desta aquisição..." />
+                            <label className="block text-[10px] font-black text-gray-500 uppercase mb-1">Justificação Global da Aquisição</label>
+                            <textarea value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} rows={2} className="w-full bg-gray-900 border border-gray-700 text-white rounded p-2 text-sm" placeholder="Descreva o motivo desta compra..." />
                         </div>
                     </div>
 
-                    {/* Master-Detail Items Grid */}
+                    {/* SECÇÃO 2: Formulário de Entrada de Item */}
+                    <div className="bg-brand-primary/5 p-6 rounded-xl border border-brand-primary/20 space-y-4">
+                        <h3 className="text-white font-black text-xs uppercase tracking-widest flex items-center gap-2">
+                            <FaPlus className="text-brand-secondary"/> Configurar Item
+                        </h3>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+                            {/* Tipo de Recurso */}
+                            <div className="md:col-span-2">
+                                <label className="block text-[9px] text-gray-500 uppercase font-black mb-1">Tipo</label>
+                                <select value={currentItem.resource_type} onChange={e => setCurrentItem({...currentItem, resource_type: e.target.value as any})} className="w-full bg-gray-900 border border-gray-700 text-white rounded p-2 text-xs font-bold">
+                                    <option value="Hardware">Hardware</option>
+                                    <option value="Software">Software</option>
+                                </select>
+                            </div>
+
+                            {/* Marca (PEDIDO 3: PRIORIDADE) */}
+                            <div className="md:col-span-2">
+                                <label className="block text-[9px] text-gray-500 uppercase font-black mb-1">Marca</label>
+                                <select value={currentItem.brand_id || ''} onChange={e => setCurrentItem({...currentItem, brand_id: e.target.value})} className="w-full bg-gray-900 border border-gray-700 text-white rounded p-2 text-xs">
+                                    <option value="">-- Marca --</option>
+                                    {brands.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                                </select>
+                            </div>
+
+                            {/* Tipo/Categoria (PEDIDO 3: PRIORIDADE) */}
+                            <div className="md:col-span-3">
+                                <label className="block text-[9px] text-gray-500 uppercase font-black mb-1">
+                                    {currentItem.resource_type === 'Hardware' ? 'Tipo Equipamento' : 'Categoria Software'}
+                                </label>
+                                {currentItem.resource_type === 'Hardware' ? (
+                                    <select value={currentItem.equipment_type_id || ''} onChange={e => setCurrentItem({...currentItem, equipment_type_id: e.target.value})} className="w-full bg-gray-900 border border-gray-700 text-white rounded p-2 text-xs">
+                                        <option value="">-- Selecione --</option>
+                                        {equipmentTypes.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                                    </select>
+                                ) : (
+                                    <select value={currentItem.software_category_id || ''} onChange={e => setCurrentItem({...currentItem, software_category_id: e.target.value})} className="w-full bg-gray-900 border border-gray-700 text-white rounded p-2 text-xs">
+                                        <option value="">-- Selecione --</option>
+                                        {softwareCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                    </select>
+                                )}
+                            </div>
+
+                            {/* Quantidade e Custo */}
+                            <div className="md:col-span-2">
+                                <label className="block text-[9px] text-gray-500 uppercase font-black mb-1">Qtd</label>
+                                <input type="number" value={currentItem.quantity} onChange={e => setCurrentItem({...currentItem, quantity: parseInt(e.target.value)})} className="w-full bg-gray-900 border border-gray-700 text-white rounded p-2 text-xs text-center" />
+                            </div>
+                            <div className="md:col-span-3">
+                                <label className="block text-[9px] text-gray-500 uppercase font-black mb-1">Preço Unit. (€)</label>
+                                <input type="number" value={currentItem.unit_cost} onChange={e => setCurrentItem({...currentItem, unit_cost: parseFloat(e.target.value)})} className="w-full bg-gray-900 border border-gray-700 text-white rounded p-2 text-xs text-right" placeholder="0.00" />
+                            </div>
+
+                            {/* Descrição do Item */}
+                            <div className="md:col-span-10">
+                                <label className="block text-[9px] text-gray-500 uppercase font-black mb-1">Descrição do Item (Auto-Gerado)</label>
+                                <input type="text" value={currentItem.title} onChange={e => setCurrentItem({...currentItem, title: e.target.value})} className="w-full bg-gray-900 border border-gray-700 text-white rounded p-2 text-xs font-semibold" placeholder="Ex: Portátil Latitude 5420 i7 16GB" />
+                            </div>
+
+                            {/* Botão de Confirmação */}
+                            <div className="md:col-span-2 flex items-end">
+                                <button type="button" onClick={handleAddItem} className="w-full bg-brand-secondary hover:bg-brand-primary text-white py-2 rounded text-xs font-black uppercase tracking-widest transition-all shadow-md">
+                                    Confirmar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* SECÇÃO 3: Lista de Itens Adicionados (PEDIDO 3: UX IMPROVEMENT) */}
                     <div className="space-y-4">
-                        <div className="flex justify-between items-center">
-                            <h3 className="text-white font-black text-xs uppercase tracking-widest flex items-center gap-2">
-                                <FaListUl className="text-brand-secondary"/> Itens da Compra
-                            </h3>
-                            <button type="button" onClick={handleAddItem} className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-1 rounded text-xs flex items-center gap-2 transition-all">
-                                <FaPlus /> Adicionar Item
-                            </button>
-                        </div>
+                        <h3 className="text-white font-black text-[10px] uppercase tracking-[0.2em] flex items-center gap-2">
+                            <FaListUl className="text-gray-500"/> Itens na Requisição ({items.length})
+                        </h3>
 
-                        <div className="space-y-3">
-                            {items.map((item, idx) => (
-                                <div key={idx} className="bg-gray-800/30 p-4 rounded-lg border border-gray-700 flex flex-col gap-4 animate-fade-in relative group">
-                                    <button type="button" onClick={() => handleRemoveItem(idx)} className="absolute -right-2 -top-2 bg-red-600 text-white p-1.5 rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"><FaTrash size={10}/></button>
-                                    
-                                    <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-                                        <div className="md:col-span-2">
-                                            <select value={item.resource_type} onChange={e => handleItemChange(idx, 'resource_type', e.target.value)} className="w-full bg-gray-900 border border-gray-600 text-white rounded p-2 text-xs font-bold uppercase">
-                                                <option value="Hardware">Hardware</option>
-                                                <option value="Software">Software</option>
-                                            </select>
-                                        </div>
-                                        <div className="md:col-span-4">
-                                            <input type="text" value={item.title} onChange={e => handleItemChange(idx, 'title', e.target.value)} className="w-full bg-gray-900 border border-gray-600 text-white rounded p-2 text-xs" placeholder="Nome do item..." />
-                                        </div>
-                                        <div className="md:col-span-2">
-                                            <input type="number" value={item.quantity} onChange={e => handleItemChange(idx, 'quantity', parseInt(e.target.value))} className="w-full bg-gray-900 border border-gray-600 text-white rounded p-2 text-xs text-center" placeholder="Qtd" />
-                                        </div>
-                                        <div className="md:col-span-2">
-                                            <input type="number" value={item.unit_cost} onChange={e => handleItemChange(idx, 'unit_cost', parseFloat(e.target.value))} className="w-full bg-gray-900 border border-gray-600 text-white rounded p-2 text-xs text-right" placeholder="Preço Unit." />
-                                        </div>
-                                        <div className="md:col-span-2 flex items-center justify-end font-mono text-xs text-brand-secondary font-bold">
-                                            € {((item.quantity || 0) * (item.unit_cost || 0)).toLocaleString()}
-                                        </div>
-                                    </div>
-
-                                    {/* Item Specs - Conditional Rendering */}
-                                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pt-3 border-t border-gray-700/50">
-                                        <div>
-                                            <label className="block text-[9px] text-gray-500 uppercase font-black mb-1">Marca</label>
-                                            <select value={item.brand_id || ''} onChange={e => handleItemChange(idx, 'brand_id', e.target.value)} className="w-full bg-gray-900 border border-gray-700 text-white rounded p-1.5 text-[11px]">
-                                                <option value="">-- Selecione --</option>
-                                                {brands.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-                                            </select>
-                                        </div>
-                                        {item.resource_type === 'Hardware' ? (
-                                            <div>
-                                                <label className="block text-[9px] text-gray-500 uppercase font-black mb-1">Tipo Equipamento</label>
-                                                <select value={item.equipment_type_id || ''} onChange={e => handleItemChange(idx, 'equipment_type_id', e.target.value)} className="w-full bg-gray-900 border border-gray-700 text-white rounded p-1.5 text-[11px]">
-                                                    <option value="">-- Selecione --</option>
-                                                    {equipmentTypes.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                                                </select>
-                                            </div>
-                                        ) : (
-                                            <div>
-                                                <label className="block text-[9px] text-gray-500 uppercase font-black mb-1">Categoria Software</label>
-                                                <select value={item.software_category_id || ''} onChange={e => handleItemChange(idx, 'software_category_id', e.target.value)} className="w-full bg-gray-900 border border-gray-700 text-white rounded p-1.5 text-[11px]">
-                                                    <option value="">-- Selecione --</option>
-                                                    {softwareCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                                                </select>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
+                        {items.length > 0 ? (
+                            <div className="overflow-hidden border border-gray-700 rounded-lg bg-gray-800/20">
+                                <table className="w-full text-xs text-left">
+                                    <thead className="bg-gray-800 text-gray-500 uppercase font-bold text-[10px]">
+                                        <tr>
+                                            <th className="p-3">Recurso</th>
+                                            <th className="p-3">Descrição</th>
+                                            <th className="p-3 text-center">Qtd</th>
+                                            <th className="p-3 text-right">Unitário</th>
+                                            <th className="p-3 text-right">Subtotal</th>
+                                            <th className="p-3 text-center">Ações</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-700">
+                                        {items.map((item, idx) => (
+                                            <tr key={idx} className="hover:bg-gray-700/30 transition-colors group">
+                                                <td className="p-3">
+                                                    {item.resource_type === 'Hardware' ? <FaMicrochip className="text-blue-400 inline mr-2"/> : <FaKey className="text-yellow-400 inline mr-2"/>}
+                                                    {item.resource_type}
+                                                </td>
+                                                <td className="p-3 font-semibold text-white">{item.title}</td>
+                                                <td className="p-3 text-center font-mono">{item.quantity}</td>
+                                                <td className="p-3 text-right font-mono">€ {item.unit_cost?.toLocaleString()}</td>
+                                                <td className="p-3 text-right font-black text-brand-secondary">€ {((item.quantity || 0) * (item.unit_cost || 0)).toLocaleString()}</td>
+                                                <td className="p-3 text-center">
+                                                    <button type="button" onClick={() => handleRemoveItem(item.id)} className="text-red-500 hover:text-red-400 p-1 opacity-0 group-hover:opacity-100 transition-opacity"><FaTrash/></button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        ) : (
+                            <div className="text-center py-10 border-2 border-dashed border-gray-700 rounded-xl bg-gray-900/10">
+                                <p className="text-gray-500 text-sm italic">Nenhum item adicionado ainda. Configure acima.</p>
+                            </div>
+                        )}
                     </div>
                 </div>
 
-                {/* Footer Section - Totals and Actions */}
-                <div className="flex-shrink-0 mt-6 pt-4 border-t border-gray-700 flex flex-col md:flex-row justify-between items-center gap-6">
-                    <div className="flex gap-10">
+                {/* FOOTER: Totais e Submissão */}
+                <div className="flex-shrink-0 mt-6 pt-6 border-t border-gray-700 flex flex-col md:flex-row justify-between items-center gap-6">
+                    <div className="flex gap-12">
                         <div className="text-center">
-                            <p className="text-[10px] text-gray-500 uppercase font-black">Total Itens</p>
-                            <p className="text-xl font-black text-white">{totalQuantity}</p>
+                            <p className="text-[10px] text-gray-500 uppercase font-black tracking-widest">Quantidade Total</p>
+                            <p className="text-2xl font-black text-white">{totalQuantity}</p>
                         </div>
                         <div className="text-center">
-                            <p className="text-[10px] text-gray-500 uppercase font-black">Estimativa Total</p>
-                            <p className="text-xl font-black text-brand-secondary">€ {totalEstimatedCost.toLocaleString()}</p>
+                            <p className="text-[10px] text-gray-500 uppercase font-black tracking-widest">Investimento Total</p>
+                            <p className="text-2xl font-black text-brand-secondary">€ {totalEstimatedCost.toLocaleString()}</p>
                         </div>
                     </div>
                     
                     <div className="flex gap-3">
-                        <button type="button" onClick={onClose} className="px-6 py-2 bg-gray-700 text-white rounded font-bold hover:bg-gray-600 transition-all">Cancelar</button>
-                        <button type="submit" disabled={isSaving} className="px-10 py-2 bg-brand-primary text-white rounded font-black uppercase tracking-widest hover:bg-brand-secondary shadow-lg flex items-center gap-2">
-                            {isSaving ? <SpinnerIcon className="h-4 w-4"/> : <FaSave />} Gravar Aquisição
+                        <button type="button" onClick={onClose} className="px-6 py-2 bg-gray-700 text-white rounded font-bold hover:bg-gray-600 transition-all uppercase text-xs tracking-widest">Cancelar</button>
+                        <button type="submit" disabled={isSaving} className="px-12 py-3 bg-brand-primary text-white rounded-xl font-black uppercase tracking-[0.2em] hover:bg-brand-secondary shadow-2xl flex items-center gap-3 transition-all active:scale-95 disabled:opacity-50">
+                            {isSaving ? <SpinnerIcon className="h-4 w-4"/> : <FaSave />} {isSaving ? 'A Processar...' : 'Gravar Aquisição'}
                         </button>
                     </div>
                 </div>
