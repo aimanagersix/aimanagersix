@@ -5,11 +5,10 @@ import { FaBoxOpen, FaCheck, FaKey, FaLaptop, FaListOl, FaTags, FaCalendarAlt, F
 import { extractTextFromImage, isAiConfigured } from '../services/geminiService';
 
 /**
- * RECEIVE ASSETS MODAL - V3.0 (Bulk Input & Acquisition Placeholder Fix)
+ * RECEIVE ASSETS MODAL - V4.0 (AQÇ Prefix & Force Status)
  * -----------------------------------------------------------------------------
  * STATUS DE BLOQUEIO RIGOROSO (Freeze UI):
- * - PEDIDO 3: IMPLEMENTAÇÃO DE PASTE-SERIAL E SCAN-CONTÍNUO.
- * - FIX: PLACEHOLDER PARA "AQUISIÇÃO" PARA EVITAR ERRO DE DB.
+ * - PEDIDO 3: PREFIXO AQÇ E ESTADO 'AQUISIÇÃO' PARA ATIVOS SEM S/N.
  * -----------------------------------------------------------------------------
  */
 
@@ -86,7 +85,6 @@ const ReceiveAssetsModal: React.FC<ReceiveAssetsModalProps> = ({ onClose, reques
         }
     }, [commonBrandId, commonTypeId, commonWarrantyDate, isSoftware]);
 
-    // Lógica para aplicar números de série colados
     const applyPastedSerials = () => {
         const serials = pastedSerials.split('\n').map(s => s.trim()).filter(Boolean);
         setItems(prev => {
@@ -100,7 +98,6 @@ const ReceiveAssetsModal: React.FC<ReceiveAssetsModalProps> = ({ onClose, reques
         setPastedSerials('');
     };
 
-    // Motor de Câmara para Scan Contínuo
     useEffect(() => {
         if (isScanning) {
             navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
@@ -127,7 +124,6 @@ const ReceiveAssetsModal: React.FC<ReceiveAssetsModalProps> = ({ onClose, reques
                 const sn = await extractTextFromImage(base64, 'image/jpeg');
                 if (sn && !scanQueue.includes(sn)) {
                     setScanQueue(prev => [...prev, sn]);
-                    // Feedback visual/sonoro (vibração se mobile)
                     if ('vibrate' in navigator) navigator.vibrate(100);
                 }
             } catch (e) { console.error("OCR Error", e); }
@@ -168,13 +164,11 @@ const ReceiveAssetsModal: React.FC<ReceiveAssetsModalProps> = ({ onClose, reques
         if (isSoftware) {
             if (items.some(i => !i.license_key || !i.product_name)) return alert("Preencha todos os dados da licença.");
         } else {
-             if (!isAcquisition && items.some(i => !i.serial_number)) return alert("Preencha todos os Números de Série para entrada em Stock.");
              if (items.some(i => !i.brand_id || !i.type_id)) return alert("Preencha Marca e Tipo.");
         }
 
         setIsSaving(true);
         try {
-            // FIX: GERAÇÃO DE PLACEHOLDERS PARA EVITAR ERRO DE DB EM "AQUISIÇÃO"
             const finalAssets = items.map((item, idx) => {
                 const asset = {
                     ...item,
@@ -187,9 +181,13 @@ const ReceiveAssetsModal: React.FC<ReceiveAssetsModalProps> = ({ onClose, reques
                     criticality: CriticalityLevel.Low,
                 };
                 
-                // Se não tem S/N e é aquisição, cria um ID temporário para a BD aceitar
-                if (!asset.serial_number && isAcquisition) {
-                    asset.serial_number = `ACQ-${request.id.substring(0,4)}-${idx + 1}`;
+                // PEDIDO 3: Se não tem S/N, gera prefixo AQÇ e força estado 'Aquisição'
+                if (!asset.serial_number?.trim()) {
+                    asset.serial_number = `AQÇ-${request.id.substring(0,4)}-${idx + 1}`;
+                    asset.status = EquipmentStatus.Acquisition; // Força estado administrativo
+                } else if (isAcquisition) {
+                    // Se o utilizador inseriu S/N mas o estado comum ainda é Aquisição, mantemos a indicação
+                    asset.status = EquipmentStatus.Acquisition;
                 }
 
                 if (isSoftware) {
@@ -199,9 +197,7 @@ const ReceiveAssetsModal: React.FC<ReceiveAssetsModalProps> = ({ onClose, reques
                 return asset;
             });
 
-            if (isSoftware) await onSave(finalAssets);
-            else await onSave(finalAssets);
-            
+            await onSave(finalAssets);
             onClose();
         } catch (e) {
             console.error(e);
@@ -215,7 +211,6 @@ const ReceiveAssetsModal: React.FC<ReceiveAssetsModalProps> = ({ onClose, reques
         <Modal title={isSoftware ? "Receção de Software" : "Receção de Material"} onClose={onClose} maxWidth="max-w-6xl">
             <div className="space-y-6">
                 
-                {/* Scanner Contínuo UI Overlay */}
                 {isScanning && (
                     <div className="fixed inset-0 z-[100] bg-black flex flex-col items-center justify-center p-4">
                         <div className="relative w-full max-w-lg">
@@ -247,6 +242,7 @@ const ReceiveAssetsModal: React.FC<ReceiveAssetsModalProps> = ({ onClose, reques
                         <div>
                             <h3 className="font-bold text-blue-200">Conversão de Pedido: {request.title}</h3>
                             <p className="text-sm text-gray-300">Quantidade a receber: <strong>{request.quantity}</strong> unidades.</p>
+                            <p className="text-[10px] text-gray-500 uppercase mt-1">Nota: Itens sem S/N serão marcados como 'AQÇ' em estado de 'Aquisição'.</p>
                         </div>
                     </div>
                     
@@ -282,7 +278,7 @@ const ReceiveAssetsModal: React.FC<ReceiveAssetsModalProps> = ({ onClose, reques
                 {!isSoftware && (
                     <div className="bg-gray-800 p-4 rounded border border-gray-600 grid grid-cols-1 md:grid-cols-4 gap-4">
                         <div>
-                             <label className="block text-[10px] font-black text-gray-400 mb-1 uppercase">Estado</label>
+                             <label className="block text-[10px] font-black text-gray-400 mb-1 uppercase">Estado (Padrao)</label>
                              <select value={commonStatus} onChange={(e) => setCommonStatus(e.target.value)} className="w-full bg-gray-700 border border-gray-500 text-white rounded p-2 text-sm">
                                 <option value={EquipmentStatus.Stock}>Stock</option>
                                 <option value={EquipmentStatus.Acquisition}>Aquisição</option>
@@ -333,7 +329,7 @@ const ReceiveAssetsModal: React.FC<ReceiveAssetsModalProps> = ({ onClose, reques
                                         </>
                                     ) : (
                                         <>
-                                            <td className="p-3"><input type="text" value={item.serial_number} onChange={(e) => handleItemChange(idx, 'serial_number', e.target.value)} className={`bg-gray-800 border border-gray-600 rounded p-1 w-full font-mono text-xs ${!item.serial_number ? 'text-gray-500' : 'text-white'}`} placeholder="Obrigatório para Stock" /></td>
+                                            <td className="p-3"><input type="text" value={item.serial_number} onChange={(e) => handleItemChange(idx, 'serial_number', e.target.value)} className={`bg-gray-800 border border-gray-600 rounded p-1 w-full font-mono text-xs ${!item.serial_number ? 'text-gray-500' : 'text-white'}`} placeholder="Deixe em branco para AQÇ" /></td>
                                             <td className="p-3"><select value={item.brand_id} onChange={(e) => handleItemChange(idx, 'brand_id', e.target.value)} className="bg-gray-800 border border-gray-600 text-white rounded p-1 w-full text-xs">{brands.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}</select></td>
                                             <td className="p-3"><select value={item.type_id} onChange={(e) => handleItemChange(idx, 'type_id', e.target.value)} className="bg-gray-800 border border-gray-600 text-white rounded p-1 w-full text-xs">{types.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}</select></td>
                                             <td className="p-3"><input type="text" value={item.description} onChange={(e) => handleItemChange(idx, 'description', e.target.value)} className="bg-gray-800 border border-gray-600 text-white rounded p-1 w-full text-xs" /></td>
