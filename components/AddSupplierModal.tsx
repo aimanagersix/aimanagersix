@@ -257,10 +257,11 @@ const AddSupplierModal: React.FC<AddSupplierModalProps> = ({ onClose, onSave, su
     return (
         <Modal title={supplierToEdit ? "Editar Fornecedor" : "Adicionar Fornecedor"} onClose={onClose} maxWidth="max-w-5xl">
             <div className="flex flex-col h-[80vh]">
-                <div className="flex border-b border-gray-700 mb-6 overflow-x-auto whitespace-nowrap scrollbar-hide">
-                    <button type="button" onClick={() => setActiveTab('details')} className={`px-6 py-2 text-sm font-bold border-b-2 transition-colors flex-shrink-0 min-w-max ${activeTab === 'details' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}>Detalhes Gerais</button>
-                    <button type="button" onClick={() => setActiveTab('contacts')} className={`px-6 py-2 text-sm font-bold border-b-2 transition-colors flex-shrink-0 min-w-max flex items-center gap-2 ${activeTab === 'contacts' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}>Pessoas de Contacto</button>
-                    <button type="button" onClick={() => setActiveTab('contracts')} className={`px-6 py-2 text-sm font-bold border-b-2 transition-colors flex-shrink-0 min-w-max flex items-center gap-2 ${activeTab === 'contracts' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}>Contratos & DORA</button>
+                {/* Fix: added px-1 and transition-all to prevent clipping of 'Detalhes Gerais' tab */}
+                <div className="flex border-b border-gray-700 mb-6 overflow-x-auto whitespace-nowrap scrollbar-hide px-1">
+                    <button type="button" onClick={() => setActiveTab('details')} className={`px-6 py-2 text-sm font-bold border-b-2 transition-all flex-shrink-0 min-w-max ${activeTab === 'details' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}>Detalhes Gerais</button>
+                    <button type="button" onClick={() => setActiveTab('contacts')} className={`px-6 py-2 text-sm font-bold border-b-2 transition-all flex-shrink-0 min-w-max flex items-center gap-2 ${activeTab === 'contacts' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}>Pessoas de Contacto</button>
+                    <button type="button" onClick={() => setActiveTab('contracts')} className={`px-6 py-2 text-sm font-bold border-b-2 transition-all flex-shrink-0 min-w-max flex items-center gap-2 ${activeTab === 'contracts' ? 'border-brand-secondary text-white' : 'border-transparent text-gray-400 hover:text-white'}`}>Contratos & DORA</button>
                 </div>
 
                 <form onSubmit={handleSubmit} className="flex-grow overflow-y-auto custom-scrollbar pr-2 space-y-6">

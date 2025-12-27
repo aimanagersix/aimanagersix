@@ -15,7 +15,7 @@ Este documento regista sugestões técnicas e observações de UX/UI para análi
 **Sugestão:** Adicionar uma pequena badge visual (Check verde / Cross vermelho) ao lado do campo NIF para validar o algoritmo de Luhn (módulo 11) sem necessidade de chamada à API.
 
 ### 3. Layout de Detalhes Gerais
-**Observação:** Com a adição do telefone, a grelha está a tornar-se densa.
+**Observação:** O clipping visual na aba ativa (cortando o "D" de Detalhes) foi corrigido com padding de segurança no container pai.
 **Sugestão:** Em ecrãs pequenos, poderíamos agrupar "Contactos de Negócio" (Email/Telefone) numa sub-secção visualmente distinta da "Identificação Fiscal" (NIF/Nome).
 
 ### 4. Gestão de Documentos (Attachments)
@@ -42,8 +42,9 @@ Este documento regista sugestões técnicas e observações de UX/UI para análi
 ### 8. Monitorização de Deploys
 **Nota:** Como a IA não tem acesso ao dashboard do Vercel/GitHub, sugere-se a implementação de um **Health Check Endpoint** no Supabase. Uma função que devolve o status do sistema e pode ser consultada pela app para avisar o utilizador de manutenções ou falhas de deploy em tempo real.
 
-### 9. Python & Mobile Apps
-**Nota:** O script Python fornecido em "Configurações -> Agentes" é um ponto de partida. Para uma app de telemóvel real (Android/iOS), o uso de **Kivy** ou **Flutter** comunicando com a API REST do Supabase é o caminho recomendado para manter a integridade dos dados sem refactorizar o backend atual.
+### 9. Automação ISO 27001
+**Estado:** Sub-aba de teste manual adicionada em Definições -> Tarefas Agendadas.
+**Nota:** Se o ticket automático não for gerado no Supabase através do `pg_cron`, certifique-se de que a extensão está habilitada no schema `extensions`. O botão manual agora permite diagnosticar se a lógica SQL está correta ou se é um problema de agendamento.
 
 ---
 *Documento gerado em conformidade com as instruções do utilizador.*

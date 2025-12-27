@@ -1,6 +1,5 @@
-
 import React, { useState } from 'react';
-import { FaClock, FaEnvelope, FaDatabase, FaPlay, FaSpinner, FaSave, FaCopy, FaCheck, FaBirthdayCake, FaShieldAlt, FaSync, FaTerminal, FaBullhorn, FaInfoCircle, FaExternalLinkAlt, FaCode } from 'react-icons/fa';
+import { FaClock, FaEnvelope, FaDatabase, FaPlay, FaSpinner, FaSave, FaCopy, FaCheck, FaBirthdayCake, FaShieldAlt, FaSync, FaTerminal, FaBullhorn, FaInfoCircle, FaExternalLinkAlt, FaCode, FaCertificate, FaTicketAlt } from 'react-icons/fa';
 import { getSupabase } from '../../services/supabaseClient';
 
 interface CronJobsTabProps {
@@ -39,13 +38,29 @@ $$;
 `;
 
 const CronJobsTab: React.FC<CronJobsTabProps> = ({ settings, onSettingsChange, onSave, onTest, onCopy, onSyncSophos, isSyncingSophos }) => {
-    const [activeSubTab, setActiveSubTab] = useState<'birthdays' | 'security' | 'reports'>('birthdays');
+    const [activeSubTab, setActiveSubTab] = useState<'birthdays' | 'security' | 'reports' | 'compliance'>('birthdays');
     const [copiedCode, setCopiedCode] = useState<string | null>(null);
+    const [isTriggeringISO, setIsTriggeringISO] = useState(false);
 
     const handleCopy = (text: string, id: string) => {
         onCopy(text);
         setCopiedCode(id);
         setTimeout(() => setCopiedCode(null), 2000);
+    };
+
+    const handleTriggerISO = async () => {
+        setIsTriggeringISO(true);
+        try {
+            const supabase = getSupabase();
+            const { error } = await supabase.rpc('proc_auto_generate_iso_tickets');
+            if (error) throw error;
+            alert("Sucesso! A tarefa de verificação de certificados ISO foi executada. Verifique se novos tickets foram criados na lista de suporte.");
+        } catch (e: any) {
+            console.error(e);
+            alert(`Erro ao executar tarefa: ${e.message}. Verifique se a função SQL existe no seu projeto Supabase.`);
+        } finally {
+            setIsTriggeringISO(false);
+        }
     };
 
     return (
@@ -62,6 +77,12 @@ const CronJobsTab: React.FC<CronJobsTabProps> = ({ settings, onSettingsChange, o
                     className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${activeSubTab === 'security' ? 'border-blue-500 text-white' : 'border-transparent text-gray-400 hover:text-white'}`}
                 >
                     <FaShieldAlt /> Segurança (Sophos)
+                </button>
+                <button 
+                    onClick={() => setActiveSubTab('compliance')} 
+                    className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${activeSubTab === 'compliance' ? 'border-purple-500 text-white' : 'border-transparent text-gray-400 hover:text-white'}`}
+                >
+                    <FaCertificate /> Compliance (ISO)
                 </button>
                 <button 
                     onClick={() => setActiveSubTab('reports')} 
@@ -124,6 +145,39 @@ const CronJobsTab: React.FC<CronJobsTabProps> = ({ settings, onSettingsChange, o
                                     {copiedCode === 'sophos_sql' ? <FaCheck className="text-green-400"/> : <FaCopy />}
                                 </button>
                             </div>
+                        </div>
+                    </div>
+                )}
+
+                {activeSubTab === 'compliance' && (
+                    <div className="space-y-6 animate-fade-in">
+                        <div className="bg-gray-900 border border-gray-700 p-5 rounded-lg space-y-4 border-l-4 border-l-purple-500">
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <h3 className="text-lg font-bold text-white flex items-center gap-2"><FaCertificate className="text-purple-400"/> Renovação de Certificados ISO</h3>
+                                    <p className="text-sm text-gray-300 mt-1">
+                                        Cria automaticamente tickets de suporte para fornecedores cujo certificado ISO 27001 expire nos próximos 30 dias.
+                                    </p>
+                                </div>
+                                <button 
+                                    onClick={handleTriggerISO}
+                                    disabled={isTriggeringISO}
+                                    className="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded flex items-center gap-2 transition-all shadow-lg disabled:opacity-50"
+                                >
+                                    {isTriggeringISO ? <FaSpinner className="animate-spin"/> : <FaPlay />} Forçar Verificação Agora
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="bg-purple-900/10 border border-purple-500/30 p-4 rounded-lg">
+                            <h4 className="text-purple-300 font-bold text-sm mb-3 flex items-center gap-2">
+                                <FaInfoCircle /> Regras de Automação (Backend)
+                            </h4>
+                            <ul className="list-disc list-inside text-xs text-gray-400 space-y-2">
+                                <li><strong>Trigger:</strong> Expiração em T-30 dias.</li>
+                                <li><strong>Ação:</strong> Criação de Ticket na equipa de "Triagem" (ou conforme definido no SQL).</li>
+                                <li><strong>Idempotência:</strong> A tarefa não cria tickets duplicados para o mesmo certificado se já existir um aberto.</li>
+                            </ul>
                         </div>
                     </div>
                 )}
