@@ -1,14 +1,17 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { Collaborator, Instituicao, Entidade, Assignment, TicketStatus, ConfigItem, Supplier } from '../../types';
+import { Collaborator, Instituicao, Entidade, Assignment, TicketStatus, ConfigItem, Supplier, Team } from '../../types';
 import * as dataService from '../../services/dataService';
 import InstituicaoDashboard from '../../components/InstituicaoDashboard';
 import EntidadeDashboard from '../../components/EntidadeDashboard';
 import CollaboratorDashboard from '../../components/CollaboratorDashboard';
 import SupplierDashboard from '../../components/SupplierDashboard';
+import TeamDashboard from '../../components/TeamDashboard';
 import AddInstituicaoModal from '../../components/AddInstituicaoModal';
 import AddEntidadeModal from '../../components/AddEntidadeModal';
 import AddCollaboratorModal from '../../components/AddCollaboratorModal';
 import AddSupplierModal from '../../components/AddSupplierModal';
+import AddTeamModal from '../../components/AddTeamModal';
+import ManageTeamMembersModal from '../../components/ManageTeamMembersModal';
 import CollaboratorHistoryModal from '../../components/CollaboratorHistoryModal';
 import { CollaboratorDetailModal } from '../../components/CollaboratorDetailModal';
 import CredentialsModal from '../../components/CredentialsModal';
@@ -43,6 +46,12 @@ const OrganizationManager: React.FC<OrganizationManagerProps> = ({ activeTab, ap
     const [collaboratorToEdit, setCollaboratorToEdit] = useState<Collaborator | null>(null);
     const [showAddSupplierModal, setShowAddSupplierModal] = useState(false);
     const [supplierToEdit, setSupplierToEdit] = useState<Supplier | null>(null);
+    const [showAddTeamModal, setShowAddTeamModal] = useState(false);
+    const [teamToEdit, setTeamToEdit] = useState<Team | null>(null);
+    const [showManageTeamMembersModal, setShowManageTeamMembersModal] = useState(false);
+    const [teamToManage, setTeamToManage] = useState<Team | null>(null);
+    const [procurementApprovalTeamId, setProcurementApprovalTeamId] = useState<string | null>(null);
+
     const [showCollaboratorHistoryModal, setShowCollaboratorHistoryModal] = useState(false);
     const [historyCollaborator, setHistoryCollaborator] = useState<Collaborator | null>(null);
     const [showCollaboratorDetailModal, setShowCollaboratorDetailModal] = useState(false);
@@ -64,12 +73,45 @@ const OrganizationManager: React.FC<OrganizationManagerProps> = ({ activeTab, ap
         finally { setCollabsLoading(false); }
     }, [collabPage, collabPageSize, collabFilters]);
 
-    useEffect(() => { if (activeTab === 'collaborators') fetchCollaborators(); }, [activeTab, fetchCollaborators]);
+    const loadSettings = useCallback(async () => {
+        const approvalId = await dataService.getGlobalSetting('procurement_approval_team_id');
+        setProcurementApprovalTeamId(approvalId);
+    }, []);
+
+    useEffect(() => { 
+        if (activeTab === 'collaborators') fetchCollaborators(); 
+        if (activeTab === 'organizacao.teams') loadSettings();
+    }, [activeTab, fetchCollaborators, loadSettings]);
 
     const handleRefresh = async () => { 
         dataService.invalidateLocalCache();
         await fetchCollaborators(); 
+        await loadSettings();
         refreshData(); 
+    };
+
+    const handleSaveTeam = async (team: any, isApprover?: boolean) => {
+        try {
+            let res;
+            if (team.id) {
+                await dataService.updateTeam(team.id, team);
+                res = team;
+            } else {
+                res = await dataService.addTeam(team);
+            }
+
+            if (isApprover && res?.id) {
+                await dataService.updateGlobalSetting('procurement_approval_team_id', res.id);
+            } else if (!isApprover && res?.id === procurementApprovalTeamId) {
+                // Se era o aprovador e foi desmarcado, removemos a definição global
+                await dataService.updateGlobalSetting('procurement_approval_team_id', '');
+            }
+
+            handleRefresh();
+        } catch (e) {
+            console.error(e);
+            alert("Erro ao gravar equipa.");
+        }
     };
 
     const handleSaveCollaborator = async (col: any, photoFile?: File | null, pass?: string) => {
@@ -184,6 +226,18 @@ const OrganizationManager: React.FC<OrganizationManagerProps> = ({ activeTab, ap
                 />
             )}
 
+            {activeTab === 'organizacao.teams' && (
+                <TeamDashboard 
+                    teams={appData.teams} teamMembers={appData.teamMembers} collaborators={appData.collaborators}
+                    tickets={appData.tickets} equipmentTypes={appData.equipmentTypes}
+                    onEdit={checkPermission('organization', 'edit') ? (t) => { setTeamToEdit(t); setShowAddTeamModal(true); } : undefined} 
+                    onManageMembers={checkPermission('organization', 'edit') ? (t) => { setTeamToManage(t); setShowManageTeamMembersModal(true); } : undefined}
+                    onCreate={checkPermission('organization', 'create') ? () => { setTeamToEdit(null); setShowAddTeamModal(true); } : undefined}
+                    onToggleStatus={checkPermission('organization', 'edit') ? async (id) => { const team = appData.teams.find((t:any) => t.id === id); if (team) await dataService.updateTeam(id, { is_active: team.is_active === false }); handleRefresh(); } : undefined}
+                    procurementApprovalTeamId={procurementApprovalTeamId}
+                />
+            )}
+
             {activeTab === 'organizacao.suppliers' && (
                 <SupplierDashboard suppliers={appData.suppliers} businessServices={appData.businessServices} onEdit={checkPermission('org_suppliers', 'edit') ? (s) => { setSupplierToEdit(s); setShowAddSupplierModal(true); } : undefined} onDelete={checkPermission('org_suppliers', 'delete') ? async (id) => { if (confirm("Apagar?")) { await dataService.deleteSupplier(id); refreshData(); } } : undefined} onCreate={checkPermission('org_suppliers', 'create') ? () => { setSupplierToEdit(null); setShowAddSupplierModal(true); } : undefined} onToggleStatus={checkPermission('org_suppliers', 'edit') ? handleToggleSupplierStatus : undefined} />
             )}
@@ -192,6 +246,8 @@ const OrganizationManager: React.FC<OrganizationManagerProps> = ({ activeTab, ap
             {showAddEntidadeModal && <AddEntidadeModal onClose={() => setShowAddEntidadeModal(false)} onSave={async (ent) => { if (entidadeToEdit) await dataService.updateEntidade(entidadeToEdit.id, ent); else await dataService.addEntidade(ent); refreshData(); }} entidadeToEdit={entidadeToEdit} instituicoes={appData.instituicoes} />}
             {showAddCollaboratorModal && <AddCollaboratorModal onClose={() => setShowAddCollaboratorModal(false)} onSave={handleSaveCollaborator} collaboratorToEdit={collaboratorToEdit} escolasDepartamentos={appData.entidades} instituicoes={appData.instituicoes} currentUser={currentUser} />}
             {showAddSupplierModal && <AddSupplierModal onClose={() => setShowAddSupplierModal(false)} onSave={handleSaveSupplier} supplierToEdit={supplierToEdit} businessServices={appData.businessServices} teams={appData.teams} onCreateTicket={async (t) => { await dataService.addTicket(t); refreshData(); }} />}
+            {showAddTeamModal && <AddTeamModal onClose={() => setShowAddTeamModal(false)} onSave={handleSaveTeam} teamToEdit={teamToEdit} isCurrentApprover={teamToEdit?.id === procurementApprovalTeamId} />}
+            {showManageTeamMembersModal && teamToManage && <ManageTeamMembersModal onClose={() => setShowManageTeamMembersModal(false)} onSave={async (teamId, memberIds) => { await dataService.syncTeamMembers(teamId, memberIds); handleRefresh(); setShowManageTeamMembersModal(false); }} team={teamToManage} allCollaborators={appData.collaborators} teamMembers={appData.teamMembers} />}
             {showCollaboratorHistoryModal && historyCollaborator && <CollaboratorHistoryModal collaborator={historyCollaborator} history={appData.collaboratorHistory} escolasDepartamentos={appData.entidades} onClose={() => setShowCollaboratorHistoryModal(false)} />}
             {showCollaboratorDetailModal && detailCollaborator && <CollaboratorDetailModal collaborator={detailCollaborator} assignments={appData.assignments} equipment={appData.equipment} tickets={appData.tickets} brandMap={new Map(appData.brands.map((b:any)=>[b.id,b.name]))} equipmentTypeMap={new Map(appData.equipmentTypes.map((t:any)=>[t.id,t.name]))} licenseAssignments={appData.licenseAssignments} softwareLicenses={appData.softwareLicenses} onClose={() => setShowCollaboratorDetailModal(false)} onShowHistory={()=>{}} onStartChat={onStartChat} onEdit={(c)=>{setCollaboratorToEdit(c);setShowAddCollaboratorModal(true);}} onViewTicket={(t) => { setDetailCollaborator(null); setShowCollaboratorDetailModal(false); setActiveTab('tickets.list'); }} onViewEquipment={(eq) => { setDetailCollaborator(null); setShowCollaboratorDetailModal(false); setActiveTab('equipment.inventory'); }} />}
             {showCredentialsModal && newCredentials && <CredentialsModal onClose={() => setShowCredentialsModal(false)} email={newCredentials.email} password={newCredentials.password} />}

@@ -1,8 +1,7 @@
-
 import React, { useMemo, useState } from 'react';
 import { Team, TeamMember, Collaborator, Ticket, EquipmentType } from '../types';
 // FIX: Replaced non-existent DeleteIcon with an alias for FaTrash
-import { EditIcon, FaTrash as DeleteIcon, PlusIcon } from './common/Icons';
+import { EditIcon, FaTrash as DeleteIcon, PlusIcon, FaShoppingCart, FaCheckCircle } from './common/Icons';
 import { FaUsers, FaToggleOn, FaToggleOff } from 'react-icons/fa';
 import TeamDetailModal from './TeamDetailModal';
 
@@ -17,9 +16,14 @@ interface TeamDashboardProps {
     onManageMembers?: (team: Team) => void;
     onCreate?: () => void;
     onToggleStatus?: (id: string) => void;
+    procurementApprovalTeamId?: string | null;
 }
 
-const TeamDashboard: React.FC<TeamDashboardProps> = ({ teams, teamMembers, collaborators, tickets, equipmentTypes, onEdit, onDelete, onManageMembers, onCreate, onToggleStatus }) => {
+const TeamDashboard: React.FC<TeamDashboardProps> = ({ 
+    teams, teamMembers, collaborators, tickets, equipmentTypes, 
+    onEdit, onDelete, onManageMembers, onCreate, onToggleStatus,
+    procurementApprovalTeamId 
+}) => {
     
     const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
     const [filterStatus, setFilterStatus] = useState<string>('');
@@ -57,7 +61,7 @@ const TeamDashboard: React.FC<TeamDashboardProps> = ({ teams, teamMembers, colla
     }, [teams, filterStatus]);
 
     return (
-        <div className="bg-surface-dark p-6 rounded-lg shadow-xl">
+        <div className="bg-surface-dark p-6 rounded-lg shadow-xl animate-fade-in">
             <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl font-semibold text-white">Gerir Equipas de Suporte</h2>
                 <div className="flex gap-4 items-center">
@@ -71,7 +75,7 @@ const TeamDashboard: React.FC<TeamDashboardProps> = ({ teams, teamMembers, colla
                         <option value="inactive">Inativo</option>
                     </select>
                     {onCreate && (
-                        <button onClick={onCreate} className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary transition-colors">
+                        <button onClick={onCreate} className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary transition-colors font-bold uppercase text-xs tracking-widest">
                             <PlusIcon /> Adicionar
                         </button>
                     )}
@@ -84,9 +88,9 @@ const TeamDashboard: React.FC<TeamDashboardProps> = ({ teams, teamMembers, colla
                         <tr>
                             <th scope="col" className="px-6 py-3">Nome da Equipa</th>
                             <th scope="col" className="px-6 py-3">Descrição</th>
+                            <th scope="col" className="px-6 py-3 text-center">Configuração DORA</th>
                             <th scope="col" className="px-6 py-3 text-center">Status</th>
-                            <th scope="col" className="px-6 py-3 text-center">Nº de Membros</th>
-                            <th scope="col" className="px-6 py-3 text-center">Nº de Tickets</th>
+                            <th scope="col" className="px-6 py-3 text-center">Membros</th>
                             <th scope="col" className="px-6 py-3 text-center">Ações</th>
                         </tr>
                     </thead>
@@ -96,11 +100,13 @@ const TeamDashboard: React.FC<TeamDashboardProps> = ({ teams, teamMembers, colla
                             const ticketCount = ticketCountByTeam[team.id] || 0;
                             const eqTypeCount = equipmentTypeCountByTeam[team.id] || 0;
                             const isActive = team.is_active !== false;
+                            const isApprover = team.id === procurementApprovalTeamId;
 
-                            const isDeleteDisabled = memberCount > 0 || ticketCount > 0 || eqTypeCount > 0;
+                            const isDeleteDisabled = memberCount > 0 || ticketCount > 0 || eqTypeCount > 0 || isApprover;
 
                             let disabledReason = "";
-                            if (memberCount > 0) disabledReason = "Existem membros na equipa";
+                            if (isApprover) disabledReason = "Equipa de aprovação de compras";
+                            else if (memberCount > 0) disabledReason = "Existem membros na equipa";
                             else if (ticketCount > 0) disabledReason = "Existem tickets atribuídos";
                             else if (eqTypeCount > 0) disabledReason = "Está associada a tipos de equipamento";
 
@@ -110,15 +116,33 @@ const TeamDashboard: React.FC<TeamDashboardProps> = ({ teams, teamMembers, colla
                                 className={`border-b border-gray-700 cursor-pointer ${isActive ? 'bg-surface-dark hover:bg-gray-800/50' : 'bg-gray-800/50 opacity-70'}`}
                                 onClick={() => setSelectedTeam(team)}
                             >
-                                <td className="px-6 py-4 font-medium text-on-surface-dark whitespace-nowrap">{team.name}</td>
+                                <td className="px-6 py-4 font-medium text-on-surface-dark whitespace-nowrap">
+                                    <div className="flex flex-col">
+                                        <span className="font-bold">{team.name}</span>
+                                        {isApprover && (
+                                            <span className="text-[10px] text-green-400 font-black uppercase flex items-center gap-1 mt-1">
+                                                <FaCheckCircle className="text-[8px]"/> Aprovadora de Compras
+                                            </span>
+                                        )}
+                                    </div>
+                                </td>
                                 <td className="px-6 py-4">{team.description || '—'}</td>
+                                <td className="px-6 py-4 text-center">
+                                    <div className="flex flex-col items-center gap-1">
+                                        {isApprover && (
+                                            <span className="bg-blue-900/30 text-blue-400 p-2 rounded-full border border-blue-500/30" title="Responsável por Aprovações de Aquisição">
+                                                <FaShoppingCart />
+                                            </span>
+                                        )}
+                                        {!isApprover && <span className="text-gray-600 text-xs">-</span>}
+                                    </div>
+                                </td>
                                 <td className="px-6 py-4 text-center">
                                     <span className={`px-2 py-1 text-xs rounded-full ${isActive ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
                                         {isActive ? 'Ativo' : 'Inativo'}
                                     </span>
                                 </td>
-                                <td className="px-6 py-4 text-center">{memberCount}</td>
-                                <td className="px-6 py-4 text-center">{ticketCount}</td>
+                                <td className="px-6 py-4 text-center font-mono text-white">{memberCount}</td>
                                 <td className="px-6 py-4 text-center">
                                     <div className="flex justify-center items-center gap-4">
                                         {onToggleStatus && (
@@ -159,7 +183,7 @@ const TeamDashboard: React.FC<TeamDashboardProps> = ({ teams, teamMembers, colla
                             </tr>
                         )}) : (
                             <tr>
-                                <td colSpan={6} className="text-center py-8 text-on-surface-dark-secondary">Nenhuma equipa encontrada.</td>
+                                <td colSpan={6} className="text-center py-8 text-on-surface-dark-secondary italic">Nenhuma equipa encontrada.</td>
                             </tr>
                         )}
                     </tbody>

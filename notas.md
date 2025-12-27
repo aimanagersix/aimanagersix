@@ -8,9 +8,11 @@
 - **Problema**: O `cleanPayload` estava a ser muito agressivo ou a falhar na normalização de nomes de campos em massa.
 - **Solução**: Centralizei a limpeza de dados dentro da função `addMultipleEquipment` no serviço. Agora, ao dar entrada de 10 portáteis de uma vez, cada um é validado individualmente antes do Insert.
 
-## ⚖️ Governança de Aquisições (Pedido 3.3)
-- **Equipa de Aprovação**: A sugestão de usar equipas é excelente. Evita a complexidade de perfis (Roles) para algo que pode ser rotativo.
-- **Configuração**: Adicionei um campo em **Definições -> Geral** para escolher a equipa de aprovação. O sistema agora consulta se o utilizador pertence a essa equipa para exibir os botões de decisão.
+## ⚖️ Governança de Aquisições & DORA (Pedido 3.3)
+- **Equipa de Aprovação**: Implementada a lógica onde uma equipa específica detém o poder de aprovação.
+- **Visibilidade**: Adicionados Badges visuais no dashboard de Equipas. Se uma equipa é a aprovadora, ela ostenta agora um ícone de carrinho de compras e um selo de "Aprovadora de Compras".
+- **Facilidade de Configuração**: Adicionada a opção de definir a equipa aprovadora diretamente no modal de edição da equipa, sincronizando automaticamente com as definições globais do sistema.
+- **Sugestão de Continuidade**: Recomendo que a equipa aprovadora seja composta por perfis com "Budget Authority" para que o fluxo DORA seja juridicamente vinculativo dentro da app.
 
 ---
 *Documento gerado em conformidade com as instruções do utilizador (Freeze UI / Zero Refactoring).*

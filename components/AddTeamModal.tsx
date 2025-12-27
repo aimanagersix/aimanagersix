@@ -1,15 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import Modal from './common/Modal';
 import { Team } from '../types';
-import { CheckIcon, SpinnerIcon, FaHistory, FaClock, FaUsers, FaExclamationTriangle } from './common/Icons';
+import { CheckIcon, SpinnerIcon, FaHistory, FaClock, FaUsers, FaExclamationTriangle, FaShoppingCart } from './common/Icons';
 
 interface AddTeamModalProps {
     onClose: () => void;
-    onSave: (team: Omit<Team, 'id'> | Team) => Promise<void>;
+    onSave: (team: Omit<Team, 'id'> | Team, isApprover?: boolean) => Promise<void>;
     teamToEdit?: Team | null;
+    isCurrentApprover?: boolean;
 }
 
-const AddTeamModal: React.FC<AddTeamModalProps> = ({ onClose, onSave, teamToEdit }) => {
+const AddTeamModal: React.FC<AddTeamModalProps> = ({ onClose, onSave, teamToEdit, isCurrentApprover = false }) => {
     const [formData, setFormData] = useState({
         name: '',
         description: '',
@@ -17,6 +18,7 @@ const AddTeamModal: React.FC<AddTeamModalProps> = ({ onClose, onSave, teamToEdit
         vacation_auto_reassign: false,
         sla_pause_on_absence: false
     });
+    const [isApprover, setIsApprover] = useState(false);
     const [error, setError] = useState('');
     const [isSaving, setIsSaving] = useState(false);
 
@@ -29,8 +31,9 @@ const AddTeamModal: React.FC<AddTeamModalProps> = ({ onClose, onSave, teamToEdit
                 vacation_auto_reassign: !!teamToEdit.vacation_auto_reassign,
                 sla_pause_on_absence: !!teamToEdit.sla_pause_on_absence
             });
+            setIsApprover(isCurrentApprover);
         }
-    }, [teamToEdit]);
+    }, [teamToEdit, isCurrentApprover]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -47,9 +50,9 @@ const AddTeamModal: React.FC<AddTeamModalProps> = ({ onClose, onSave, teamToEdit
             };
 
             if (teamToEdit) {
-                await onSave({ ...teamToEdit, ...dataToSave });
+                await onSave({ ...teamToEdit, ...dataToSave }, isApprover);
             } else {
-                await onSave(dataToSave as any);
+                await onSave(dataToSave as any, isApprover);
             }
             onClose();
         } catch (err: any) {
@@ -95,10 +98,25 @@ const AddTeamModal: React.FC<AddTeamModalProps> = ({ onClose, onSave, teamToEdit
 
                 <div className="bg-blue-900/10 p-5 rounded-xl border border-blue-500/20 space-y-4">
                     <h3 className="text-[10px] font-black text-blue-400 uppercase tracking-[0.2em] flex items-center gap-2 mb-2">
-                        <FaHistory /> Resiliência & SLA Dinâmico (Sugestão do Engenheiro)
+                        <FaHistory /> Configurações Operacionais & DORA
                     </h3>
                     
                     <div className="grid grid-cols-1 gap-3">
+                        <label className="flex items-start gap-3 cursor-pointer group p-3 rounded-lg bg-gray-800/40 border border-gray-700 hover:border-brand-primary transition-all">
+                            <input 
+                                type="checkbox" 
+                                checked={isApprover} 
+                                onChange={e => setIsApprover(e.target.checked)} 
+                                className="mt-1 h-5 w-5 rounded border-gray-600 bg-gray-800 text-brand-primary focus:ring-brand-secondary"
+                            />
+                            <div>
+                                <span className="block text-sm font-black text-white flex items-center gap-2">
+                                    <FaShoppingCart className="text-blue-400"/> Responsável por Aprovações de Aquisição
+                                </span>
+                                <span className="text-[10px] text-gray-400 leading-tight">Os membros desta equipa poderão aprovar orçamentos e pedidos de compra no módulo de Aquisições.</span>
+                            </div>
+                        </label>
+
                         <label className="flex items-start gap-3 cursor-pointer group p-2 rounded hover:bg-white/5 transition-colors">
                             <input 
                                 type="checkbox" 
@@ -108,7 +126,7 @@ const AddTeamModal: React.FC<AddTeamModalProps> = ({ onClose, onSave, teamToEdit
                             />
                             <div>
                                 <span className="block text-sm font-bold text-white group-hover:text-brand-secondary transition-colors">Reatribuição Automática por Ausência</span>
-                                <span className="text-[10px] text-gray-400 leading-tight">Se um técnico estiver de férias/ausente, tickets atribuídos a ele voltam para a fila da equipa (ou Triagem) após 24h.</span>
+                                <span className="text-[10px] text-gray-400 leading-tight">Se um técnico estiver de férias/ausente, tickets atribuídos a ele voltam para a fila da equipa após 24h.</span>
                             </div>
                         </label>
 
@@ -121,7 +139,7 @@ const AddTeamModal: React.FC<AddTeamModalProps> = ({ onClose, onSave, teamToEdit
                             />
                             <div>
                                 <span className="block text-sm font-bold text-white group-hover:text-brand-secondary transition-colors">Pausa de SLA em Ausências</span>
-                                <span className="text-[10px] text-gray-400 leading-tight">O relógio do ticket "congela" durante as férias do técnico, não penalizando o tempo médio de resolução (MTTR).</span>
+                                <span className="text-[10px] text-gray-400 leading-tight">O cronómetro do ticket "congela" durante as férias do técnico (Evidência NIS2).</span>
                             </div>
                         </label>
                     </div>
@@ -134,7 +152,7 @@ const AddTeamModal: React.FC<AddTeamModalProps> = ({ onClose, onSave, teamToEdit
                         onChange={e => setFormData({...formData, is_active: e.target.checked})} 
                         className="h-4 w-4 rounded border-gray-600 bg-gray-800 text-brand-primary"
                     />
-                    <label className="ml-2 text-sm text-gray-400 font-bold uppercase tracking-widest text-[10px]">Equipa Ativa</label>
+                    <label className="ml-2 text-sm text-gray-400 font-bold uppercase tracking-widest text-[10px]">Equipa Ativa no Sistema</label>
                 </div>
 
                 <div className="flex justify-end gap-4 pt-4 border-t border-gray-700">
